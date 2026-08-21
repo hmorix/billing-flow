@@ -1,26 +1,33 @@
+require('dotenv').config();
 const fs = require('fs');
+const path = require('path');
 const { Client } = require('pg');
 const { createClient } = require('@supabase/supabase-js');
 
 async function migrate() {
-  const dbUrl = 'postgresql://postgres.zhaosocqgqdhpaghgvyz:1962%23%241234569888@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres';
-  const supabaseUrl = 'https://zhaosocqgqdhpaghgvyz.supabase.co';
-  const serviceRoleKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpoYW9zb2NxZ3FkaHBhZ2hndnl6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDcxNDUwOSwiZXhwIjoyMTAwMjkwNTA5fQ.jWfx2VRThLbKRSnYbCJdZ9cYthRMljA0fIA3x12RsO4';
+  const dbUrl = process.env.DATABASE_URL || 'postgresql://postgres:dfukhdfsdhdhf@db.uklrlkpkmuxnvkmpxyzg.supabase.co:5432/postgres';
+  const supabaseUrl = process.env.SUPABASE_URL || 'https://uklrlkpkmuxnvkmpxyzg.supabase.co';
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrbHJsa3BrbXV4bnZrbXB4eXpnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzMwMzM3NCwiZXhwIjoyMTAyODc5Mzc0fQ.t8WSdjf_tVYts-1kDrOA2QRkHo51dCAjGGI1qXCuNPo';
 
-  console.log('Connecting to PostgreSQL to run schema...');
-  const client = new Client({ connectionString: dbUrl });
+  console.log('Connecting to PostgreSQL to run schema migration...');
+  const client = new Client({ 
+    connectionString: dbUrl,
+    ssl: { rejectUnauthorized: false }
+  });
+  
   try {
     await client.connect();
-    const sql = fs.readFileSync('postgres_schema.sql', 'utf8');
+    const sqlPath = path.join(__dirname, 'postgres_schema.sql');
+    const sql = fs.readFileSync(sqlPath, 'utf8');
     await client.query(sql);
-    console.log('Database schema executed successfully.');
+    console.log('✅ Database schema migrated successfully! All tables created.');
   } catch (error) {
-    console.error('Error executing schema:', error);
+    console.error('❌ Error executing schema migration:', error.message || error);
   } finally {
     await client.end();
   }
 
-  console.log('Creating storage bucket in Supabase...');
+  console.log('Connecting to Supabase Storage...');
   const supabase = createClient(supabaseUrl, serviceRoleKey);
   const { data, error } = await supabase.storage.createBucket('billingflow-logos', {
     public: true,
@@ -28,13 +35,13 @@ async function migrate() {
   });
 
   if (error) {
-    if (error.message.includes('already exists')) {
-      console.log('Bucket already exists.');
+    if (error.message.includes('already exists') || error.message.includes('Duplicate')) {
+      console.log('✅ Storage Bucket "billingflow-logos" already exists.');
     } else {
-      console.error('Error creating bucket:', error);
+      console.error('⚠️ Storage Bucket creation note:', error.message || error);
     }
   } else {
-    console.log('Bucket created successfully:', data);
+    console.log('✅ Storage Bucket "billingflow-logos" created successfully:', data);
   }
 }
 
