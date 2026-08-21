@@ -187,7 +187,7 @@ function drawModernPurpleTemplate(doc: any, invoice: any, client: any, organizat
   doc.fillColor('#6b7280')
      .font('Helvetica')
      .fontSize(8)
-     .text('HMORIX INVOICE DISPATCH', headerTextX, headerTextY + 22);
+     .text('OFFICIAL INVOICE STATEMENT', headerTextX, headerTextY + 22);
 
   // Status Stamp Badge & Invoice Info Right
   drawStatusBadge(doc, 470, 38, invoice.status);
