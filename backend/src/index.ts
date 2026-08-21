@@ -9,6 +9,7 @@ import { cors } from 'hono/cors';
 import { verify, sign } from 'hono/jwt';
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
+import Stripe from 'stripe';
 import { generateInvoicePDF } from './services/pdfService';
 import { generateAgreementPDF } from './services/agreementPdfService';
 import { sendReminderEmail } from './services/emailService';
