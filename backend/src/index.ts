@@ -774,7 +774,16 @@ app.put('/api/organization/profile', async (c) => {
 app.put('/api/organization/template', async (c) => {
   const user = c.get('user');
   const { template } = await c.req.json();
-  const validTemplates = ['modern_purple', 'minimalist_dark', 'retro_bold', 'corporate_crimson'];
+  const validTemplates = [
+    'modern_purple',
+    'minimalist_dark',
+    'retro_bold',
+    'corporate_crimson',
+    'emerald_clean',
+    'ocean_breeze',
+    'monochrome_luxury',
+    'golden_elegance'
+  ];
 
   // Allow either built-in templates OR custom template IDs (UUIDs)
   const isBuiltIn = validTemplates.includes(template);
