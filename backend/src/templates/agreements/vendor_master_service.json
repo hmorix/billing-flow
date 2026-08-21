@@ -1,0 +1,16 @@
+{
+  "id": "vendor_master_service",
+  "titleEn": "Vendor / Master Service Agreement",
+  "titleHi": "विक्रेता / मास्टर सेवा अनुबंध",
+  "agreementType": "Vendor Master Service Agreement",
+  "category": "B2B Commercial",
+  "defaultAmount": 100000,
+  "currency": "INR",
+  "validityPeriod": "12 Months from Effective Date",
+  "paymentTerms": "Net 30 payment terms from approved invoice date",
+  "stampDutyDefault": 500,
+  "stateJurisdiction": "Delhi, India",
+  "requiresWitnesses": true,
+  "termsEn": "1. VENDOR OBLIGATIONS: The Vendor (First Party) agrees to supply goods and/or services as specified in individual Purchase Orders or Statements of Work (SOWs) issued under this agreement.\n2. PAYMENT TERMS: Client (Second Party) shall pay invoices within 30 calendar days from the date of invoice receipt, provided deliverables are accepted without dispute.\n3. WARRANTY & DEFECTS: Vendor warrants all deliverables to be free from material defects for 90 days post-delivery. Defective items shall be remedied at no additional cost.\n4. CONFIDENTIALITY: Both parties agree to maintain strict confidentiality of trade secrets, pricing, and proprietary business information exchanged during the tenure of this agreement.\n5. TERMINATION: Either party may terminate this agreement with 30 days written notice without cause.",
+  "termsHi": "१. विक्रेता दायित्व: विक्रेता (प्रथम पक्ष) इस अनुबंध के तहत जारी खरीद आदेशों के अनुसार वस्तुएं और/या सेवाएं प्रदान करने के लिए सहमत है।\n२. भुगतान शर्तें: ग्राहक (द्वितीय पक्ष) चालान प्राप्ति के ३० कैलेंडर दिनों के भीतर भुगतान करेगा।\n३. वारंटी: विक्रेता सुपुर्दगी के ९० दिनों तक सभी कार्यों में कोई दोष नहीं होने की गारंटी देता है।\n४. गोपनीयता: दोनों पक्ष व्यापार रहस्यों और स्वामित्व जानकारी को गोपनीय रखने के लिए सहमत हैं।\n५. समाप्ति: कोई भी पक्ष ३० दिन के लिखित नोटिस के साथ यह अनुबंध समाप्त कर सकता है।"
+}

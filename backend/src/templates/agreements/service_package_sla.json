@@ -1,0 +1,16 @@
+{
+  "id": "service_package_sla",
+  "titleEn": "Service Package & SLA Validity Agreement",
+  "titleHi": "सेवा पैकेज व SLA अवधि अनुबंध",
+  "agreementType": "Service Package & SLA",
+  "category": "Retainer & Maintenance",
+  "defaultAmount": 35000,
+  "currency": "INR",
+  "validityPeriod": "3 Months (90 Days Active SLA)",
+  "paymentTerms": "Monthly recurring retainer or 100% upfront package clearance",
+  "stampDutyDefault": 100,
+  "stateJurisdiction": "Delhi, India",
+  "requiresWitnesses": true,
+  "termsEn": "1. SERVICE DURATION & SLA: Services are active for the validity period specified in this agreement from the commencement date.\n2. RESPONSE TIMES: First Party commits to an initial turnaround response within 24 business hours for support requests.\n3. SCOPE EXCLUSIONS: Third-party API charges, government filing fees, domain, and hosting licenses are explicitly excluded from this package.\n4. RENEWAL: This agreement is renewable upon mutual written consent prior to the validity period conclusion.\n5. FORCE MAJEURE: Neither party shall be liable for delays caused by natural disasters, government actions, or circumstances beyond reasonable control.",
+  "termsHi": "१. सेवा अवधि: इस अनुबंध में निर्धारित समयावधि तक सेवाएं सक्रिय रहेंगी।\n२. प्रतिक्रिया समय: प्रथम पक्ष सहायता अनुरोधों पर २४ कार्य घंटों के भीतर प्रतिक्रिया देने का वचन देता है।\n३. अतिरिक्त शुल्क: तृतीय पक्ष API, सरकारी शुल्क, डोमेन तथा सर्वर खर्च पैकेज में शामिल नहीं हैं।\n४. नवीनीकरण: अवधि समाप्त होने से पूर्व आपसी लिखित सहमति से नवीनीकरण किया जा सकेगा।\n५. अप्रत्याशित घटनाएं: प्राकृतिक आपदाओं या सरकारी आदेशों के कारण देरी के लिए कोई भी पक्ष उत्तरदायी नहीं होगा।"
+}

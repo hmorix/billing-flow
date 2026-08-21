@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Search, FileDown, Mail, CheckCircle2, Trash2, Eye, Receipt, ShieldAlert, Share2 } from 'lucide-react';
+import { Plus, Search, FileDown, Mail, CheckCircle2, Trash2, Eye, Receipt, ShieldAlert, Share2, ChevronLeft, ChevronRight } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { shareViaWhatsApp, generateInvoiceWhatsAppText } from '../utils/whatsappService';
 
@@ -465,6 +465,10 @@ export const Invoices: React.FC = () => {
     }
   };
 
+  // Pagination state (Limit 50 items per page to prevent lag)
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 50;
+
   // Filtering invoices
   const filteredInvoices = invoices.filter(inv => {
     const matchesSearch = 
@@ -474,6 +478,9 @@ export const Invoices: React.FC = () => {
     if (activeTab === 'all') return matchesSearch;
     return inv.status === activeTab && matchesSearch;
   });
+
+  const totalPages = Math.ceil(filteredInvoices.length / PAGE_SIZE) || 1;
+  const paginatedInvoices = filteredInvoices.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
     <div className="page-container" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -570,7 +577,7 @@ export const Invoices: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredInvoices.map((inv) => (
+                  {paginatedInvoices.map((inv) => (
                     <tr key={inv.id}>
                       <td>
                         <span
@@ -627,7 +634,7 @@ export const Invoices: React.FC = () => {
 
           {/* Mobile Card List */}
           <div className="mobile-card-list" style={{ gap: '12px' }}>
-            {filteredInvoices.map((inv) => (
+            {paginatedInvoices.map((inv) => (
               <div key={inv.id} className="invoice-mobile-card" onClick={() => navigate(`/invoices/edit/${inv.id}`)}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
                   <div style={{ minWidth: 0 }}>
@@ -650,6 +657,36 @@ export const Invoices: React.FC = () => {
               </div>
             ))}
           </div>
+
+          {/* 50-Item Pagination Bar */}
+          {filteredInvoices.length > PAGE_SIZE && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', padding: '12px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Showing {(currentPage - 1) * PAGE_SIZE + 1} – {Math.min(currentPage * PAGE_SIZE, filteredInvoices.length)} of {filteredInvoices.length} invoices (50 per page)
+              </span>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button
+                  disabled={currentPage <= 1}
+                  className="btn btn-secondary"
+                  style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                >
+                  <ChevronLeft size={14} /> Previous
+                </button>
+                <span style={{ padding: '4px 10px', fontSize: '0.78rem', fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  disabled={currentPage >= totalPages}
+                  className="btn btn-secondary"
+                  style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                >
+                  Next <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', gap: '16px' }}>

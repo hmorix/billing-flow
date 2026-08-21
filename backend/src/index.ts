@@ -80,6 +80,11 @@ async function seedSuperAdmin(db: any) {
     await db.prepare("ALTER TABLE users ADD COLUMN verification_code TEXT").run().catch(() => {});
     await db.prepare("ALTER TABLE organizations ADD COLUMN email_template TEXT DEFAULT 'professional'").run().catch(() => {});
     await db.prepare("ALTER TABLE organizations ADD COLUMN payment_qr_link TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE agreements ADD COLUMN witness1_name TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE agreements ADD COLUMN witness1_contact TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE agreements ADD COLUMN witness2_name TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE agreements ADD COLUMN witness2_contact TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE agreements ADD COLUMN signatory_designation TEXT").run().catch(() => {});
     await db.prepare(`
       CREATE TABLE IF NOT EXISTS agreements (
         id TEXT PRIMARY KEY,
@@ -90,9 +95,14 @@ async function seedSuperAdmin(db: any) {
         first_party_name TEXT NOT NULL,
         first_party_contact TEXT,
         first_party_address TEXT,
+        signatory_designation TEXT,
         second_party_name TEXT NOT NULL,
         second_party_contact TEXT,
         second_party_address TEXT,
+        witness1_name TEXT,
+        witness1_contact TEXT,
+        witness2_name TEXT,
+        witness2_contact TEXT,
         payment_terms TEXT,
         total_amount REAL,
         currency TEXT DEFAULT 'INR',
@@ -1176,13 +1186,40 @@ async function createAgreementHash(payload: any): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// 1. Get organization agreements (Authenticated)
+// 0. Public: Load agreement JSON templates from templates/agreements/ folder
+app.get('/api/agreements/templates', async (c) => {
+  try {
+    const templatesDir = require('path').join(__dirname, 'templates', 'agreements');
+    const fs = require('fs');
+    if (!fs.existsSync(templatesDir)) return c.json([]);
+    const files = fs.readdirSync(templatesDir).filter((f: string) => f.endsWith('.json'));
+    const templates = files.map((file: string) => {
+      try {
+        const raw = fs.readFileSync(require('path').join(templatesDir, file), 'utf-8');
+        return JSON.parse(raw);
+      } catch { return null; }
+    }).filter(Boolean);
+    return c.json(templates);
+  } catch (err: any) {
+    return c.json([]);
+  }
+});
+
+// 1. Get organization agreements — paginated (Authenticated)
 app.get('/api/agreements', authenticateToken, async (c) => {
   const user = c.get('user');
+  const limit = Math.min(Number(c.req.query('limit') || 50), 50);
+  const offset = Number(c.req.query('offset') || 0);
+
   const { results } = await c.env.DB.prepare(
-    "SELECT * FROM agreements WHERE organization_id = ? ORDER BY created_at DESC"
-  ).bind(user.organizationId).all();
-  return c.json(results || []);
+    "SELECT * FROM agreements WHERE organization_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?"
+  ).bind(user.organizationId, limit, offset).all();
+
+  const countRes = await c.env.DB.prepare(
+    "SELECT COUNT(*) as total FROM agreements WHERE organization_id = ?"
+  ).bind(user.organizationId).first();
+
+  return c.json({ results: results || [], total: countRes?.total || 0, limit, offset });
 });
 
 // 2. Create organization agreement (Authenticated)
@@ -1197,17 +1234,20 @@ app.post('/api/agreements', authenticateToken, async (c) => {
   await c.env.DB.prepare(`
     INSERT INTO agreements (
       id, organization_id, agreement_number, agreement_type, title,
-      first_party_name, first_party_contact, first_party_address,
+      first_party_name, first_party_contact, first_party_address, signatory_designation,
       second_party_name, second_party_contact, second_party_address,
+      witness1_name, witness1_contact, witness2_name, witness2_contact,
       payment_terms, total_amount, currency, validity_period,
       terms_content, language, stamp_duty_amount, state_jurisdiction,
       signer_photo_url, document_attachment_url, geo_lat, geo_lng, geo_address,
       digital_hash, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     id, user.organizationId, agreementNumber, body.agreementType || 'Work First Pay Later', body.title,
-    body.firstPartyName, body.firstPartyContact || null, body.firstPartyAddress || null,
+    body.firstPartyName, body.firstPartyContact || null, body.firstPartyAddress || null, body.signatoryDesignation || null,
     body.secondPartyName, body.secondPartyContact || null, body.secondPartyAddress || null,
+    body.witness1Name || null, body.witness1Contact || null,
+    body.witness2Name || null, body.witness2Contact || null,
     body.paymentTerms || null, Number(body.totalAmount || 0), body.currency || 'INR', body.validityPeriod || null,
     body.termsContent, body.language || 'bilingual', Number(body.stampDutyAmount || 100), body.stateJurisdiction || 'Delhi, India',
     body.signerPhotoUrl || null, body.documentAttachmentUrl || null,
@@ -1231,17 +1271,20 @@ app.post('/api/agreements/public', async (c) => {
   await c.env.DB.prepare(`
     INSERT INTO agreements (
       id, organization_id, agreement_number, agreement_type, title,
-      first_party_name, first_party_contact, first_party_address,
+      first_party_name, first_party_contact, first_party_address, signatory_designation,
       second_party_name, second_party_contact, second_party_address,
+      witness1_name, witness1_contact, witness2_name, witness2_contact,
       payment_terms, total_amount, currency, validity_period,
       terms_content, language, stamp_duty_amount, state_jurisdiction,
       signer_photo_url, document_attachment_url, geo_lat, geo_lng, geo_address,
       digital_hash, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     id, null, agreementNumber, body.agreementType || 'Work First Pay Later', body.title,
-    body.firstPartyName, body.firstPartyContact || null, body.firstPartyAddress || null,
+    body.firstPartyName, body.firstPartyContact || null, body.firstPartyAddress || null, body.signatoryDesignation || null,
     body.secondPartyName, body.secondPartyContact || null, body.secondPartyAddress || null,
+    body.witness1Name || null, body.witness1Contact || null,
+    body.witness2Name || null, body.witness2Contact || null,
     body.paymentTerms || null, Number(body.totalAmount || 0), body.currency || 'INR', body.validityPeriod || null,
     body.termsContent, body.language || 'bilingual', Number(body.stampDutyAmount || 100), body.stateJurisdiction || 'Delhi, India',
     body.signerPhotoUrl || null, body.documentAttachmentUrl || null,
@@ -1286,7 +1329,10 @@ app.get('/api/agreements/verify/:hash', async (c) => {
       title: agreement.title,
       agreementType: agreement.agreement_type,
       firstParty: agreement.first_party_name,
+      signatoryDesignation: agreement.signatory_designation,
       secondParty: agreement.second_party_name,
+      witness1: agreement.witness1_name,
+      witness2: agreement.witness2_name,
       totalAmount: agreement.total_amount,
       currency: agreement.currency,
       validityPeriod: agreement.validity_period,
@@ -1316,9 +1362,14 @@ app.get('/api/agreements/:id/pdf', async (c) => {
       firstPartyName: agreement.first_party_name,
       firstPartyContact: agreement.first_party_contact,
       firstPartyAddress: agreement.first_party_address,
+      signatoryDesignation: agreement.signatory_designation,
       secondPartyName: agreement.second_party_name,
       secondPartyContact: agreement.second_party_contact,
       secondPartyAddress: agreement.second_party_address,
+      witness1Name: agreement.witness1_name,
+      witness1Contact: agreement.witness1_contact,
+      witness2Name: agreement.witness2_name,
+      witness2Contact: agreement.witness2_contact,
       paymentTerms: agreement.payment_terms,
       totalAmount: agreement.total_amount ? Number(agreement.total_amount) : undefined,
       currency: agreement.currency || 'INR',

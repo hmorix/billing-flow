@@ -1,0 +1,16 @@
+{
+  "id": "partnership_mou",
+  "titleEn": "Partnership Memorandum of Understanding (MOU)",
+  "titleHi": "साझेदारी समझौता ज्ञापन (MOU)",
+  "agreementType": "Partnership MOU",
+  "category": "Strategic Partnership",
+  "defaultAmount": 0,
+  "currency": "INR",
+  "validityPeriod": "1 Year from Date of Signing",
+  "paymentTerms": "Profit sharing as mutually agreed and appended as Schedule A",
+  "stampDutyDefault": 200,
+  "stateJurisdiction": "Delhi, India",
+  "requiresWitnesses": true,
+  "termsEn": "1. INTENT: Both parties acknowledge this MOU as a statement of collaborative intent and agree to pursue the specified business objectives in good faith.\n2. ROLES & RESPONSIBILITIES: Each party's specific contributions, roles, decision-making authority, and profit-sharing ratios shall be detailed in Schedule A appended hereto.\n3. NON-BINDING NATURE: This MOU establishes a framework of cooperation but is non-binding in financial obligations until a formal partnership deed is executed.\n4. CONFIDENTIALITY: All discussions, data, and strategies exchanged during the tenure of this MOU are confidential.\n5. DISPUTE RESOLUTION: Any dispute arising under this MOU shall be resolved through mutual negotiation within 30 days, failing which through binding arbitration.",
+  "termsHi": "१. आशय: दोनों पक्ष इस MOU को सहयोगी इरादे का बयान मानते हैं और सुनिश्चित व्यावसायिक उद्देश्यों को ईमानदारी से आगे बढ़ाने पर सहमत हैं।\n२. भूमिकाएं एवं जिम्मेदारियां: प्रत्येक पक्ष का योगदान, लाभ-साझाकरण अनुपात अनुसूची A में विस्तृत होगा।\n३. बाध्यकारी प्रकृति: यह MOU सहयोग का ढांचा स्थापित करता है लेकिन औपचारिक साझेदारी विलेख तक वित्तीय दायित्वों में गैर-बाध्यकारी है।\n४. गोपनीयता: इस MOU के तहत साझा की गई सभी जानकारी गोपनीय रहेगी।\n५. विवाद समाधान: विवादों को पहले बातचीत से, फिर मध्यस्थता से सुलझाया जाएगा।"
+}

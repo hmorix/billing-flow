@@ -30,6 +30,7 @@ const BillDesign = lazy(() => import('./views/BillDesign').then(m => ({ default:
 const TemplateBuilder = lazy(() => import('./views/TemplateBuilder').then(m => ({ default: m.TemplateBuilder })));
 const Admin = lazy(() => import('./views/Admin').then(m => ({ default: m.Admin })));
 const EmailDesign = lazy(() => import('./views/EmailDesign').then(m => ({ default: m.EmailDesign })));
+const LegalTerms = lazy(() => import('./views/LegalTerms').then(m => ({ default: m.LegalTerms })));
 
 export const App: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -79,6 +80,9 @@ export const App: React.FC = () => {
           <Route path="/agreements/public" element={<AgreementCreate />} />
           <Route path="/verify/:hash" element={<AgreementVerify />} />
           <Route path="/api-docs" element={<ApiDocs />} />
+          <Route path="/terms" element={<LegalTerms />} />
+          <Route path="/privacy" element={<LegalTerms />} />
+          <Route path="/legal" element={<LegalTerms />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
@@ -127,6 +131,30 @@ export const App: React.FC = () => {
           element={
             <Suspense fallback={<DashboardSkeleton />}>
               <ApiDocs />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/terms"
+          element={
+            <Suspense fallback={<DashboardSkeleton />}>
+              <LegalTerms />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/privacy"
+          element={
+            <Suspense fallback={<DashboardSkeleton />}>
+              <LegalTerms />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/legal"
+          element={
+            <Suspense fallback={<DashboardSkeleton />}>
+              <LegalTerms />
             </Suspense>
           }
         />

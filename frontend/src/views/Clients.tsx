@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Edit2, Trash2, Search, Users, Phone, Mail, MapPin, Building, ShieldAlert } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Users, Phone, Mail, MapPin, Building, ShieldAlert, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Client {
   id: string;
@@ -115,11 +115,17 @@ export const Clients: React.FC = () => {
     }
   };
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 50;
+
   const filteredClients = clients.filter(c => 
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (c.company_name && c.company_name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  const totalPages = Math.ceil(filteredClients.length / PAGE_SIZE) || 1;
+  const paginatedClients = filteredClients.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
     <div className="page-container" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -176,7 +182,7 @@ export const Clients: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredClients.map((client) => (
+                  {paginatedClients.map((client) => (
                     <tr key={client.id}>
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -231,7 +237,7 @@ export const Clients: React.FC = () => {
 
           {/* Mobile Cards */}
           <div className="mobile-card-list" style={{ gap: '12px' }}>
-            {filteredClients.map((client) => (
+            {paginatedClients.map((client) => (
               <div key={client.id} className="invoice-mobile-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
@@ -256,6 +262,36 @@ export const Clients: React.FC = () => {
               </div>
             ))}
           </div>
+
+          {/* 50-Item Pagination Bar */}
+          {filteredClients.length > PAGE_SIZE && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', padding: '12px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Showing {(currentPage - 1) * PAGE_SIZE + 1} – {Math.min(currentPage * PAGE_SIZE, filteredClients.length)} of {filteredClients.length} clients (50 per page)
+              </span>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button
+                  disabled={currentPage <= 1}
+                  className="btn btn-secondary"
+                  style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                >
+                  <ChevronLeft size={14} /> Previous
+                </button>
+                <span style={{ padding: '4px 10px', fontSize: '0.78rem', fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  disabled={currentPage >= totalPages}
+                  className="btn btn-secondary"
+                  style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                >
+                  Next <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', gap: '16px' }}>

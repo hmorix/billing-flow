@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   FileText, Plus, Search, ShieldCheck, Download, Share2, Trash2,
-  ExternalLink, MapPin, Eye, Clock, CheckCircle2, AlertCircle
+  ExternalLink, MapPin, Eye, Clock, CheckCircle2, AlertCircle,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { shareViaWhatsApp, generateAgreementWhatsAppText } from '../utils/whatsappService';
 import { formatCurrency, type SupportedCurrency } from '../utils/i18n';
@@ -36,11 +37,24 @@ export const Agreements: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
 
-  const fetchAgreements = async () => {
+  // Pagination state (Limit 50 items per page to prevent lag)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const PAGE_SIZE = 50;
+
+  const fetchAgreements = async (page = 1) => {
     setIsLoading(true);
     try {
-      const data = await apiFetch('/api/agreements');
-      setAgreements(data || []);
+      const offset = (page - 1) * PAGE_SIZE;
+      const res = await apiFetch(`/api/agreements?limit=${PAGE_SIZE}&offset=${offset}`);
+      if (Array.isArray(res)) {
+        setAgreements(res);
+        setTotalCount(res.length);
+      } else {
+        setAgreements(res.results || []);
+        setTotalCount(res.total || 0);
+      }
+      setCurrentPage(page);
     } catch (err) {
       console.error('Failed to load agreements:', err);
     } finally {
@@ -49,14 +63,14 @@ export const Agreements: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchAgreements();
+    fetchAgreements(1);
   }, []);
 
   const handleDelete = async (id: string, number: string) => {
     if (!window.confirm(`Are you sure you want to delete legal agreement ${number}?`)) return;
     try {
       await apiFetch(`/api/agreements/${id}`, { method: 'DELETE' });
-      fetchAgreements();
+      fetchAgreements(currentPage);
     } catch (err: any) {
       alert(`Failed to delete agreement: ${err.message || err}`);
     }
@@ -115,6 +129,8 @@ export const Agreements: React.FC = () => {
     a.second_party_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     a.agreement_type.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE) || 1;
 
   if (isLoading) {
     return <AgreementSkeleton />;
@@ -344,6 +360,36 @@ export const Agreements: React.FC = () => {
               </div>
             ))}
           </div>
+
+          {/* 50-Item Pagination Bar */}
+          {totalCount > PAGE_SIZE && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', padding: '12px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '10px' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Showing {(currentPage - 1) * PAGE_SIZE + 1} – {Math.min(currentPage * PAGE_SIZE, totalCount)} of {totalCount} agreements (50 per page)
+              </span>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button
+                  disabled={currentPage <= 1}
+                  className="btn btn-secondary"
+                  style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                  onClick={() => fetchAgreements(currentPage - 1)}
+                >
+                  <ChevronLeft size={14} /> Previous
+                </button>
+                <span style={{ padding: '4px 10px', fontSize: '0.78rem', fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  disabled={currentPage >= totalPages}
+                  className="btn btn-secondary"
+                  style={{ padding: '4px 10px', fontSize: '0.78rem' }}
+                  onClick={() => fetchAgreements(currentPage + 1)}
+                >
+                  Next <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', gap: '16px', textAlign: 'center' }}>

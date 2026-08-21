@@ -3,20 +3,42 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   FileText, ShieldCheck, MapPin, Camera, Upload, ArrowLeft,
-  Sparkles, Save, CheckCircle2, AlertCircle, Globe, RefreshCw, Layers
+  Sparkles, Save, CheckCircle2, AlertCircle, Globe, RefreshCw,
+  Layers, Users, Award
 } from 'lucide-react';
 import { CURRENCIES, type SupportedCurrency } from '../utils/i18n';
 
-// Pre-defined Bilingual Legal Clauses & Templates
-const AGREEMENT_TEMPLATES = [
+interface AgreementTemplate {
+  id: string;
+  titleEn: string;
+  titleHi: string;
+  agreementType: string;
+  defaultAmount: number;
+  currency: string;
+  validityPeriod: string;
+  paymentTerms: string;
+  stampDutyDefault?: number;
+  stateJurisdiction?: string;
+  requiresWitnesses?: boolean;
+  termsEn: string;
+  termsHi: string;
+}
+
+// Fallback presets if offline
+const FALLBACK_TEMPLATES: AgreementTemplate[] = [
   {
     id: 'work_first_pay_later',
-    title: 'Work First, Pay Later Agreement / कार्य पश्चात भुगतान अनुबंध',
-    type: 'Work First Pay Later',
+    titleEn: 'Work First, Pay Later Agreement',
+    titleHi: 'कार्य पश्चात भुगतान अनुबंध',
+    agreementType: 'Work First Pay Later',
     defaultAmount: 25000,
-    validity: '30 Days post deliverable submission',
+    currency: 'INR',
+    validityPeriod: '30 Days post deliverable submission',
     paymentTerms: '100% Payment due within 7 days of milestone deliverable approval',
-    termsEn: `1. SCOPE OF ENGAGEMENT: The First Party agrees to render professional services as specified.
+    stampDutyDefault: 100,
+    stateJurisdiction: 'Delhi, India',
+    requiresWitnesses: true,
+    termsEn: `1. SCOPE OF ENGAGEMENT: The First Party (Service Provider) agrees to render professional services as specified.
 2. DEFERRED PAYMENT TERMS: The Second Party shall pay the agreed total contract amount within 7 business days following delivery and acceptance of work.
 3. DELIVERABLE ACCEPTANCE: Second Party has 5 business days to review deliverables. Lack of written feedback constitutes formal acceptance.
 4. REMEDIES ON DEFAULT: Failure to disburse full payment within the stipulated period renders the intellectual property license revoked and attracts 1.5% monthly late interest.
@@ -29,11 +51,16 @@ const AGREEMENT_TEMPLATES = [
   },
   {
     id: 'milestone_50_50',
-    title: '50-50 Milestone Split Agreement / 50-50 चरणबद्ध भुगतान अनुबंध',
-    type: '50-50 Milestone Payment',
+    titleEn: '50-50 Milestone Split Payment Agreement',
+    titleHi: '50-50 चरणबद्ध भुगतान अनुबंध',
+    agreementType: '50-50 Milestone Payment',
     defaultAmount: 50000,
-    validity: '45 Calendar Days',
+    currency: 'INR',
+    validityPeriod: '45 Calendar Days',
     paymentTerms: '50% Advance on project kickoff, 50% upon final deliverable handover',
+    stampDutyDefault: 100,
+    stateJurisdiction: 'Delhi, India',
+    requiresWitnesses: true,
     termsEn: `1. PAYMENT SPLIT STRUCTURE: 50% non-refundable advance mobilization fee prior to commencement; balance 50% upon delivery of the final deliverable.
 2. REVISIONS & AMENDMENTS: Up to two rounds of minor revisions are included. Additional scope adjustments will be billed pro-rata.
 3. IP OWNERSHIP: Full ownership rights transfer to the Second Party solely upon 100% clearance of the balance amount.
@@ -42,36 +69,6 @@ const AGREEMENT_TEMPLATES = [
 २. संशोधन: दो दौर के संशोधन सम्मिलित हैं। अतिरिक्त कार्य के लिए अलग से शुल्क लिया जाएगा।
 ३. स्वामित्व: पूर्ण भुगतान प्राप्त होने के उपरांत ही स्वामित्व अधिकार द्वितीय पक्ष को हस्तांतरित होंगे।
 ४. रद्दीकरण: ग्राहक द्वारा कार्य रद्द करने पर अग्रिम राशि वापस नहीं होगी।`
-  },
-  {
-    id: 'service_package_sla',
-    title: 'Service Package & SLA Validity Agreement / सेवा पैकेज व अवधि अनुबंध',
-    type: 'Service Package & SLA',
-    defaultAmount: 35000,
-    validity: '3 Months (90 Days Active SLA)',
-    paymentTerms: 'Monthly recurring retainer or 100% upfront package clearance',
-    termsEn: `1. SERVICE DURATION & SLA: Active for the specified validity period from commencement date.
-2. RESPONSE TIMES: First Party commits to an initial turnaround response time within 24 business hours.
-3. SCOPE EXCLUSIONS: Third-party API charges, government filing fees, and hosting licenses are explicitly excluded.
-4. RENEWAL: Automatically renewable upon mutually agreed terms prior to the conclusion of the validity window.`,
-    termsHi: `१. सेवा अवधि: अनुबंध में निर्धारित समयावधि तक सेवाएं सक्रिय रहेंगी।
-२. प्रतिक्रिया समय: २४ कार्य घंटों के भीतर सेवा सहायता व प्रतिक्रिया दी जाएगी।
-३. अतिरिक्त शुल्क: तृतीय पक्ष API, सरकारी शुल्क तथा सर्वर खर्च पैकेज में शामिल नहीं हैं।
-४. नवीनीकरण: अवधि समाप्त होने से पूर्व आपसी सहमति से नवीनीकृत किया जा सकेगा।`
-  },
-  {
-    id: 'sworn_affidavit',
-    title: 'Sworn Affidavit & Declaration / शपथ पत्र एवं घोषणा',
-    type: 'Sworn Affidavit',
-    defaultAmount: 0,
-    validity: 'Permanent / Legally Binding Declaration',
-    paymentTerms: 'Non-Commercial / Legal Declaration of Facts',
-    termsEn: `1. SOLEMN DECLARATION: The Deponent solemnly declares that all representations, addresses, and identity credentials provided herein are true, correct, and verified to the best of their knowledge.
-2. INDEMNITY: The Deponent holds harmless all service providers and declares no concealment of material facts.
-3. DIGITAL NOTARIZATION: Executed and verified electronically with cryptographic signature hash under HMorix digital verification.`,
-    termsHi: `१. सत्यनिष्ठा घोषणा: शपथकर्ता घोषणा करता है कि प्रस्तुत सभी विवरण, पते व पहचान पत्र सत्य एवं प्रमाणिक हैं।
-२. दायित्व: किसी भी असत्य जानकारी हेतु शपथकर्ता स्वयं कानूनी रूप से उत्तरदायी होगा।
-३. डिजिटल नोटराइजेशन: HMorix डिजिटल सत्यापन द्वारा इलेक्ट्रॉनिक रूप से सत्यापित।`
   }
 ];
 
@@ -79,28 +76,34 @@ export const AgreementCreate: React.FC = () => {
   const { isAuthenticated, apiFetch } = useAuth();
   const navigate = useNavigate();
 
-  // Selected preset
-  const [selectedTemplateId, setSelectedTemplateId] = useState(AGREEMENT_TEMPLATES[0].id);
+  const [templates, setTemplates] = useState<AgreementTemplate[]>(FALLBACK_TEMPLATES);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('work_first_pay_later');
   const [languageMode, setLanguageMode] = useState<'bilingual' | 'en' | 'hi'>('bilingual');
 
   // Form Fields
-  const [title, setTitle] = useState(AGREEMENT_TEMPLATES[0].title);
-  const [agreementType, setAgreementType] = useState(AGREEMENT_TEMPLATES[0].type);
+  const [title, setTitle] = useState('Work First, Pay Later Agreement / कार्य पश्चात भुगतान अनुबंध');
+  const [agreementType, setAgreementType] = useState('Work First Pay Later');
   const [firstPartyName, setFirstPartyName] = useState('Acme Solutions / Service Provider');
   const [firstPartyContact, setFirstPartyContact] = useState('+91 9876543210');
   const [firstPartyAddress, setFirstPartyAddress] = useState('Connaught Place, New Delhi, DL 110001, India');
+  const [signatoryDesignation, setSignatoryDesignation] = useState('Authorized Signatory');
+  
   const [secondPartyName, setSecondPartyName] = useState('');
   const [secondPartyContact, setSecondPartyContact] = useState('');
   const [secondPartyAddress, setSecondPartyAddress] = useState('');
-  const [totalAmount, setTotalAmount] = useState<number>(AGREEMENT_TEMPLATES[0].defaultAmount);
+  
+  const [witness1Name, setWitness1Name] = useState('');
+  const [witness1Contact, setWitness1Contact] = useState('');
+  const [witness2Name, setWitness2Name] = useState('');
+  const [witness2Contact, setWitness2Contact] = useState('');
+
+  const [totalAmount, setTotalAmount] = useState<number>(25000);
   const [currency, setCurrency] = useState('INR');
-  const [validityPeriod, setValidityPeriod] = useState(AGREEMENT_TEMPLATES[0].validity);
-  const [paymentTerms, setPaymentTerms] = useState(AGREEMENT_TEMPLATES[0].paymentTerms);
+  const [validityPeriod, setValidityPeriod] = useState('30 Days post deliverable submission');
+  const [paymentTerms, setPaymentTerms] = useState('100% Payment due within 7 days of milestone deliverable approval');
   const [stateJurisdiction, setStateJurisdiction] = useState('Delhi, India');
   const [stampDutyAmount, setStampDutyAmount] = useState(100);
-  const [termsContent, setTermsContent] = useState(
-    `${AGREEMENT_TEMPLATES[0].termsEn}\n\n${AGREEMENT_TEMPLATES[0].termsHi}`
-  );
+  const [termsContent, setTermsContent] = useState('');
 
   // Geolocation and Media states
   const [geoLat, setGeoLat] = useState<number | null>(null);
@@ -113,8 +116,25 @@ export const AgreementCreate: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [createdAgreement, setCreatedAgreement] = useState<any | null>(null);
 
-  // Auto-detect Geolocation on mount
+  // Fetch JSON templates from API
   useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || '';
+        const res = await fetch(`${apiUrl}/api/agreements/templates`);
+        if (res.ok) {
+          const list = await res.json();
+          if (Array.isArray(list) && list.length > 0) {
+            setTemplates(list);
+            applyTemplate(list[0], languageMode);
+          }
+        }
+      } catch (e) {
+        // Use fallback
+        applyTemplate(FALLBACK_TEMPLATES[0], languageMode);
+      }
+    };
+    loadTemplates();
     captureLocation();
   }, []);
 
@@ -131,7 +151,7 @@ export const AgreementCreate: React.FC = () => {
         setGeoAddress(`GPS Lat: ${pos.coords.latitude.toFixed(4)}, Lng: ${pos.coords.longitude.toFixed(4)} (Accuracy ~${Math.round(pos.coords.accuracy)}m)`);
         setGeoLoading(false);
       },
-      (err) => {
+      () => {
         setGeoAddress('Location capture permission denied / unavailable');
         setGeoLoading(false);
       },
@@ -139,29 +159,16 @@ export const AgreementCreate: React.FC = () => {
     );
   };
 
-  // Handle template switch
-  const handleTemplateChange = (tplId: string) => {
-    setSelectedTemplateId(tplId);
-    const tpl = AGREEMENT_TEMPLATES.find(t => t.id === tplId);
-    if (tpl) {
-      setTitle(tpl.title);
-      setAgreementType(tpl.type);
-      setTotalAmount(tpl.defaultAmount);
-      setValidityPeriod(tpl.validity);
-      setPaymentTerms(tpl.paymentTerms);
-      updateTermsByLanguage(tpl, languageMode);
-    }
-  };
-
-  const handleLanguageChange = (lang: 'bilingual' | 'en' | 'hi') => {
-    setLanguageMode(lang);
-    const tpl = AGREEMENT_TEMPLATES.find(t => t.id === selectedTemplateId);
-    if (tpl) {
-      updateTermsByLanguage(tpl, lang);
-    }
-  };
-
-  const updateTermsByLanguage = (tpl: typeof AGREEMENT_TEMPLATES[0], lang: 'bilingual' | 'en' | 'hi') => {
+  const applyTemplate = (tpl: AgreementTemplate, lang: 'bilingual' | 'en' | 'hi') => {
+    setSelectedTemplateId(tpl.id);
+    setTitle(lang === 'hi' ? tpl.titleHi : lang === 'en' ? tpl.titleEn : `${tpl.titleEn} / ${tpl.titleHi}`);
+    setAgreementType(tpl.agreementType);
+    setTotalAmount(tpl.defaultAmount || 0);
+    setValidityPeriod(tpl.validityPeriod || '');
+    setPaymentTerms(tpl.paymentTerms || '');
+    if (tpl.stampDutyDefault) setStampDutyAmount(tpl.stampDutyDefault);
+    if (tpl.stateJurisdiction) setStateJurisdiction(tpl.stateJurisdiction);
+    
     if (lang === 'bilingual') {
       setTermsContent(`${tpl.termsEn}\n\n────────────────────────\n\n${tpl.termsHi}`);
     } else if (lang === 'en') {
@@ -171,7 +178,17 @@ export const AgreementCreate: React.FC = () => {
     }
   };
 
-  // Photo capture
+  const handleTemplateChange = (tplId: string) => {
+    const tpl = templates.find(t => t.id === tplId);
+    if (tpl) applyTemplate(tpl, languageMode);
+  };
+
+  const handleLanguageChange = (lang: 'bilingual' | 'en' | 'hi') => {
+    setLanguageMode(lang);
+    const tpl = templates.find(t => t.id === selectedTemplateId) || templates[0];
+    if (tpl) applyTemplate(tpl, lang);
+  };
+
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -183,7 +200,6 @@ export const AgreementCreate: React.FC = () => {
     }
   };
 
-  // Submit and create agreement
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -195,9 +211,14 @@ export const AgreementCreate: React.FC = () => {
       firstPartyName,
       firstPartyContact,
       firstPartyAddress,
+      signatoryDesignation,
       secondPartyName,
       secondPartyContact,
       secondPartyAddress,
+      witness1Name,
+      witness1Contact,
+      witness2Name,
+      witness2Contact,
       totalAmount: Number(totalAmount || 0),
       currency,
       validityPeriod,
@@ -222,7 +243,6 @@ export const AgreementCreate: React.FC = () => {
           body: JSON.stringify(payload)
         });
       } else {
-        // Public guest endpoint
         const res = await fetch(`${apiUrl}/api/agreements/public`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -303,7 +323,7 @@ export const AgreementCreate: React.FC = () => {
               onClick={() => handleDownloadPdf(createdAgreement.id, createdAgreement.agreement_number)}
             >
               <FileText size={16} />
-              <span>Download e-Stamp PDF</span>
+              <span>Download e-Stamp PDF (with Hindi Font &amp; Signatures)</span>
             </button>
             <button
               className="btn btn-secondary"
@@ -342,7 +362,7 @@ export const AgreementCreate: React.FC = () => {
             </h2>
           </div>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-            Under HMorix Digital Legal Infrastructure • Indian e-Stamp &amp; Notary Notarization with GPS Geo-tagging
+            Under HMorix Digital Legal Infrastructure • Hindi/English Unicode Font • Multi-Party Signatures on Every Page
           </p>
         </div>
       </div>
@@ -357,7 +377,7 @@ export const AgreementCreate: React.FC = () => {
       <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
           <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Select Agreement Archetype
+            Select Agreement Archetype ({templates.length} Modular Templates Loaded)
           </span>
           <div style={{ display: 'flex', gap: '6px' }}>
             {(['bilingual', 'en', 'hi'] as const).map(l => (
@@ -375,7 +395,7 @@ export const AgreementCreate: React.FC = () => {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
-          {AGREEMENT_TEMPLATES.map(t => (
+          {templates.map(t => (
             <div
               key={t.id}
               onClick={() => handleTemplateChange(t.id)}
@@ -389,10 +409,10 @@ export const AgreementCreate: React.FC = () => {
               }}
             >
               <h5 style={{ fontSize: '0.85rem', fontWeight: 700, color: selectedTemplateId === t.id ? 'var(--primary)' : 'var(--text-primary)' }}>
-                {t.type}
+                {t.agreementType}
               </h5>
               <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }} className="text-truncate">
-                {t.validity}
+                {t.validityPeriod}
               </p>
             </div>
           ))}
@@ -424,6 +444,7 @@ export const AgreementCreate: React.FC = () => {
             <div style={{ padding: '14px', background: 'var(--bg-tertiary)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary)' }}>FIRST PARTY (SERVICE PROVIDER / PARTY A)</div>
               <input type="text" required placeholder="Full Legal Name / Business Name" className="form-input" value={firstPartyName} onChange={e => setFirstPartyName(e.target.value)} />
+              <input type="text" placeholder="Signatory Designation (e.g. Managing Director)" className="form-input" value={signatoryDesignation} onChange={e => setSignatoryDesignation(e.target.value)} />
               <input type="text" placeholder="Phone / Email" className="form-input" value={firstPartyContact} onChange={e => setFirstPartyContact(e.target.value)} />
               <input type="text" placeholder="Official Registered Address" className="form-input" value={firstPartyAddress} onChange={e => setFirstPartyAddress(e.target.value)} />
             </div>
@@ -475,7 +496,7 @@ export const AgreementCreate: React.FC = () => {
           </div>
 
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Binding Terms &amp; Legal Clauses (Editable)</label>
+            <label className="form-label">Binding Terms &amp; Legal Clauses (Hindi / English)</label>
             <textarea
               required
               rows={8}
@@ -487,10 +508,34 @@ export const AgreementCreate: React.FC = () => {
           </div>
         </div>
 
+        {/* Multi-Party Witnesses Block */}
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+            <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0 }}>
+              3. Independent Witnesses Attestation (Printed on Every Page)
+            </h4>
+            <span className="badge badge-info" style={{ fontSize: '0.68rem' }}>Attestation Seal</span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+            <div style={{ padding: '14px', background: 'var(--bg-tertiary)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>WITNESS 1 (साक्षी १)</span>
+              <input type="text" placeholder="Witness 1 Full Legal Name" className="form-input" value={witness1Name} onChange={e => setWitness1Name(e.target.value)} />
+              <input type="text" placeholder="Witness 1 Contact / Aadhaar / Govt ID" className="form-input" value={witness1Contact} onChange={e => setWitness1Contact(e.target.value)} />
+            </div>
+
+            <div style={{ padding: '14px', background: 'var(--bg-tertiary)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>WITNESS 2 (साक्षी २)</span>
+              <input type="text" placeholder="Witness 2 Full Legal Name" className="form-input" value={witness2Name} onChange={e => setWitness2Name(e.target.value)} />
+              <input type="text" placeholder="Witness 2 Contact / Aadhaar / Govt ID" className="form-input" value={witness2Contact} onChange={e => setWitness2Contact(e.target.value)} />
+            </div>
+          </div>
+        </div>
+
         {/* Live Location & Verification Security Capture */}
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <h4 style={{ fontSize: '0.95rem', fontWeight: 700, borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-            3. Digital Footprint, GPS Location &amp; Photo ID Capture
+            4. Digital Footprint, GPS Location &amp; Photo ID Capture
           </h4>
 
           <div className="form-grid-2">

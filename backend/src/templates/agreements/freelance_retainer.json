@@ -1,0 +1,16 @@
+{
+  "id": "freelance_retainer",
+  "titleEn": "Freelance Retainer & Independent Contractor Agreement",
+  "titleHi": "फ्रीलांस रिटेनर व स्वतंत्र ठेकेदार अनुबंध",
+  "agreementType": "Freelance Retainer",
+  "category": "Independent Contractor",
+  "defaultAmount": 20000,
+  "currency": "INR",
+  "validityPeriod": "Monthly Rolling Retainer",
+  "paymentTerms": "Monthly retainer payable on 1st of each calendar month",
+  "stampDutyDefault": 100,
+  "stateJurisdiction": "Delhi, India",
+  "requiresWitnesses": false,
+  "termsEn": "1. INDEPENDENT CONTRACTOR STATUS: The First Party provides services as an independent contractor and is not an employee, agent, or partner of the Second Party. No employment relationship is created by this agreement.\n2. DELIVERABLES: Monthly deliverables shall be agreed upon in writing at the commencement of each calendar month.\n3. PAYMENT: Monthly retainer fee is payable on or before the 1st of each month. Late payments attract 1.5% monthly interest.\n4. INTELLECTUAL PROPERTY: All work products created under this retainer are work-for-hire upon full payment.\n5. CANCELLATION: Either party may terminate this retainer with 15 days written notice.",
+  "termsHi": "१. स्वतंत्र ठेकेदार स्थिति: प्रथम पक्ष एक स्वतंत्र ठेकेदार के रूप में सेवाएं प्रदान करता है और द्वितीय पक्ष का कर्मचारी नहीं है।\n२. मासिक कार्य: प्रत्येक माह के प्रारंभ में लिखित में मासिक कार्य सहमत किए जाएंगे।\n३. भुगतान: मासिक रिटेनर शुल्क प्रत्येक माह की पहली तारीख को या उससे पहले देय होगा।\n४. बौद्धिक संपदा: पूर्ण भुगतान पर सभी कार्य उत्पाद द्वितीय पक्ष की संपत्ति बनेंगे।\n५. रद्दीकरण: कोई भी पक्ष १५ दिन के लिखित नोटिस से यह अनुबंध समाप्त कर सकता है।"
+}

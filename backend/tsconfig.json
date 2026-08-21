@@ -17,9 +17,6 @@
     "noEmit": true
   },
   "include": [
-    "src/index.ts",
-    "src/adapters.ts",
-    "src/services/pdfService.ts",
-    "src/services/emailService.ts"
+    "src/**/*"
   ]
 }

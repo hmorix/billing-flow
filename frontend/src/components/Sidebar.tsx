@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileSpreadsheet, Users, CreditCard, LogOut, Receipt, Shield, Settings as SettingsIcon, Palette, Sun, Moon, X, Mail, FileText, Code2 } from 'lucide-react';
+import { LayoutDashboard, FileSpreadsheet, Users, CreditCard, LogOut, Receipt, Shield, Settings as SettingsIcon, Palette, Sun, Moon, X, Mail, FileText, Code2, Scale } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { BillingFlowLogo } from './BillingFlowLogo';
@@ -147,6 +147,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobileDrawer, isDrawer 
           >
             <Code2 size={18} />
             <span>API &amp; Docs</span>
+          </NavLink>
+
+          <NavLink
+            to="/legal"
+            onClick={handleLinkClick}
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+          >
+            <Scale size={18} />
+            <span>Legal &amp; Terms</span>
           </NavLink>
 
           <NavLink
