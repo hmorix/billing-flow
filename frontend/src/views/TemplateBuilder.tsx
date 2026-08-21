@@ -3,8 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   ArrowLeft, Save, Rocket, Palette, Plus, Trash2, Layers, Type, Square, Circle,
-  Minus, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline,
-  BringToFront, SendToBack, Move, Copy, Sliders, Settings as SettingsIcon, CheckCircle2, ShieldAlert
+  Minus, AlignLeft, AlignCenter, AlignRight, AlignJustify, Bold, Italic, Underline,
+  BringToFront, SendToBack, Move, Copy, Sliders, Settings as SettingsIcon, CheckCircle2, ShieldAlert,
+  Download, FileCode, Image as ImageIcon, Sparkles, Database, Upload, RefreshCw, X
 } from 'lucide-react';
 
 interface InvoiceBlock {
@@ -17,22 +18,28 @@ interface InvoiceBlock {
 
 interface VisualElement {
   id: string;
-  type: 'text' | 'shape' | 'line';
-  // Position & Size (pixels/percentage relative to 595x842 canvas)
+  type: 'text' | 'shape' | 'line' | 'image';
+  // Position & Size (relative to 595x842 canvas)
   x: number;
   y: number;
   width: number;
   height: number;
-  // Content for text
+  // Content
   content?: string;
+  imageUrl?: string;
+  objectFit?: 'contain' | 'cover' | 'fill';
   // Text Styles
   fontSize?: number;
+  fontFamily?: string;
   fontStyle?: 'normal' | 'bold' | 'italic' | 'bold-italic';
   textDecoration?: 'none' | 'underline';
   textColor?: string;
-  alignment?: 'left' | 'center' | 'right';
+  alignment?: 'left' | 'center' | 'right' | 'justify';
+  letterSpacing?: number;
+  lineHeight?: number;
+  textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
   padding?: number;
-  // Shape Styles
+  // Shape & Image Styles
   shapeType?: 'rect' | 'circle';
   fillColor?: string;
   fillOpacity?: number;
@@ -48,10 +55,10 @@ interface TemplateConfig {
   primaryColor: string;
   textColor: string;
   backgroundColor: string;
-  fontFamily: 'Helvetica' | 'Courier' | 'Times-Roman';
+  fontFamily: string;
   footerText: string;
   blocks: InvoiceBlock[];
-  // Page Styles
+  // Page Margins
   marginTop: number;
   marginBottom: number;
   marginLeft: number;
@@ -68,29 +75,29 @@ export const TemplateBuilder: React.FC = () => {
   const navigate = useNavigate();
   const { apiFetch } = useAuth();
 
-  const [templateName, setTemplateName] = useState('My Premium Custom Invoice');
+  const [templateName, setTemplateName] = useState('My Premium Enterprise Invoice');
   const [status, setStatus] = useState<'draft' | 'published'>('draft');
   const [config, setConfig] = useState<TemplateConfig>({
     primaryColor: '#6366f1',
     textColor: '#1f2937',
     backgroundColor: '#ffffff',
-    fontFamily: 'Helvetica',
-    footerText: 'Thank you for your business! Generated via BillingFlow.',
+    fontFamily: 'Inter',
+    footerText: 'Thank you for your business! Generated via BillingFlow Enterprise Platform.',
     blocks: [
       { id: 'block_header', type: 'header', title: 'INVOICE', showLogo: true, active: true },
       { id: 'block_billing', type: 'billing', active: true },
       { id: 'block_table', type: 'table', active: true },
       { id: 'block_totals', type: 'totals', active: true },
-      { id: 'block_notes', type: 'notes', title: 'Notes & Payment Terms:', active: true },
+      { id: 'block_notes', type: 'notes', title: 'Notes & Terms:', active: true },
       { id: 'block_signature', type: 'signature', active: true }
     ],
-    marginTop: 50,
-    marginBottom: 50,
-    marginLeft: 50,
-    marginRight: 50,
+    marginTop: 45,
+    marginBottom: 45,
+    marginLeft: 45,
+    marginRight: 45,
     bgGradientEnabled: false,
     bgGradientStart: '#ffffff',
-    bgGradientEnd: '#f3f4f6',
+    bgGradientEnd: '#f8fafc',
     elements: []
   });
 
@@ -100,23 +107,39 @@ export const TemplateBuilder: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Active Tool Panel
-  const [activeTab, setActiveTab] = useState<'layout' | 'layers'>('layout');
+  const [activeTab, setActiveTab] = useState<'layout' | 'layers' | 'json'>('layout');
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [showJsonModal, setShowJsonModal] = useState(false);
+  const [jsonInputText, setJsonInputText] = useState('');
 
   // Dragging and Resizing ref/states
   const canvasRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState<string | null>(null); // 'nw' | 'ne' | 'se' | 'sw' | 'e' | 's' etc.
+  const [isResizing, setIsResizing] = useState<string | null>(null);
   const dragStart = useRef({ x: 0, y: 0 });
   const elementStartPos = useRef({ x: 0, y: 0, w: 0, h: 0 });
 
-  // Preset color palettes
+  // Preset corporate color palettes
   const colorPresets = [
-    { name: 'Indigo Dream', primary: '#6366f1', text: '#1f2937', bg: '#ffffff' },
-    { name: 'Charcoal Minimal', primary: '#1f2937', text: '#1f2937', bg: '#f9fafb' },
-    { name: 'Warm Retro', primary: '#dc2626', text: '#171717', bg: '#faf6f0' },
-    { name: 'Deep Teal', primary: '#0d9488', text: '#1f2937', bg: '#ffffff' },
-    { name: 'Royal Navy', primary: '#1e3a8a', text: '#111827', bg: '#ffffff' }
+    { name: 'Indigo Corporate', primary: '#6366f1', text: '#1f2937', bg: '#ffffff' },
+    { name: 'Emerald Finance', primary: '#10b981', text: '#064e3b', bg: '#ffffff' },
+    { name: 'Slate Executive', primary: '#3b82f6', text: '#0f172a', bg: '#f8fafc' },
+    { name: 'Crimson Luxury', primary: '#dc2626', text: '#171717', bg: '#ffffff' },
+    { name: 'Golden Royalty', primary: '#b45309', text: '#451a03', bg: '#fffdfa' },
+    { name: 'Cyan Ocean', primary: '#06b6d4', text: '#164e63', bg: '#ffffff' },
+    { name: 'Rose Gold', primary: '#e11d48', text: '#4c0519', bg: '#ffffff' }
+  ];
+
+  // Font family options
+  const fontFamilyOptions = [
+    { label: 'Inter (Modern Sans)', value: 'Inter' },
+    { label: 'Outfit (Geometric)', value: 'Outfit' },
+    { label: 'Plus Jakarta Sans', value: 'Plus Jakarta Sans' },
+    { label: 'Helvetica / Standard', value: 'Helvetica' },
+    { label: 'Playfair Display (Serif)', value: 'Playfair Display' },
+    { label: 'Roboto (Clean)', value: 'Roboto' },
+    { label: 'Courier Prime (Mono)', value: 'Courier Prime' },
+    { label: 'Cinzel (Luxury)', value: 'Cinzel' }
   ];
 
   // Fetch template data if editing
@@ -129,25 +152,24 @@ export const TemplateBuilder: React.FC = () => {
         setStatus(data.status);
         
         const parsed = JSON.parse(data.config);
-        // Fallback for older configurations without new layout properties
         setConfig({
           primaryColor: parsed.primaryColor || '#6366f1',
           textColor: parsed.textColor || '#1f2937',
           backgroundColor: parsed.backgroundColor || '#ffffff',
-          fontFamily: parsed.fontFamily || 'Helvetica',
-          footerText: parsed.footerText || 'Thank you for your business! Generated via BillingFlow.',
+          fontFamily: parsed.fontFamily || 'Inter',
+          footerText: parsed.footerText || 'Thank you for your business! Generated via BillingFlow Enterprise Platform.',
           blocks: parsed.blocks || [],
-          marginTop: parsed.marginTop ?? 50,
-          marginBottom: parsed.marginBottom ?? 50,
-          marginLeft: parsed.marginLeft ?? 50,
-          marginRight: parsed.marginRight ?? 50,
+          marginTop: parsed.marginTop ?? 45,
+          marginBottom: parsed.marginBottom ?? 45,
+          marginLeft: parsed.marginLeft ?? 45,
+          marginRight: parsed.marginRight ?? 45,
           bgGradientEnabled: parsed.bgGradientEnabled ?? false,
           bgGradientStart: parsed.bgGradientStart || '#ffffff',
-          bgGradientEnd: parsed.bgGradientEnd || '#f3f4f6',
+          bgGradientEnd: parsed.bgGradientEnd || '#f8fafc',
           elements: parsed.elements || []
         });
       } catch (err: any) {
-        setError(err.message || 'Failed to load template data.');
+        setError(err.message || 'Failed to load template layout data.');
       } finally {
         setIsLoading(false);
       }
@@ -155,7 +177,7 @@ export const TemplateBuilder: React.FC = () => {
     fetchTemplate();
   }, [id]);
 
-  // Save template layout
+  // Save template layout to DB (MongoDB Atlas / PostgreSQL)
   const handleSave = async (saveStatus: 'draft' | 'published') => {
     setIsSaving(true);
     setSuccess(null);
@@ -179,7 +201,7 @@ export const TemplateBuilder: React.FC = () => {
           });
           setStatus(saveStatus);
         }
-        setSuccess(`Template layout updated and saved as ${saveStatus}!`);
+        setSuccess(`Template schema saved as ${saveStatus}!`);
       } else {
         const res = await apiFetch('/api/organization/templates', {
           method: 'POST',
@@ -197,6 +219,47 @@ export const TemplateBuilder: React.FC = () => {
       setError(err.message || 'Failed to save template layout.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Export JSON Schema
+  const handleExportJson = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `${templateName.toLowerCase().replace(/\s+/g, '_')}_schema.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    setSuccess("Exported layout schema JSON file!");
+  };
+
+  // Import JSON Schema
+  const handleImportJsonSubmit = () => {
+    try {
+      const parsed = JSON.parse(jsonInputText);
+      if (!parsed || typeof parsed !== 'object') throw new Error('Invalid JSON structure.');
+      setConfig({
+        primaryColor: parsed.primaryColor || '#6366f1',
+        textColor: parsed.textColor || '#1f2937',
+        backgroundColor: parsed.backgroundColor || '#ffffff',
+        fontFamily: parsed.fontFamily || 'Inter',
+        footerText: parsed.footerText || 'Thank you for your business!',
+        blocks: parsed.blocks || [],
+        marginTop: parsed.marginTop ?? 45,
+        marginBottom: parsed.marginBottom ?? 45,
+        marginLeft: parsed.marginLeft ?? 45,
+        marginRight: parsed.marginRight ?? 45,
+        bgGradientEnabled: parsed.bgGradientEnabled ?? false,
+        bgGradientStart: parsed.bgGradientStart || '#ffffff',
+        bgGradientEnd: parsed.bgGradientEnd || '#f8fafc',
+        elements: parsed.elements || []
+      });
+      setSuccess('Successfully imported template schema JSON!');
+      setShowJsonModal(false);
+      setJsonInputText('');
+    } catch (err: any) {
+      setError('Failed to import JSON: ' + err.message);
     }
   };
 
@@ -220,29 +283,44 @@ export const TemplateBuilder: React.FC = () => {
     setConfig({ ...config, blocks: newBlocks });
   };
 
-  const updateBlockProps = (blockId: string, props: Partial<InvoiceBlock>) => {
-    const newBlocks = config.blocks.map(b =>
-      b.id === blockId ? { ...b, ...props } : b
-    );
-    setConfig({ ...config, blocks: newBlocks });
-  };
-
-  // --- Freeform Elements Management ---
+  // --- Canvas Elements Management ---
   const addTextElement = () => {
     const maxZ = config.elements.reduce((max, el) => Math.max(max, el.zIndex), 0);
     const newEl: VisualElement = {
       id: `text_${Date.now()}`,
       type: 'text',
-      x: 60,
+      x: 50,
       y: 500,
-      width: 250,
+      width: 260,
       height: 60,
-      content: 'Double click to edit terms and custom conditions.',
+      content: 'Custom terms, conditions or payment guidelines text block.',
       fontSize: 9,
+      fontFamily: config.fontFamily,
       fontStyle: 'normal',
       textColor: config.textColor,
       alignment: 'left',
+      letterSpacing: 0,
+      lineHeight: 1.4,
+      textTransform: 'none',
       padding: 0,
+      zIndex: maxZ + 1
+    };
+    setConfig({ ...config, elements: [...config.elements, newEl] });
+    setSelectedElementId(newEl.id);
+  };
+
+  const addImageElement = (url?: string) => {
+    const maxZ = config.elements.reduce((max, el) => Math.max(max, el.zIndex), 0);
+    const newEl: VisualElement = {
+      id: `image_${Date.now()}`,
+      type: 'image',
+      x: 50,
+      y: 45,
+      width: 140,
+      height: 50,
+      imageUrl: url || 'https://uklrlkpkmuxnvkmpxyzg.supabase.co/storage/v1/object/public/billingflow-logos/organization_logos/placeholder.png',
+      objectFit: 'contain',
+      borderRadius: 4,
       zIndex: maxZ + 1
     };
     setConfig({ ...config, elements: [...config.elements, newEl] });
@@ -255,12 +333,12 @@ export const TemplateBuilder: React.FC = () => {
       id: `shape_${Date.now()}`,
       type: 'shape',
       shapeType,
-      x: 60,
-      y: 400,
-      width: 120,
-      height: 80,
+      x: 50,
+      y: 420,
+      width: 130,
+      height: 75,
       fillColor: config.primaryColor,
-      fillOpacity: 0.15,
+      fillOpacity: 0.12,
       borderColor: config.primaryColor,
       borderWidth: 1.5,
       borderRadius: shapeType === 'rect' ? 6 : 999,
@@ -275,9 +353,9 @@ export const TemplateBuilder: React.FC = () => {
     const newEl: VisualElement = {
       id: `line_${Date.now()}`,
       type: 'line',
-      x: 60,
-      y: 450,
-      width: 475,
+      x: 50,
+      y: 460,
+      width: 495,
       height: 2,
       borderColor: config.primaryColor,
       borderWidth: 1.5,
@@ -296,8 +374,8 @@ export const TemplateBuilder: React.FC = () => {
     const dup: VisualElement = {
       ...target,
       id: `${target.type}_${Date.now()}`,
-      x: Math.min(500, target.x + 15),
-      y: Math.min(800, target.y + 15),
+      x: Math.min(480, target.x + 15),
+      y: Math.min(780, target.y + 15),
       zIndex: maxZ + 1
     };
     setConfig({ ...config, elements: [...config.elements, dup] });
@@ -321,34 +399,6 @@ export const TemplateBuilder: React.FC = () => {
         el.id === selectedElementId ? { ...el, ...props } : el
       )
     });
-  };
-
-  // --- Element Layering Control ---
-  const sendToLayer = (action: 'front' | 'back' | 'up' | 'down') => {
-    if (!selectedElementId) return;
-    const target = config.elements.find(el => el.id === selectedElementId);
-    if (!target) return;
-
-    let elementsCopy = [...config.elements].sort((a, b) => a.zIndex - b.zIndex);
-    const idx = elementsCopy.findIndex(el => el.id === selectedElementId);
-
-    if (action === 'up' && idx < elementsCopy.length - 1) {
-      const temp = elementsCopy[idx].zIndex;
-      elementsCopy[idx].zIndex = elementsCopy[idx + 1].zIndex;
-      elementsCopy[idx + 1].zIndex = temp;
-    } else if (action === 'down' && idx > 0) {
-      const temp = elementsCopy[idx].zIndex;
-      elementsCopy[idx].zIndex = elementsCopy[idx - 1].zIndex;
-      elementsCopy[idx - 1].zIndex = temp;
-    } else if (action === 'front') {
-      const maxZ = elementsCopy[elementsCopy.length - 1].zIndex;
-      elementsCopy[idx].zIndex = maxZ + 1;
-    } else if (action === 'back') {
-      const minZ = elementsCopy[0].zIndex;
-      elementsCopy[idx].zIndex = minZ - 1;
-    }
-
-    setConfig({ ...config, elements: elementsCopy });
   };
 
   // --- Element Alignment Controls ---
@@ -479,7 +529,7 @@ export const TemplateBuilder: React.FC = () => {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#08090d' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
           <div className="spinner" />
-          <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Loading canvas assets...</span>
+          <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Loading canvas layout studio...</span>
         </div>
       </div>
     );
@@ -501,7 +551,7 @@ export const TemplateBuilder: React.FC = () => {
             onClick={() => navigate('/settings/design')}
             style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px' }}
           >
-            <ArrowLeft size={16} /><span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Exit Editor</span>
+            <ArrowLeft size={16} /><span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Exit Studio</span>
           </button>
           <div style={{ height: '20px', width: '1px', background: 'var(--border-color)' }} />
           <input
@@ -510,12 +560,15 @@ export const TemplateBuilder: React.FC = () => {
             onChange={(e) => setTemplateName(e.target.value)}
             style={{
               background: 'transparent', border: 'none', fontSize: '0.95rem', fontWeight: 700,
-              color: 'var(--text-primary)', width: '220px', borderBottom: '1px solid transparent', padding: '2px'
+              color: 'var(--text-primary)', width: '240px', borderBottom: '1px solid transparent', padding: '2px'
             }}
             placeholder="Template Name"
             onFocus={(e) => e.target.style.borderBottomColor = 'var(--primary)'}
             onBlur={(e) => e.target.style.borderBottomColor = 'transparent'}
           />
+          <span className="badge badge-info" style={{ fontSize: '0.68rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Database size={10} /> MongoDB Atlas Ready
+          </span>
         </div>
 
         {/* Status Messages */}
@@ -532,7 +585,25 @@ export const TemplateBuilder: React.FC = () => {
           )}
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={handleExportJson}
+            className="btn btn-secondary"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '0.78rem' }}
+            title="Download Template Layout Schema JSON"
+          >
+            <Download size={14} /><span>Export JSON</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowJsonModal(true)}
+            className="btn btn-secondary"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '0.78rem' }}
+            title="Import Custom JSON Schema"
+          >
+            <FileCode size={14} /><span>Import JSON</span>
+          </button>
           <button
             type="button"
             disabled={isSaving}
@@ -573,7 +644,7 @@ export const TemplateBuilder: React.FC = () => {
                 fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer'
               }}
             >
-              Document Layout
+              Document Blocks
             </button>
             <button
               onClick={() => setActiveTab('layers')}
@@ -636,22 +707,53 @@ export const TemplateBuilder: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Add Custom Free Elements */}
+                {/* Add Freeform Canvas Elements */}
                 <div>
-                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>Insert Elements</span>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>Insert Freeform Elements</span>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                     <button onClick={addTextElement} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', fontSize: '0.72rem', padding: '8px' }}>
                       <Type size={12} /><span>Text Block</span>
                     </button>
+                    <button onClick={() => addImageElement()} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', fontSize: '0.72rem', padding: '8px' }}>
+                      <ImageIcon size={12} /><span>Logo / Graphic</span>
+                    </button>
                     <button onClick={addLineElement} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', fontSize: '0.72rem', padding: '8px' }}>
-                      <Minus size={12} /><span>Dividing Line</span>
+                      <Minus size={12} /><span>Divider Line</span>
                     </button>
                     <button onClick={() => addShapeElement('rect')} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', fontSize: '0.72rem', padding: '8px' }}>
                       <Square size={12} /><span>Rectangle</span>
                     </button>
                     <button onClick={() => addShapeElement('circle')} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', fontSize: '0.72rem', padding: '8px' }}>
-                      <Circle size={12} /><span>Circle</span>
+                      <Circle size={12} /><span>Circle Badge</span>
                     </button>
+                  </div>
+                </div>
+
+                {/* Corporate Theme Presets */}
+                <div>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>Color Palette Swatches</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {colorPresets.map((preset) => (
+                      <button
+                        key={preset.name}
+                        onClick={() => setConfig({
+                          ...config,
+                          primaryColor: preset.primary,
+                          textColor: preset.text,
+                          backgroundColor: preset.bg
+                        })}
+                        style={{
+                          background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)',
+                          borderRadius: 'var(--radius-sm)', padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer'
+                        }}
+                      >
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>{preset.name}</span>
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                          <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: preset.primary }} />
+                          <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: preset.text }} />
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 </div>
               </>
@@ -659,9 +761,9 @@ export const TemplateBuilder: React.FC = () => {
 
             {activeTab === 'layers' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block' }}>Canvas Layers Order</span>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block' }}>Canvas Layers</span>
                 {config.elements.length === 0 ? (
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '16px' }}>No custom canvas elements added yet.</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '16px' }}>No freeform canvas elements added yet.</p>
                 ) : (
                   [...config.elements].sort((a, b) => b.zIndex - a.zIndex).map((el) => (
                     <div
@@ -674,9 +776,9 @@ export const TemplateBuilder: React.FC = () => {
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
-                        {el.type === 'text' ? <Type size={12} color="var(--primary)" /> : el.type === 'line' ? <Minus size={12} /> : el.shapeType === 'circle' ? <Circle size={12} /> : <Square size={12} />}
+                        {el.type === 'text' ? <Type size={12} color="var(--primary)" /> : el.type === 'image' ? <ImageIcon size={12} color="var(--accent)" /> : el.type === 'line' ? <Minus size={12} /> : el.shapeType === 'circle' ? <Circle size={12} /> : <Square size={12} />}
                         <span style={{ fontSize: '0.72rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'capitalize' }}>
-                          {el.type === 'text' ? (el.content || 'Text') : `${el.shapeType || el.type}`}
+                          {el.type === 'text' ? (el.content || 'Text') : el.type === 'image' ? 'Logo Graphic' : `${el.shapeType || el.type}`}
                         </span>
                       </div>
                       <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>z-{el.zIndex}</span>
@@ -688,7 +790,7 @@ export const TemplateBuilder: React.FC = () => {
           </div>
         </aside>
 
-        {/* CENTER PANEL: Canvas Workspace */}
+        {/* CENTER PANEL: Interactive Canvas Workspace */}
         <main style={{
           flex: 1, background: 'var(--bg-tertiary)', display: 'flex', justifyContent: 'center',
           alignItems: 'flex-start', overflowY: 'auto', padding: '32px', position: 'relative'
@@ -696,11 +798,11 @@ export const TemplateBuilder: React.FC = () => {
 
           {/* Guidelines info */}
           <div style={{ position: 'absolute', top: '10px', left: '16px', display: 'flex', gap: '14px', fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-            <span>A4 Size (595 × 842 px)</span>
+            <span>Standard A4 Canvas (595 × 842 px)</span>
             <span>•</span>
             <span>Drag items to reposition</span>
             <span>•</span>
-            <span>Click to style / edit</span>
+            <span>Drag handles to resize logos &amp; blocks</span>
           </div>
 
           {/* A4 Sheet Canvas */}
@@ -710,9 +812,9 @@ export const TemplateBuilder: React.FC = () => {
             style={{
               width: '595px', minHeight: '842px', height: '842px',
               background: config.bgGradientEnabled ? `linear-gradient(135deg, ${config.bgGradientStart}, ${config.bgGradientEnd})` : config.backgroundColor,
-              boxShadow: '0 8px 30px rgba(0,0,0,0.12)', borderRadius: '2px', position: 'relative',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.18)', borderRadius: '2px', position: 'relative',
               color: config.textColor,
-              fontFamily: config.fontFamily === 'Courier' ? 'Courier New, monospace' : config.fontFamily === 'Times-Roman' ? 'Times New Roman, serif' : 'Arial, sans-serif',
+              fontFamily: config.fontFamily || 'Inter, sans-serif',
               boxSizing: 'border-box', overflow: 'hidden'
             }}
           >
@@ -723,25 +825,25 @@ export const TemplateBuilder: React.FC = () => {
               paddingBottom: `${config.marginBottom}px`,
               paddingLeft: `${config.marginLeft}px`,
               paddingRight: `${config.marginRight}px`,
-              display: 'flex', flexDirection: 'column', gap: '22px', height: '100%', boxSizing: 'border-box'
+              display: 'flex', flexDirection: 'column', gap: '20px', height: '100%', boxSizing: 'border-box'
             }}>
               {config.blocks.filter(b => b.active).map((block) => {
                 switch (block.type) {
                   case 'header':
                     return (
                       <div key={block.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e5e7eb', paddingBottom: '10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           {block.showLogo && (
-                            <div style={{ width: '32px', height: '32px', background: config.primaryColor, borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '8px', fontWeight: 800 }}>LOGO</div>
+                            <div style={{ width: '36px', height: '36px', background: config.primaryColor, borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '9px', fontWeight: 800 }}>LOGO</div>
                           )}
                           <div>
-                            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: config.primaryColor, margin: 0 }}>ACME CORP</h3>
-                            <span style={{ fontSize: '0.62rem', color: '#6b7280' }}>Billed dispatch solutions</span>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: config.primaryColor, margin: 0 }}>ACME ENTERPRISE</h3>
+                            <span style={{ fontSize: '0.65rem', color: '#6b7280' }}>Global Solutions &amp; Billing</span>
                           </div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
-                          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: config.textColor, margin: 0 }}>{block.title || 'INVOICE'}</h2>
-                          <span style={{ fontSize: '0.65rem', color: '#6b7280' }}>INV-2026-001 | 2026-06-29</span>
+                          <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: config.textColor, margin: 0 }}>{block.title || 'INVOICE'}</h2>
+                          <span style={{ fontSize: '0.65rem', color: '#6b7280' }}>INV-2026-8801 | Date: 2026-08-21</span>
                         </div>
                       </div>
                     );
@@ -751,13 +853,13 @@ export const TemplateBuilder: React.FC = () => {
                       <div key={block.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', lineHeight: '1.5' }}>
                         <div>
                           <strong style={{ color: 'var(--text-muted)', fontSize: '0.6rem', display: 'block', marginBottom: '2px' }}>BILLED FROM:</strong>
-                          <strong>Acme Corporation LLC</strong>
-                          <div style={{ color: '#4b5563', marginTop: '1px' }}>123 Enterprise Way, Suite 400<br />San Jose, CA 95110</div>
+                          <strong style={{ color: config.textColor }}>Acme Corporation LLC</strong>
+                          <div style={{ color: '#4b5563', marginTop: '1px' }}>100 Enterprise Boulevard, Suite 500<br />San Francisco, CA 94107</div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                           <strong style={{ color: 'var(--text-muted)', fontSize: '0.6rem', display: 'block', marginBottom: '2px' }}>BILLED TO:</strong>
-                          <strong>John Doe Logistics</strong>
-                          <div style={{ color: '#4b5563', marginTop: '1px' }}>789 Client Parkway, Gate C<br />Austin, TX 78701</div>
+                          <strong style={{ color: config.textColor }}>Global Tech Partners</strong>
+                          <div style={{ color: '#4b5563', marginTop: '1px' }}>450 Innovation Parkway, Floor 12<br />Austin, TX 78701</div>
                         </div>
                       </div>
                     );
@@ -765,23 +867,23 @@ export const TemplateBuilder: React.FC = () => {
                   case 'table':
                     return (
                       <div key={block.id} style={{ fontSize: '0.72rem' }}>
-                        <div style={{ background: config.primaryColor, color: '#fff', padding: '5px 10px', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', borderRadius: '3px' }}>
+                        <div style={{ background: config.primaryColor, color: '#fff', padding: '6px 12px', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', borderRadius: '4px' }}>
                           <span style={{ width: '60%' }}>ITEM DESCRIPTION</span>
                           <span style={{ width: '10%', textAlign: 'right' }}>QTY</span>
-                          <span style={{ width: '15%', textAlign: 'right' }}>UNIT</span>
-                          <span style={{ width: '15%', textAlign: 'right' }}>TOTAL</span>
+                          <span style={{ width: '15%', textAlign: 'right' }}>UNIT PRICE</span>
+                          <span style={{ width: '15%', textAlign: 'right' }}>AMOUNT</span>
                         </div>
-                        <div style={{ padding: '6px 10px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e5e7eb' }}>
-                          <span style={{ width: '60%' }}>Visual UI Design &amp; Architecture Consulting</span>
-                          <span style={{ width: '10%', textAlign: 'right' }}>8</span>
-                          <span style={{ width: '15%', textAlign: 'right' }}>$175.00</span>
-                          <span style={{ width: '15%', textAlign: 'right', fontWeight: 'bold' }}>$1,400.00</span>
+                        <div style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e5e7eb' }}>
+                          <span style={{ width: '60%' }}>Enterprise Architecture &amp; Cloud Integration</span>
+                          <span style={{ width: '10%', textAlign: 'right' }}>12</span>
+                          <span style={{ width: '15%', textAlign: 'right' }}>$185.00</span>
+                          <span style={{ width: '15%', textAlign: 'right', fontWeight: 'bold' }}>$2,220.00</span>
                         </div>
-                        <div style={{ padding: '6px 10px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e5e7eb', background: 'rgba(0,0,0,0.01)' }}>
-                          <span style={{ width: '60%' }}>Billing System Integration Stub</span>
+                        <div style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e5e7eb', background: 'rgba(0,0,0,0.01)' }}>
+                          <span style={{ width: '60%' }}>MongoDB Atlas Cluster Schema Setup</span>
                           <span style={{ width: '10%', textAlign: 'right' }}>1</span>
-                          <span style={{ width: '15%', textAlign: 'right' }}>$499.00</span>
-                          <span style={{ width: '15%', textAlign: 'right', fontWeight: 'bold' }}>$499.00</span>
+                          <span style={{ width: '15%', textAlign: 'right' }}>$650.00</span>
+                          <span style={{ width: '15%', textAlign: 'right', fontWeight: 'bold' }}>$650.00</span>
                         </div>
                       </div>
                     );
@@ -789,31 +891,31 @@ export const TemplateBuilder: React.FC = () => {
                   case 'totals':
                     return (
                       <div key={block.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', fontSize: '0.72rem' }}>
-                        <div style={{ display: 'flex', width: '160px', justifyContent: 'space-between', color: '#4b5563' }}>
-                          <span>Subtotal:</span><span>$1,899.00</span>
+                        <div style={{ display: 'flex', width: '170px', justifyContent: 'space-between', color: '#4b5563' }}>
+                          <span>Subtotal:</span><span>$2,870.00</span>
                         </div>
-                        <div style={{ display: 'flex', width: '160px', justifyContent: 'space-between', color: '#4b5563', borderBottom: '1px solid #e5e7eb', paddingBottom: '3px' }}>
-                          <span>Tax (10%):</span><span>$189.90</span>
+                        <div style={{ display: 'flex', width: '170px', justifyContent: 'space-between', color: '#4b5563', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px' }}>
+                          <span>Tax (10%):</span><span>$287.00</span>
                         </div>
-                        <div style={{ display: 'flex', width: '160px', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '0.8rem', color: config.primaryColor }}>
-                          <span>Total Due:</span><span>$2,088.90</span>
+                        <div style={{ display: 'flex', width: '170px', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '0.85rem', color: config.primaryColor }}>
+                          <span>Total Due:</span><span>$3,157.00</span>
                         </div>
                       </div>
                     );
 
                   case 'notes':
                     return (
-                      <div key={block.id} style={{ fontSize: '0.68rem', color: '#4b5563', maxWidth: '240px' }}>
-                        <strong style={{ display: 'block', marginBottom: '2px' }}>{block.title || 'Notes / Guidelines:'}</strong>
-                        <div>Standard invoice net-30 terms apply. Please process via ACH to Account #99102-A.</div>
+                      <div key={block.id} style={{ fontSize: '0.68rem', color: '#4b5563', maxWidth: '260px' }}>
+                        <strong style={{ display: 'block', marginBottom: '2px', color: config.textColor }}>{block.title || 'Notes / Terms:'}</strong>
+                        <div>Net-30 days billing cycle. Electronic funds transfer to Account #8820-EX.</div>
                       </div>
                     );
 
                   case 'signature':
                     return (
                       <div key={block.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', fontSize: '0.65rem' }}>
-                        <div style={{ fontFamily: 'Times New Roman, serif', fontStyle: 'italic', fontSize: '1rem', color: config.primaryColor, paddingRight: '15px' }}>Acme Corp</div>
-                        <div style={{ width: '110px', height: '0.8px', background: config.textColor }} />
+                        <div style={{ fontFamily: 'Times New Roman, serif', fontStyle: 'italic', fontSize: '1rem', color: config.primaryColor, paddingRight: '15px' }}>Acme Executive</div>
+                        <div style={{ width: '120px', height: '1px', background: config.textColor }} />
                         <span style={{ fontWeight: 'bold' }}>AUTHORIZED SIGNATURE</span>
                       </div>
                     );
@@ -850,10 +952,14 @@ export const TemplateBuilder: React.FC = () => {
                       style={{
                         width: '100%', height: '100%', fontSize: `${el.fontSize || 9}px`,
                         color: el.textColor || config.textColor,
+                        fontFamily: el.fontFamily || config.fontFamily,
                         fontWeight: el.fontStyle?.includes('bold') ? 'bold' : 'normal',
                         fontStyle: el.fontStyle?.includes('italic') ? 'italic' : 'normal',
                         textDecoration: el.textDecoration || 'none',
                         textAlign: el.alignment || 'left',
+                        letterSpacing: `${el.letterSpacing || 0}px`,
+                        lineHeight: el.lineHeight || 1.4,
+                        textTransform: el.textTransform || 'none',
                         padding: `${el.padding || 0}px`,
                         wordBreak: 'break-word',
                         whiteSpace: 'pre-wrap',
@@ -861,6 +967,28 @@ export const TemplateBuilder: React.FC = () => {
                       }}
                     >
                       {el.content}
+                    </div>
+                  )}
+
+                  {/* Image / Logo Mode */}
+                  {el.type === 'image' && (
+                    <div
+                      style={{
+                        width: '100%', height: '100%',
+                        borderRadius: `${el.borderRadius || 0}px`,
+                        overflow: 'hidden',
+                        boxSizing: 'border-box'
+                      }}
+                    >
+                      <img
+                        src={el.imageUrl || 'https://uklrlkpkmuxnvkmpxyzg.supabase.co/storage/v1/object/public/billingflow-logos/organization_logos/placeholder.png'}
+                        alt="Logo Graphic"
+                        style={{
+                          width: '100%', height: '100%',
+                          objectFit: el.objectFit || 'contain',
+                          pointerEvents: 'none'
+                        }}
+                      />
                     </div>
                   )}
 
@@ -888,7 +1016,7 @@ export const TemplateBuilder: React.FC = () => {
                     />
                   )}
 
-                  {/* Selection handles (anchors) */}
+                  {/* Selection handles (anchors for drag resizing) */}
                   {isSelected && !el.locked && (
                     <>
                       <div onMouseDown={(e) => handleHandleMouseDown(e, 'nw')} style={{ position: 'absolute', top: '-4px', left: '-4px', width: '8px', height: '8px', background: '#fff', border: '1.5px solid var(--primary)', cursor: 'nwse-resize', zIndex: 100 }} />
@@ -908,14 +1036,14 @@ export const TemplateBuilder: React.FC = () => {
             })}
 
             {/* Static footer message */}
-            <div style={{ position: 'absolute', bottom: '20px', left: 0, right: 0, fontSize: '0.62rem', color: '#9ca3af', textAlign: 'center', pointerEvents: 'none' }}>
+            <div style={{ position: 'absolute', bottom: '18px', left: 0, right: 0, fontSize: '0.6rem', color: '#9ca3af', textAlign: 'center', pointerEvents: 'none' }}>
               {config.footerText}
             </div>
 
           </div>
         </main>
 
-        {/* RIGHT PANEL: Styling and Layout Config */}
+        {/* RIGHT PANEL: Inspector Controls */}
         <aside style={{
           width: '320px', background: 'var(--bg-secondary)', borderLeft: '1px solid var(--border-color)',
           display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto', padding: '20px', gap: '22px'
@@ -928,7 +1056,7 @@ export const TemplateBuilder: React.FC = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h4 style={{ fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Sliders size={14} color="var(--primary)" />
-                  <span>Element Settings</span>
+                  <span>Element Properties</span>
                 </h4>
                 <div style={{ display: 'flex', gap: '4px' }}>
                   <button onClick={duplicateSelected} title="Duplicate" className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '0.7rem' }}>
@@ -940,332 +1068,264 @@ export const TemplateBuilder: React.FC = () => {
                 </div>
               </div>
 
-              {/* Align relative to Page */}
+              {/* Align relative to Canvas */}
               <div>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, display: 'block', marginBottom: '8px' }}>Align to A4 Canvas</span>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, display: 'block', marginBottom: '8px' }}>Align to Canvas</span>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '4px' }}>
                   <button onClick={() => alignElement('left')} style={{ padding: '6px', fontSize: '0.7rem' }} className="btn btn-secondary" title="Align Left">L</button>
-                  <button onClick={() => alignElement('center')} style={{ padding: '6px', fontSize: '0.7rem' }} className="btn btn-secondary" title="Align Center H">C</button>
+                  <button onClick={() => alignElement('center')} style={{ padding: '6px', fontSize: '0.7rem' }} className="btn btn-secondary" title="Center Horizontally">C</button>
                   <button onClick={() => alignElement('right')} style={{ padding: '6px', fontSize: '0.7rem' }} className="btn btn-secondary" title="Align Right">R</button>
                   <button onClick={() => alignElement('top')} style={{ padding: '6px', fontSize: '0.7rem' }} className="btn btn-secondary" title="Align Top">T</button>
-                  <button onClick={() => alignElement('middle')} style={{ padding: '6px', fontSize: '0.7rem' }} className="btn btn-secondary" title="Align Middle V">M</button>
+                  <button onClick={() => alignElement('middle')} style={{ padding: '6px', fontSize: '0.7rem' }} className="btn btn-secondary" title="Center Vertically">M</button>
                   <button onClick={() => alignElement('bottom')} style={{ padding: '6px', fontSize: '0.7rem' }} className="btn btn-secondary" title="Align Bottom">B</button>
                 </div>
               </div>
 
-              {/* Position and Dimensions Inputs */}
-              <div>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, display: 'block', marginBottom: '8px' }}>Dimensions &amp; Position (px)</span>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>X:</span>
-                    <input type="number" value={selectedElement.x} onChange={(e) => updateSelectedElement({ x: Number(e.target.value) })} className="form-input" style={{ padding: '4px', fontSize: '0.75rem' }} />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Y:</span>
-                    <input type="number" value={selectedElement.y} onChange={(e) => updateSelectedElement({ y: Number(e.target.value) })} className="form-input" style={{ padding: '4px', fontSize: '0.75rem' }} />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>W:</span>
-                    <input type="number" value={selectedElement.width} onChange={(e) => updateSelectedElement({ width: Number(e.target.value) })} className="form-input" style={{ padding: '4px', fontSize: '0.75rem' }} />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>H:</span>
-                    <input type="number" disabled={selectedElement.type === 'line'} value={selectedElement.height} onChange={(e) => updateSelectedElement({ height: Number(e.target.value) })} className="form-input" style={{ padding: '4px', fontSize: '0.75rem' }} />
-                  </div>
-                </div>
-              </div>
-
-              {/* Layer / Depth Ordering */}
-              <div>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, display: 'block', marginBottom: '8px' }}>Arrange Layers</span>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '4px' }}>
-                  <button onClick={() => sendToLayer('front')} title="Bring to Front" className="btn btn-secondary" style={{ padding: '6px' }}><BringToFront size={12} /></button>
-                  <button onClick={() => sendToLayer('up')} title="Move Up" className="btn btn-secondary" style={{ padding: '6px', fontSize: '0.68rem', fontWeight: 'bold' }}>+</button>
-                  <button onClick={() => sendToLayer('down')} title="Move Down" className="btn btn-secondary" style={{ padding: '6px', fontSize: '0.68rem', fontWeight: 'bold' }}>-</button>
-                  <button onClick={() => sendToLayer('back')} title="Send to Back" className="btn btn-secondary" style={{ padding: '6px' }}><SendToBack size={12} /></button>
-                </div>
-              </div>
-
-              {/* TEXT SPECIFIC SETTINGS */}
-              {selectedElement.type === 'text' && (
-                <>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.7rem' }}>Text Content</label>
-                    <textarea
-                      value={selectedElement.content}
-                      onChange={(e) => updateSelectedElement({ content: e.target.value })}
-                      className="form-input"
-                      rows={3}
-                      style={{ fontSize: '0.78rem', resize: 'vertical' }}
+              {/* IMAGE ELEMENT CONTROLS */}
+              {selectedElement.type === 'image' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Logo / Graphic URL</label>
+                    <input
+                      type="text"
+                      value={selectedElement.imageUrl || ''}
+                      onChange={(e) => updateSelectedElement({ imageUrl: e.target.value })}
+                      className="input"
+                      style={{ fontSize: '0.75rem' }}
+                      placeholder="https://..."
                     />
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.7rem' }}>Font Size (pt)</label>
-                      <input type="number" min={5} max={48} value={selectedElement.fontSize} onChange={(e) => updateSelectedElement({ fontSize: Number(e.target.value) })} className="form-input" style={{ fontSize: '0.78rem', padding: '5px' }} />
+                  <div>
+                    <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Object Fit</label>
+                    <select
+                      value={selectedElement.objectFit || 'contain'}
+                      onChange={(e) => updateSelectedElement({ objectFit: e.target.value as any })}
+                      className="input"
+                      style={{ fontSize: '0.75rem' }}
+                    >
+                      <option value="contain">Contain (Keep aspect)</option>
+                      <option value="cover">Cover (Fill bounds)</option>
+                      <option value="fill">Fill (Stretch)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* TEXT ELEMENT CONTROLS */}
+              {selectedElement.type === 'text' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Text Content</label>
+                    <textarea
+                      value={selectedElement.content || ''}
+                      onChange={(e) => updateSelectedElement({ content: e.target.value })}
+                      className="input"
+                      rows={3}
+                      style={{ fontSize: '0.75rem', fontFamily: 'inherit' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Font Family</label>
+                    <select
+                      value={selectedElement.fontFamily || config.fontFamily}
+                      onChange={(e) => updateSelectedElement({ fontFamily: e.target.value })}
+                      className="input"
+                      style={{ fontSize: '0.75rem' }}
+                    >
+                      {fontFamilyOptions.map(f => (
+                        <option key={f.value} value={f.value}>{f.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Font Size ({selectedElement.fontSize || 9}px)</label>
+                      <input
+                        type="range"
+                        min={6}
+                        max={48}
+                        value={selectedElement.fontSize || 9}
+                        onChange={(e) => updateSelectedElement({ fontSize: Number(e.target.value) })}
+                        style={{ width: '100%', accentColor: 'var(--primary)' }}
+                      />
                     </div>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.7rem' }}>Padding (px)</label>
-                      <input type="number" min={0} max={40} value={selectedElement.padding} onChange={(e) => updateSelectedElement({ padding: Number(e.target.value) })} className="form-input" style={{ fontSize: '0.78rem', padding: '5px' }} />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Letter Spacing ({selectedElement.letterSpacing || 0}px)</label>
+                      <input
+                        type="range"
+                        min={-1}
+                        max={8}
+                        step={0.5}
+                        value={selectedElement.letterSpacing || 0}
+                        onChange={(e) => updateSelectedElement({ letterSpacing: Number(e.target.value) })}
+                        style={{ width: '100%', accentColor: 'var(--primary)' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Alignment Buttons */}
+                  <div>
+                    <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Text Alignment</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
+                      <button onClick={() => updateSelectedElement({ alignment: 'left' })} className="btn btn-secondary" style={{ padding: '6px' }}><AlignLeft size={12} /></button>
+                      <button onClick={() => updateSelectedElement({ alignment: 'center' })} className="btn btn-secondary" style={{ padding: '6px' }}><AlignCenter size={12} /></button>
+                      <button onClick={() => updateSelectedElement({ alignment: 'right' })} className="btn btn-secondary" style={{ padding: '6px' }}><AlignRight size={12} /></button>
+                      <button onClick={() => updateSelectedElement({ alignment: 'justify' })} className="btn btn-secondary" style={{ padding: '6px' }}><AlignJustify size={12} /></button>
                     </div>
                   </div>
 
                   <div>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, display: 'block', marginBottom: '8px' }}>Formatting</span>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button
-                        onClick={() => {
-                          const current = selectedElement.fontStyle || 'normal';
-                          let next: any = 'normal';
-                          if (current === 'normal') next = 'bold';
-                          else if (current === 'italic') next = 'bold-italic';
-                          else if (current === 'bold-italic') next = 'italic';
-                          updateSelectedElement({ fontStyle: next });
-                        }}
-                        className={`btn ${selectedElement.fontStyle?.includes('bold') ? 'btn-primary' : 'btn-secondary'}`}
-                        style={{ padding: '6px 12px' }}
-                      >
-                        <Bold size={12} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          const current = selectedElement.fontStyle || 'normal';
-                          let next: any = 'normal';
-                          if (current === 'normal') next = 'italic';
-                          else if (current === 'bold') next = 'bold-italic';
-                          else if (current === 'bold-italic') next = 'bold';
-                          updateSelectedElement({ fontStyle: next });
-                        }}
-                        className={`btn ${selectedElement.fontStyle?.includes('italic') ? 'btn-primary' : 'btn-secondary'}`}
-                        style={{ padding: '6px 12px' }}
-                      >
-                        <Italic size={12} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          const current = selectedElement.textDecoration || 'none';
-                          updateSelectedElement({ textDecoration: current === 'underline' ? 'none' : 'underline' });
-                        }}
-                        className={`btn ${selectedElement.textDecoration === 'underline' ? 'btn-primary' : 'btn-secondary'}`}
-                        style={{ padding: '6px 12px' }}
-                      >
-                        <Underline size={12} />
-                      </button>
+                    <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Text Color</label>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <input
+                        type="color"
+                        value={selectedElement.textColor || config.textColor}
+                        onChange={(e) => updateSelectedElement({ textColor: e.target.value })}
+                        style={{ width: '32px', height: '32px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                      />
+                      <input
+                        type="text"
+                        value={selectedElement.textColor || config.textColor}
+                        onChange={(e) => updateSelectedElement({ textColor: e.target.value })}
+                        className="input"
+                        style={{ fontSize: '0.75rem', flex: 1 }}
+                      />
                     </div>
                   </div>
-
-                  <div>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, display: 'block', marginBottom: '8px' }}>Alignment</span>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button onClick={() => updateSelectedElement({ alignment: 'left' })} className={`btn ${selectedElement.alignment === 'left' ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '6px 12px' }}><AlignLeft size={12} /></button>
-                      <button onClick={() => updateSelectedElement({ alignment: 'center' })} className={`btn ${selectedElement.alignment === 'center' ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '6px 12px' }}><AlignCenter size={12} /></button>
-                      <button onClick={() => updateSelectedElement({ alignment: 'right' })} className={`btn ${selectedElement.alignment === 'right' ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '6px 12px' }}><AlignRight size={12} /></button>
-                    </div>
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.7rem' }}>Text Shade Color</label>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <input type="color" value={selectedElement.textColor || config.textColor} onChange={(e) => updateSelectedElement({ textColor: e.target.value })} style={{ width: '32px', height: '32px', border: '1px solid var(--border-color)', padding: 0, borderRadius: '4px', cursor: 'pointer' }} />
-                      <input type="text" value={selectedElement.textColor || config.textColor} onChange={(e) => updateSelectedElement({ textColor: e.target.value })} className="form-input" style={{ fontSize: '0.78rem', flex: 1, padding: '4px' }} />
-                    </div>
-                  </div>
-                </>
+                </div>
               )}
 
-              {/* SHAPE / LINE SPECIFIC SETTINGS */}
-              {(selectedElement.type === 'shape' || selectedElement.type === 'line') && (
-                <>
-                  {selectedElement.type === 'shape' && (
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.7rem' }}>Fill Shade Color</label>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <input type="color" value={selectedElement.fillColor || config.primaryColor} onChange={(e) => updateSelectedElement({ fillColor: e.target.value })} style={{ width: '32px', height: '32px', border: '1px solid var(--border-color)', padding: 0, borderRadius: '4px', cursor: 'pointer' }} />
-                        <input type="text" value={selectedElement.fillColor || config.primaryColor} onChange={(e) => updateSelectedElement({ fillColor: e.target.value })} className="form-input" style={{ fontSize: '0.78rem', flex: 1, padding: '4px' }} />
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedElement.type === 'shape' && (
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.7rem' }}>Fill Opacity (0.0 - 1.0)</label>
-                      <input type="range" min={0} max={1} step={0.05} value={selectedElement.fillOpacity ?? 0.2} onChange={(e) => updateSelectedElement({ fillOpacity: Number(e.target.value) })} style={{ width: '100%', cursor: 'pointer', accentColor: 'var(--primary)' }} />
-                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{(selectedElement.fillOpacity ?? 0.2).toFixed(2)}</span>
-                    </div>
-                  )}
-
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.7rem' }}>Border Color</label>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <input type="color" value={selectedElement.borderColor || config.primaryColor} onChange={(e) => updateSelectedElement({ borderColor: e.target.value })} style={{ width: '32px', height: '32px', border: '1px solid var(--border-color)', padding: 0, borderRadius: '4px', cursor: 'pointer' }} />
-                      <input type="text" value={selectedElement.borderColor || config.primaryColor} onChange={(e) => updateSelectedElement({ borderColor: e.target.value })} className="form-input" style={{ fontSize: '0.78rem', flex: 1, padding: '4px' }} />
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.7rem' }}>Border Thickness</label>
-                      <input type="number" min={0} max={10} step={0.5} value={selectedElement.borderWidth} onChange={(e) => updateSelectedElement({ borderWidth: Number(e.target.value) })} className="form-input" style={{ fontSize: '0.78rem', padding: '5px' }} />
-                    </div>
-                    {selectedElement.type === 'shape' && selectedElement.shapeType === 'rect' && (
-                      <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: '0.7rem' }}>Corner Radius</label>
-                        <input type="number" min={0} max={50} value={selectedElement.borderRadius} onChange={(e) => updateSelectedElement({ borderRadius: Number(e.target.value) })} className="form-input" style={{ fontSize: '0.78rem', padding: '5px' }} />
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
+              {/* Dimensions Input */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div>
+                  <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Width (px)</label>
+                  <input
+                    type="number"
+                    value={selectedElement.width}
+                    onChange={(e) => updateSelectedElement({ width: Number(e.target.value) })}
+                    className="input"
+                    style={{ fontSize: '0.75rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Height (px)</label>
+                  <input
+                    type="number"
+                    value={selectedElement.height}
+                    onChange={(e) => updateSelectedElement({ height: Number(e.target.value) })}
+                    className="input"
+                    style={{ fontSize: '0.75rem' }}
+                  />
+                </div>
+              </div>
             </div>
           ) : (
-            // ================= GLOBAL PAGE SETTINGS =================
+            // ================= GLOBAL TEMPLATE CONFIGURATION =================
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <h4 style={{ fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <SettingsIcon size={14} color="var(--primary)" />
-                <span>Page Attributes</span>
+                <Palette size={14} color="var(--primary)" />
+                <span>Global Styles &amp; Theme</span>
               </h4>
 
-              {/* Color Presets */}
               <div>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, display: 'block', marginBottom: '8px' }}>Color presets</span>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  {colorPresets.map((pr) => (
-                    <button
-                      key={pr.name}
-                      onClick={() => setConfig({
-                        ...config,
-                        primaryColor: pr.primary,
-                        textColor: pr.text,
-                        backgroundColor: pr.bg,
-                        bgGradientEnabled: false
-                      })}
-                      title={pr.name}
-                      style={{
-                        width: '28px', height: '28px', borderRadius: '50%', background: pr.primary,
-                        border: '2px solid var(--border-color)', cursor: 'pointer', position: 'relative'
-                      }}
-                    >
-                      <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', background: pr.bg, borderRadius: '50%', border: '1px solid #ddd' }} />
-                    </button>
+                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Primary Theme Color</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="color"
+                    value={config.primaryColor}
+                    onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })}
+                    style={{ width: '32px', height: '32px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                  />
+                  <input
+                    type="text"
+                    value={config.primaryColor}
+                    onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })}
+                    className="input"
+                    style={{ fontSize: '0.75rem', flex: 1 }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Default Font Family</label>
+                <select
+                  value={config.fontFamily}
+                  onChange={(e) => setConfig({ ...config, fontFamily: e.target.value })}
+                  className="input"
+                  style={{ fontSize: '0.75rem' }}
+                >
+                  {fontFamilyOptions.map(f => (
+                    <option key={f.value} value={f.value}>{f.label}</option>
                   ))}
-                </div>
-              </div>
-
-              {/* Custom Color Pickers */}
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label" style={{ fontSize: '0.7rem' }}>Primary Brand Color</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input type="color" value={config.primaryColor} onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })} style={{ width: '32px', height: '32px', border: '1px solid var(--border-color)', padding: 0, borderRadius: '4px', cursor: 'pointer' }} />
-                  <input type="text" value={config.primaryColor} onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })} className="form-input" style={{ fontSize: '0.78rem', flex: 1, padding: '4px' }} />
-                </div>
-              </div>
-
-              {/* Gradient Toggle */}
-              <div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={config.bgGradientEnabled} onChange={(e) => setConfig({ ...config, bgGradientEnabled: e.target.checked })} style={{ accentColor: 'var(--primary)' }} />
-                  <span>Use Shade Gradient Background</span>
-                </label>
-              </div>
-
-              {config.bgGradientEnabled ? (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.65rem' }}>Gradient Start</label>
-                    <input type="color" value={config.bgGradientStart} onChange={(e) => setConfig({ ...config, bgGradientStart: e.target.value })} style={{ width: '100%', height: '24px', border: '1px solid var(--border-color)', cursor: 'pointer' }} />
-                  </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.65rem' }}>Gradient End</label>
-                    <input type="color" value={config.bgGradientEnd} onChange={(e) => setConfig({ ...config, bgGradientEnd: e.target.value })} style={{ width: '100%', height: '24px', border: '1px solid var(--border-color)', cursor: 'pointer' }} />
-                  </div>
-                </div>
-              ) : (
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.7rem' }}>Background Color</label>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <input type="color" value={config.backgroundColor} onChange={(e) => setConfig({ ...config, backgroundColor: e.target.value })} style={{ width: '32px', height: '32px', border: '1px solid var(--border-color)', padding: 0, borderRadius: '4px', cursor: 'pointer' }} />
-                    <input type="text" value={config.backgroundColor} onChange={(e) => setConfig({ ...config, backgroundColor: e.target.value })} className="form-input" style={{ fontSize: '0.78rem', flex: 1, padding: '4px' }} />
-                  </div>
-                </div>
-              )}
-
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label" style={{ fontSize: '0.7rem' }}>Global Text Color</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input type="color" value={config.textColor} onChange={(e) => setConfig({ ...config, textColor: e.target.value })} style={{ width: '32px', height: '32px', border: '1px solid var(--border-color)', padding: 0, borderRadius: '4px', cursor: 'pointer' }} />
-                  <input type="text" value={config.textColor} onChange={(e) => setConfig({ ...config, textColor: e.target.value })} className="form-input" style={{ fontSize: '0.78rem', flex: 1, padding: '4px' }} />
-                </div>
-              </div>
-
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label" style={{ fontSize: '0.7rem' }}>Typography Family</label>
-                <select value={config.fontFamily} onChange={(e) => setConfig({ ...config, fontFamily: e.target.value as any })} className="form-input" style={{ fontSize: '0.78rem', padding: '4px' }}>
-                  <option value="Helvetica">Helvetica (Sans Serif)</option>
-                  <option value="Courier">Courier (Monospace)</option>
-                  <option value="Times-Roman">Times New Roman (Elegant Serif)</option>
                 </select>
               </div>
 
-              {/* Margins */}
               <div>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, display: 'block', marginBottom: '8px' }}>Page Margins (px)</span>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Top:</span>
-                    <input type="number" min={10} max={150} value={config.marginTop} onChange={(e) => setConfig({ ...config, marginTop: Number(e.target.value) })} className="form-input" style={{ padding: '4px', fontSize: '0.75rem' }} />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Bottom:</span>
-                    <input type="number" min={10} max={150} value={config.marginBottom} onChange={(e) => setConfig({ ...config, marginBottom: Number(e.target.value) })} className="form-input" style={{ padding: '4px', fontSize: '0.75rem' }} />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Left:</span>
-                    <input type="number" min={10} max={150} value={config.marginLeft} onChange={(e) => setConfig({ ...config, marginLeft: Number(e.target.value) })} className="form-input" style={{ padding: '4px', fontSize: '0.75rem' }} />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Right:</span>
-                    <input type="number" min={10} max={150} value={config.marginRight} onChange={(e) => setConfig({ ...config, marginRight: Number(e.target.value) })} className="form-input" style={{ padding: '4px', fontSize: '0.75rem' }} />
-                  </div>
-                </div>
-              </div>
-
-              {/* Block Properties specific settings */}
-              {config.blocks.find(b => b.type === 'header')?.active && (
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.7rem' }}>Header Title Text</label>
-                  <input type="text" value={config.blocks.find(b => b.type === 'header')?.title || ''} onChange={(e) => updateBlockProps('block_header', { title: e.target.value })} className="form-input" style={{ fontSize: '0.78rem', padding: '5px' }} />
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.68rem', marginTop: '6px', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={config.blocks.find(b => b.type === 'header')?.showLogo !== false} onChange={(e) => updateBlockProps('block_header', { showLogo: e.target.checked })} style={{ accentColor: 'var(--primary)' }} />
-                    <span>Show Brand Logo</span>
-                  </label>
-                </div>
-              )}
-
-              {config.blocks.find(b => b.type === 'notes')?.active && (
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.7rem' }}>Notes Section Label</label>
-                  <input type="text" value={config.blocks.find(b => b.type === 'notes')?.title || ''} onChange={(e) => updateBlockProps('block_notes', { title: e.target.value })} className="form-input" style={{ fontSize: '0.78rem', padding: '5px' }} />
-                </div>
-              )}
-
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label" style={{ fontSize: '0.7rem' }}>Footer Copyright / Note</label>
+                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Footer Disclaimer Text</label>
                 <textarea
                   value={config.footerText}
                   onChange={(e) => setConfig({ ...config, footerText: e.target.value })}
-                  className="form-input"
-                  rows={2}
-                  style={{ resize: 'none', fontSize: '0.78rem' }}
+                  className="input"
+                  rows={3}
+                  style={{ fontSize: '0.75rem', fontFamily: 'inherit' }}
                 />
+              </div>
+
+              {/* Margin Controls */}
+              <div>
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 700, display: 'block', marginBottom: '8px' }}>Page Margins (px)</span>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Top ({config.marginTop}px)</label>
+                    <input type="range" min={20} max={100} value={config.marginTop} onChange={(e) => setConfig({ ...config, marginTop: Number(e.target.value) })} style={{ width: '100%', accentColor: 'var(--primary)' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Side ({config.marginLeft}px)</label>
+                    <input type="range" min={20} max={100} value={config.marginLeft} onChange={(e) => setConfig({ ...config, marginLeft: Number(e.target.value) })} style={{ width: '100%', accentColor: 'var(--primary)' }} />
+                  </div>
+                </div>
               </div>
             </div>
           )}
-
         </aside>
-
       </div>
+
+      {/* JSON Schema Import Modal */}
+      {showJsonModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div className="glass-card fade-in" style={{ width: '100%', maxWidth: '540px', padding: '28px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FileCode size={18} color="var(--primary)" /><span>Import Layout Schema (JSON / MongoDB)</span>
+              </h3>
+              <button onClick={() => setShowJsonModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
+            </div>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0 }}>
+              Paste any custom template layout JSON object below to load it into the canvas workspace. Compatible with MongoDB Atlas JSON document collections.
+            </p>
+            <textarea
+              value={jsonInputText}
+              onChange={(e) => setJsonInputText(e.target.value)}
+              className="input"
+              rows={10}
+              placeholder={`{\n  "primaryColor": "#6366f1",\n  "fontFamily": "Inter",\n  "elements": [...]\n}`}
+              style={{ fontFamily: 'Courier Prime, monospace', fontSize: '0.75rem' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button onClick={() => setShowJsonModal(false)} className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '0.8rem' }}>Cancel</button>
+              <button onClick={handleImportJsonSubmit} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.8rem' }}>Apply JSON Schema</button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
