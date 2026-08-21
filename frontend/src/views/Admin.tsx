@@ -257,12 +257,12 @@ export const Admin: React.FC = () => {
   }
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '32px', maxWidth: '1200px', margin: '0 auto' }}>
-      
+    <div className="page-container" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
       {/* Title */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="page-header">
         <div>
-          <h2 style={{ fontSize: '1.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }} className="text-gradient">
+          <h2 style={{ fontSize: 'clamp(1.3rem, 4vw, 1.75rem)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }} className="text-gradient">
             <Shield size={24} color="var(--primary)" />
             <span>Admin Control Panel</span>
           </h2>
@@ -289,35 +289,40 @@ export const Admin: React.FC = () => {
       )}
 
       {/* Tabs */}
-      <div style={{
-        display: 'flex',
-        background: 'rgba(0, 0, 0, 0.02)',
-        border: '1px solid var(--border-color)',
-        borderRadius: 'var(--radius-md)',
-        padding: '4px',
-        gap: '4px',
-        maxWidth: 'fit-content'
-      }}>
-        {['overview', 'orgs', 'users', 'invoices', 'payments'].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveSubTab(tab as any)}
-            style={{
-              background: activeSubTab === tab ? 'var(--primary)' : 'transparent',
-              color: activeSubTab === tab ? '#fff' : 'var(--text-secondary)',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '8px 16px',
-              fontSize: '0.85rem',
-              fontWeight: 500,
-              cursor: 'pointer',
-              textTransform: 'capitalize',
-              transition: 'all var(--transition-fast)'
-            }}
-          >
-            {tab === 'orgs' ? 'Organizations (Tenants)' : tab}
-          </button>
-        ))}
+      <div className="tab-bar-scroll">
+        <div style={{
+          display: 'flex',
+          background: 'rgba(0, 0, 0, 0.02)',
+          border: '1px solid var(--border-color)',
+          borderRadius: 'var(--radius-md)',
+          padding: '4px',
+          gap: '4px',
+          width: 'max-content',
+          minWidth: '100%'
+        }}>
+          {['overview', 'orgs', 'users', 'invoices', 'payments'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveSubTab(tab as any)}
+              style={{
+                background: activeSubTab === tab ? 'var(--primary)' : 'transparent',
+                color: activeSubTab === tab ? '#fff' : 'var(--text-secondary)',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 14px',
+                fontSize: '0.82rem',
+                fontWeight: 500,
+                cursor: 'pointer',
+                textTransform: 'capitalize',
+                transition: 'all var(--transition-fast)',
+                whiteSpace: 'nowrap',
+                flex: 1
+              }}
+            >
+              {tab === 'orgs' ? 'Organizations' : tab}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Subtab Contents */}
@@ -333,7 +338,7 @@ export const Admin: React.FC = () => {
           {/* 1. OVERVIEW */}
           {activeSubTab === 'overview' && stats && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+              <div className="stats-grid">
                 <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                   <div style={{ background: 'var(--primary-glow)', color: 'var(--primary)', padding: '12px', borderRadius: '12px' }}>
                     <Building size={24} />

@@ -77,15 +77,15 @@ export const Billing: React.FC = () => {
   const currentStatus = organization?.subscriptionStatus || 'none';
 
   return (
-    <div style={{ padding: '32px', maxWidth: '1000px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-      
+    <div className="page-container" style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+
       {/* Header */}
       <div>
-        <h2 style={{ fontSize: '1.75rem', fontWeight: 700 }} className="text-gradient">
-          SaaS Billing & Subscriptions
+        <h2 style={{ fontSize: 'clamp(1.3rem, 4vw, 1.75rem)', fontWeight: 700 }} className="text-gradient">
+          SaaS Billing &amp; Subscriptions
         </h2>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '4px' }}>
-          Select or update your SaaS Invoice & Billing Manager organization plan.
+          Select or update your SaaS organization subscription tier.
         </p>
       </div>
 
@@ -102,7 +102,7 @@ export const Billing: React.FC = () => {
           gap: '12px'
         }}>
           <Check size={20} />
-          <span>Success! Your subscription has been active. Thank you for subscribing!</span>
+          <span>Success! Your subscription is active. Thank you for subscribing!</span>
         </div>
       )}
 
@@ -137,7 +137,7 @@ export const Billing: React.FC = () => {
       )}
 
       {/* Plan Status Banner */}
-      <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'radial-gradient(circle at 100% 0%, var(--primary-glow) 0%, transparent 60%), var(--glass-bg)' }}>
+      <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', background: 'radial-gradient(circle at 100% 0%, var(--primary-glow) 0%, transparent 60%), var(--glass-bg)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Subscription Status</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -149,8 +149,8 @@ export const Billing: React.FC = () => {
             </span>
           </div>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            {currentPlan === 'free' 
-              ? 'Upgrade to a paid tier to unlock unlimited invoices and advanced analytics.' 
+            {currentPlan === 'free'
+              ? 'Upgrade to a paid tier to unlock unlimited invoices and advanced analytics.'
               : `Your account is active. Next renewal is handled via Stripe billing portal.`}
           </p>
         </div>
@@ -163,7 +163,7 @@ export const Billing: React.FC = () => {
       </div>
 
       {/* Subscription Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
+      <div className="billing-plans-grid">
         
         {/* Free Plan */}
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', textAlign: "center", border: currentPlan === 'free' ? '2px solid var(--border-focus)' : '1px solid var(--border-color)', opacity: currentPlan === 'free' ? 1 : 0.7 }}>

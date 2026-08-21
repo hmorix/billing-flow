@@ -543,10 +543,10 @@ export const TemplateBuilder: React.FC = () => {
       {/* Builder Header Bar */}
       <header style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '12px 24px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)',
-        zIndex: 20, flexShrink: 0
+        padding: '10px 16px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)',
+        zIndex: 20, flexShrink: 0, overflowX: 'auto', gap: '12px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           <button
             onClick={() => navigate('/settings/design')}
             style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px' }}
@@ -560,19 +560,16 @@ export const TemplateBuilder: React.FC = () => {
             onChange={(e) => setTemplateName(e.target.value)}
             style={{
               background: 'transparent', border: 'none', fontSize: '0.95rem', fontWeight: 700,
-              color: 'var(--text-primary)', width: '240px', borderBottom: '1px solid transparent', padding: '2px'
+              color: 'var(--text-primary)', width: '180px', borderBottom: '1px solid transparent', padding: '2px'
             }}
             placeholder="Template Name"
             onFocus={(e) => e.target.style.borderBottomColor = 'var(--primary)'}
             onBlur={(e) => e.target.style.borderBottomColor = 'transparent'}
           />
-          <span className="badge badge-info" style={{ fontSize: '0.68rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Database size={10} /> MongoDB Atlas Ready
-          </span>
         </div>
 
         {/* Status Messages */}
-        <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', minWidth: '100px' }}>
           {success && (
             <div className="fade-in" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--success)', fontSize: '0.78rem', background: 'rgba(16,185,129,0.06)', padding: '4px 12px', borderRadius: '20px', border: '1px solid rgba(16,185,129,0.1)' }}>
               <CheckCircle2 size={12} /><span>{success}</span>
@@ -585,7 +582,7 @@ export const TemplateBuilder: React.FC = () => {
           )}
         </div>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
           <button
             type="button"
             onClick={handleExportJson}
@@ -593,7 +590,7 @@ export const TemplateBuilder: React.FC = () => {
             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '0.78rem' }}
             title="Download Template Layout Schema JSON"
           >
-            <Download size={14} /><span>Export JSON</span>
+            <Download size={14} /><span>Export</span>
           </button>
           <button
             type="button"
@@ -602,16 +599,16 @@ export const TemplateBuilder: React.FC = () => {
             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '0.78rem' }}
             title="Import Custom JSON Schema"
           >
-            <FileCode size={14} /><span>Import JSON</span>
+            <FileCode size={14} /><span>Import</span>
           </button>
           <button
             type="button"
             disabled={isSaving}
             onClick={() => handleSave('draft')}
             className="btn btn-secondary"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', fontSize: '0.78rem' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '0.78rem' }}
           >
-            <Save size={14} /><span>Save Draft</span>
+            <Save size={14} /><span>Draft</span>
           </button>
           <button
             type="button"
@@ -626,7 +623,7 @@ export const TemplateBuilder: React.FC = () => {
       </header>
 
       {/* Main Workspace */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flex: 1, overflowX: 'auto', overflowY: 'hidden' }}>
 
         {/* LEFT PANEL: Sections, Blocks, Layers */}
         <aside style={{

@@ -158,7 +158,7 @@ export const InvoiceEdit: React.FC = () => {
   }
 
   return (
-    <div style={{ padding: '32px', maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="page-container" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
       {/* Back Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -185,7 +185,7 @@ export const InvoiceEdit: React.FC = () => {
       <form onSubmit={handleSubmit} className="glass-card fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         
         {/* Core fields */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+        <div className="form-grid-2">
           
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Select Client *</label>
@@ -219,7 +219,7 @@ export const InvoiceEdit: React.FC = () => {
 
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+        <div className="grid-3-col">
           
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Issue Date *</label>
@@ -282,8 +282,7 @@ export const InvoiceEdit: React.FC = () => {
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {items.map((item, idx) => (
-              <div key={idx} style={{ display: 'grid', gridTemplateColumns: '3fr 1fr 1.5fr auto', gap: '14px', alignItems: 'center' }}>
-                
+              <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
                 <input
                   type="text"
                   required
@@ -292,38 +291,40 @@ export const InvoiceEdit: React.FC = () => {
                   value={item.description}
                   onChange={(e) => handleItemChange(idx, 'description', e.target.value)}
                 />
-
-                <input
-                  type="number"
-                  required
-                  min="1"
-                  placeholder="Qty"
-                  className="form-input"
-                  value={item.quantity || ''}
-                  onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
-                />
-
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  step="0.01"
-                  placeholder="Unit Price"
-                  className="form-input"
-                  value={item.unit_price || ''}
-                  onChange={(e) => handleItemChange(idx, 'unit_price', e.target.value)}
-                />
-
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  style={{ padding: '12px' }}
-                  onClick={() => handleRemoveItem(idx)}
-                  disabled={items.length === 1}
-                >
-                  <Trash2 size={16} />
-                </button>
-
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <div style={{ flex: 1 }}>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      placeholder="Qty"
+                      className="form-input"
+                      value={item.quantity || ''}
+                      onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
+                    />
+                  </div>
+                  <div style={{ flex: 2 }}>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      step="0.01"
+                      placeholder="Unit Price"
+                      className="form-input"
+                      value={item.unit_price || ''}
+                      onChange={(e) => handleItemChange(idx, 'unit_price', e.target.value)}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    style={{ padding: '12px', flexShrink: 0 }}
+                    onClick={() => handleRemoveItem(idx)}
+                    disabled={items.length === 1}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -342,7 +343,7 @@ export const InvoiceEdit: React.FC = () => {
         <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)' }} />
 
         {/* Bottom Panel (Calculations & Notes) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '32px' }}>
+        <div className="form-grid-2" style={{ gap: '32px' }}>
           
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Notes & Payment terms</label>

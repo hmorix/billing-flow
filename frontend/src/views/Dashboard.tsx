@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { DollarSign, AlertCircle, Calendar, RefreshCw, Mail, Activity, ArrowUpRight } from 'lucide-react';
+import { DollarSign, AlertCircle, Calendar, RefreshCw, Mail, Activity } from 'lucide-react';
 
 interface MetricData {
   totalRevenue: number;
@@ -61,29 +61,28 @@ export const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [organization?.subscriptionPlan]); // Reload if user modifies subscription plan
+  }, [organization?.subscriptionPlan]);
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="page-container" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ width: '200px', height: '28px', background: 'var(--bg-tertiary)', borderRadius: '4px' }} className="pulse-glow"></div>
           <div style={{ width: '100px', height: '36px', background: 'var(--bg-tertiary)', borderRadius: '4px' }} className="pulse-glow"></div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+        <div className="stats-grid">
           {[1, 2, 3, 4].map(n => (
-            <div key={n} style={{ height: '120px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)' }} className="pulse-glow"></div>
+            <div key={n} style={{ height: '110px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)' }} className="pulse-glow"></div>
           ))}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
-          <div style={{ height: '300px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)' }} className="pulse-glow"></div>
-          <div style={{ height: '300px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)' }} className="pulse-glow"></div>
+        <div className="dashboard-main-grid">
+          <div style={{ height: '280px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)' }} className="pulse-glow"></div>
+          <div style={{ height: '280px', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)' }} className="pulse-glow"></div>
         </div>
       </div>
     );
   }
 
-  // Calculate parameters for custom SVG line chart
   const maxRevenue = Math.max(...graphData.map(d => d.revenue), 1000);
   const chartWidth = 500;
   const chartHeight = 180;
@@ -98,21 +97,21 @@ export const Dashboard: React.FC = () => {
     return i === 0 ? `M ${pt.x} ${pt.y}` : `${path} L ${pt.x} ${pt.y}`;
   }, '');
 
-  const areaPath = points.length > 0 
+  const areaPath = points.length > 0
     ? `${linePath} L ${points[points.length - 1].x} ${chartHeight - chartPadding} L ${points[0].x} ${chartHeight - chartPadding} Z`
     : '';
 
-  const totalInvoices = metrics 
+  const totalInvoices = metrics
     ? metrics.distribution.draft + metrics.distribution.sent + metrics.distribution.paid + metrics.distribution.overdue
     : 0;
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '32px', maxWidth: '1200px', margin: '0 auto' }}>
-      
+    <div className="page-container" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
       {/* Title */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="page-header">
         <div>
-          <h2 style={{ fontSize: '1.75rem', fontWeight: 700 }} className="text-gradient">
+          <h2 style={{ fontSize: 'clamp(1.25rem, 4vw, 1.75rem)', fontWeight: 700 }} className="text-gradient">
             Financial Dashboard
           </h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '4px' }}>
@@ -127,66 +126,60 @@ export const Dashboard: React.FC = () => {
 
       {/* Metrics Row */}
       {metrics && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
-          
+        <div className="stats-grid">
           <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', padding: '12px', borderRadius: '12px' }}>
-              <DollarSign size={24} />
+            <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', padding: '12px', borderRadius: '12px', flexShrink: 0 }}>
+              <DollarSign size={22} />
             </div>
-            <div>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Revenue</p>
-              <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginTop: '2px' }}>${metrics.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Revenue</p>
+              <h3 style={{ fontSize: 'clamp(1.1rem, 3vw, 1.5rem)', fontWeight: 700, marginTop: '2px' }}>${metrics.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
             </div>
-            <div style={{ position: 'absolute', bottom: '-20px', right: '-20px', fontSize: '5rem', opacity: 0.03, color: 'var(--success)', fontWeight: 800 }}>$</div>
           </div>
 
           <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ background: 'var(--primary-glow)', color: 'var(--primary)', padding: '12px', borderRadius: '12px' }}>
-              <Calendar size={24} />
+            <div style={{ background: 'var(--primary-glow)', color: 'var(--primary)', padding: '12px', borderRadius: '12px', flexShrink: 0 }}>
+              <Calendar size={22} />
             </div>
-            <div>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Month collections</p>
-              <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginTop: '2px' }}>${metrics.businessMonthlyRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Month Collections</p>
+              <h3 style={{ fontSize: 'clamp(1.1rem, 3vw, 1.5rem)', fontWeight: 700, marginTop: '2px' }}>${metrics.businessMonthlyRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
             </div>
-            <div style={{ position: 'absolute', bottom: '-20px', right: '-20px', fontSize: '5rem', opacity: 0.03, color: 'var(--primary)', fontWeight: 800 }}>$</div>
           </div>
 
           <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ background: 'rgba(244, 63, 94, 0.1)', color: 'var(--danger)', padding: '12px', borderRadius: '12px' }}>
-              <AlertCircle size={24} />
+            <div style={{ background: 'rgba(244, 63, 94, 0.1)', color: 'var(--danger)', padding: '12px', borderRadius: '12px', flexShrink: 0 }}>
+              <AlertCircle size={22} />
             </div>
-            <div>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Outstanding balance</p>
-              <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginTop: '2px' }}>${metrics.outstandingAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Outstanding</p>
+              <h3 style={{ fontSize: 'clamp(1.1rem, 3vw, 1.5rem)', fontWeight: 700, marginTop: '2px' }}>${metrics.outstandingAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
             </div>
-            <div style={{ position: 'absolute', bottom: '-20px', right: '-20px', fontSize: '5rem', opacity: 0.03, color: 'var(--danger)', fontWeight: 800 }}>!</div>
           </div>
 
           <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ background: 'rgba(6, 182, 212, 0.1)', color: 'var(--accent)', padding: '12px', borderRadius: '12px' }}>
-              <RefreshCw size={24} />
+            <div style={{ background: 'rgba(6, 182, 212, 0.1)', color: 'var(--accent)', padding: '12px', borderRadius: '12px', flexShrink: 0 }}>
+              <RefreshCw size={22} />
             </div>
-            <div>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>SaaS Subscription MRR</p>
-              <h3 style={{ fontSize: '1.5rem', fontWeight: 700, marginTop: '2px' }}>${metrics.saasSubscriptionMrr}/mo</h3>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>SaaS MRR</p>
+              <h3 style={{ fontSize: 'clamp(1.1rem, 3vw, 1.5rem)', fontWeight: 700, marginTop: '2px' }}>${metrics.saasSubscriptionMrr}/mo</h3>
             </div>
-            <div style={{ position: 'absolute', bottom: '-20px', right: '-20px', fontSize: '5rem', opacity: 0.03, color: 'var(--accent)', fontWeight: 800 }}>M</div>
           </div>
-
         </div>
       )}
 
-      {/* Main Grid: Chart & Status Info */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
-        
+      {/* Main Grid: Chart & Status */}
+      <div className="dashboard-main-grid">
+
         {/* Custom SVG Line Chart */}
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <h4 style={{ fontSize: '1rem', fontWeight: 600 }}>Invoice Collection History</h4>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Last 6 Months</span>
           </div>
 
-          <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '150px' }}>
             {graphData.length > 0 ? (
               <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
                 <defs>
@@ -196,69 +189,29 @@ export const Dashboard: React.FC = () => {
                   </linearGradient>
                 </defs>
 
-                {/* Y Grid lines */}
                 {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => {
                   const y = chartPadding + ratio * (chartHeight - 2 * chartPadding);
                   return (
-                    <line
-                      key={idx}
-                      x1={chartPadding}
-                      y1={y}
-                      x2={chartWidth - chartPadding}
-                      y2={y}
-                      stroke="rgba(255,255,255,0.03)"
-                      strokeWidth="1"
-                    />
+                    <line key={idx} x1={chartPadding} y1={y} x2={chartWidth - chartPadding} y2={y}
+                      stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
                   );
                 })}
 
-                {/* Shaded Area under line */}
                 {areaPath && <path d={areaPath} fill="url(#chart-gradient)" />}
 
-                {/* The main glowing line path */}
                 {linePath && (
-                  <path
-                    d={linePath}
-                    fill="none"
-                    stroke="var(--primary)"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    style={{ filter: 'drop-shadow(0px 4px 10px rgba(99, 102, 241, 0.5))' }}
-                  />
+                  <path d={linePath} fill="none" stroke="var(--primary)" strokeWidth="3"
+                    strokeLinecap="round" strokeLinejoin="round"
+                    style={{ filter: 'drop-shadow(0px 4px 10px rgba(99, 102, 241, 0.5))' }} />
                 )}
 
-                {/* Data points */}
                 {points.map((pt, idx) => (
                   <g key={idx}>
-                    <circle
-                      cx={pt.x}
-                      cy={pt.y}
-                      r="4"
-                      fill="var(--bg-secondary)"
-                      stroke="var(--primary)"
-                      strokeWidth="2.5"
-                    />
-                    {/* Tooltip value */}
-                    <text
-                      x={pt.x}
-                      y={pt.y - 8}
-                      textAnchor="middle"
-                      fill="var(--text-primary)"
-                      fontSize="8"
-                      fontWeight="600"
-                    >
+                    <circle cx={pt.x} cy={pt.y} r="4" fill="var(--bg-secondary)" stroke="var(--primary)" strokeWidth="2.5" />
+                    <text x={pt.x} y={pt.y - 8} textAnchor="middle" fill="var(--text-primary)" fontSize="8" fontWeight="600">
                       ${pt.revenue.toFixed(0)}
                     </text>
-                    {/* Month labels */}
-                    <text
-                      x={pt.x}
-                      y={chartHeight - 6}
-                      textAnchor="middle"
-                      fill="var(--text-muted)"
-                      fontSize="8"
-                      fontWeight="500"
-                    >
+                    <text x={pt.x} y={chartHeight - 6} textAnchor="middle" fill="var(--text-muted)" fontSize="8" fontWeight="500">
                       {pt.name}
                     </text>
                   </g>
@@ -270,106 +223,65 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Invoice Status Distribution (Circular/Bar) */}
+        {/* Invoice Status Distribution */}
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <h4 style={{ fontSize: '1rem', fontWeight: 600 }}>Invoice Status</h4>
 
           {metrics && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', justifyContent: 'center', height: '100%' }}>
-              
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }}></span>
-                    Paid
-                  </span>
-                  <span style={{ fontWeight: 600 }}>{metrics.distribution.paid} / {totalInvoices}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
+              {[
+                { label: 'Paid', count: metrics.distribution.paid, color: 'var(--success)' },
+                { label: 'Sent / Pending', count: metrics.distribution.sent, color: 'var(--primary)' },
+                { label: 'Overdue', count: metrics.distribution.overdue, color: 'var(--danger)' },
+                { label: 'Drafts', count: metrics.distribution.draft, color: 'var(--warning)' },
+              ].map(item => (
+                <div key={item.label}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: item.color, flexShrink: 0 }}></span>
+                      {item.label}
+                    </span>
+                    <span style={{ fontWeight: 600 }}>{item.count} / {totalInvoices}</span>
+                  </div>
+                  <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ width: `${totalInvoices ? (item.count / totalInvoices) * 100 : 0}%`, height: '100%', background: item.color, borderRadius: '3px', transition: 'width 0.6s ease' }}></div>
+                  </div>
                 </div>
-                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ width: `${totalInvoices ? (metrics.distribution.paid / totalInvoices) * 100 : 0}%`, height: '100%', background: 'var(--success)' }}></div>
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)' }}></span>
-                    Sent / Pending
-                  </span>
-                  <span style={{ fontWeight: 600 }}>{metrics.distribution.sent} / {totalInvoices}</span>
-                </div>
-                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ width: `${totalInvoices ? (metrics.distribution.sent / totalInvoices) * 100 : 0}%`, height: '100%', background: 'var(--primary)' }}></div>
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--danger)' }}></span>
-                    Overdue
-                  </span>
-                  <span style={{ fontWeight: 600 }}>{metrics.distribution.overdue} / {totalInvoices}</span>
-                </div>
-                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ width: `${totalInvoices ? (metrics.distribution.overdue / totalInvoices) * 100 : 0}%`, height: '100%', background: 'var(--danger)' }}></div>
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '6px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--warning)' }}></span>
-                    Drafts
-                  </span>
-                  <span style={{ fontWeight: 600 }}>{metrics.distribution.draft} / {totalInvoices}</span>
-                </div>
-                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div style={{ width: `${totalInvoices ? (metrics.distribution.draft / totalInvoices) * 100 : 0}%`, height: '100%', background: 'var(--warning)' }}></div>
-                </div>
-              </div>
-
+              ))}
             </div>
           )}
-
         </div>
-
       </div>
 
-      {/* Row 3: Activity & Email Reminders Logs */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-        
+      {/* Row 3: Activity & Email Logs */}
+      <div className="dashboard-activity-grid">
+
         {/* Recent Activities */}
-        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px', minHeight: '320px' }}>
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px', minHeight: '280px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Activity size={18} color="var(--primary)" />
             <h4 style={{ fontSize: '1rem', fontWeight: 600 }}>Recent Activities</h4>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
             {activities.length > 0 ? (
               activities.map((act, i) => (
                 <div key={i} style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '12px',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'rgba(255,255,255,0.01)',
-                  border: '1px solid var(--border-color)',
-                  fontSize: '0.85rem'
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                  padding: '10px 12px', borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', gap: '8px'
                 }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{act.message}</span>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{new Date(act.date).toLocaleString()}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1, minWidth: 0 }}>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 500, fontSize: '0.85rem' }} className="text-truncate">{act.message}</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>{new Date(act.date).toLocaleString()}</span>
                   </div>
-                  <span className={`badge ${act.status === 'paid' ? 'badge-success' : act.status === 'overdue' ? 'badge-danger' : act.status === 'sent' ? 'badge-info' : 'badge-warning'}`}>
+                  <span className={`badge ${act.status === 'paid' ? 'badge-success' : act.status === 'overdue' ? 'badge-danger' : act.status === 'sent' ? 'badge-info' : 'badge-warning'}`} style={{ flexShrink: 0 }}>
                     {act.status}
                   </span>
                 </div>
               ))
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                 No recent activity recorded.
               </div>
             )}
@@ -377,94 +289,71 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Email Reminder Logs */}
-        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px', minHeight: '320px' }}>
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px', minHeight: '280px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Mail size={18} color="var(--accent)" />
-            <h4 style={{ fontSize: '1rem', fontWeight: 600 }}>Sent Reminder Logs (Simulated)</h4>
+            <h4 style={{ fontSize: '1rem', fontWeight: 600 }}>Sent Reminder Logs</h4>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, overflowY: 'auto', maxHeight: '300px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, overflowY: 'auto', maxHeight: '280px' }}>
             {emailLogs.length > 0 ? (
               emailLogs.map((log) => (
-                <div 
-                  key={log.id} 
+                <div
+                  key={log.id}
                   onClick={() => setSelectedEmail(log)}
                   style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '4px',
-                    padding: '12px',
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'rgba(255,255,255,0.01)',
-                    border: '1px solid var(--border-color)',
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                    transition: 'border-color var(--transition-fast)'
+                    display: 'flex', flexDirection: 'column', gap: '4px',
+                    padding: '10px 12px', borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)',
+                    cursor: 'pointer', transition: 'border-color var(--transition-fast)'
                   }}
+                  onTouchStart={(e) => e.currentTarget.style.borderColor = 'var(--accent)'}
+                  onTouchEnd={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
                   onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent)'}
                   onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 500 }}>
-                    <span style={{ color: 'var(--text-primary)' }}>To: {log.to_email}</span>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>{new Date(log.created_at).toLocaleTimeString()}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 500, gap: '8px' }}>
+                    <span style={{ color: 'var(--text-primary)', fontSize: '0.85rem' }} className="text-truncate">To: {log.to_email}</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', flexShrink: 0 }}>{new Date(log.created_at).toLocaleTimeString()}</span>
                   </div>
-                  <span style={{ color: 'var(--accent)', fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <span style={{ color: 'var(--accent)', fontSize: '0.8rem' }} className="text-truncate">
                     {log.subject}
                   </span>
                 </div>
               ))
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                 No reminder emails sent yet.
               </div>
             )}
           </div>
         </div>
-
       </div>
 
       {/* Email Inspection Modal */}
       {selectedEmail && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div className="glass-card" style={{ width: '100%', maxWidth: '500px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className="modal-overlay" onClick={() => setSelectedEmail(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-              <h4 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Sent Reminder Details</h4>
-              <button 
+              <h4 style={{ fontSize: '1.05rem', fontWeight: 600 }}>Sent Reminder Details</h4>
+              <button
                 onClick={() => setSelectedEmail(null)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem' }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem', padding: '4px', lineHeight: 1 }}
               >
                 &times;
               </button>
             </div>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.9rem' }}>
               <p><strong style={{ color: 'var(--text-secondary)' }}>Recipient:</strong> {selectedEmail.to_email}</p>
               <p><strong style={{ color: 'var(--text-secondary)' }}>Subject:</strong> {selectedEmail.subject}</p>
               <p><strong style={{ color: 'var(--text-secondary)' }}>Sent Date:</strong> {new Date(selectedEmail.created_at).toLocaleString()}</p>
-              
+
               <div style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid var(--border-color)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '16px',
-                fontSize: '0.85rem',
-                fontFamily: 'monospace',
-                whiteSpace: 'pre-wrap',
-                marginTop: '12px',
-                color: 'var(--text-secondary)',
-                lineHeight: 1.5
+                background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-sm)', padding: '14px', fontSize: '0.85rem',
+                fontFamily: 'monospace', whiteSpace: 'pre-wrap', marginTop: '8px',
+                color: 'var(--text-secondary)', lineHeight: 1.5, maxHeight: '200px', overflowY: 'auto'
               }}>
                 {selectedEmail.body}
               </div>
@@ -476,7 +365,6 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };

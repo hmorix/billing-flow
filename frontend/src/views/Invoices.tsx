@@ -447,63 +447,69 @@ export const Invoices: React.FC = () => {
   });
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '32px', maxWidth: '1200px', margin: '0 auto' }}>
-      
+    <div className="page-container" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="page-header">
         <div>
-          <h2 style={{ fontSize: '1.75rem', fontWeight: 700 }} className="text-gradient">
+          <h2 style={{ fontSize: 'clamp(1.3rem, 4vw, 1.75rem)', fontWeight: 700 }} className="text-gradient">
             Invoice Manager
           </h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '4px' }}>
-            Draft, track collections, send reminders, and record incoming payments.
+            Draft, track, send reminders, and record payments.
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => navigate('/invoices/new')}>
+        <button className="btn btn-primary hide-mobile" onClick={() => navigate('/invoices/new')}>
           <Plus size={16} />
           <span>Create Invoice</span>
         </button>
       </div>
 
       {/* Tabs and Search */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-        <div style={{
-          display: 'flex',
-          background: 'rgba(255, 255, 255, 0.02)',
-          border: '1px solid var(--border-color)',
-          borderRadius: 'var(--radius-md)',
-          padding: '4px',
-          gap: '4px'
-        }}>
-          {['all', 'draft', 'sent', 'paid', 'overdue'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              style={{
-                background: activeTab === tab ? 'var(--primary)' : 'transparent',
-                color: activeTab === tab ? '#fff' : 'var(--text-secondary)',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 16px',
-                fontSize: '0.85rem',
-                fontWeight: 500,
-                cursor: 'pointer',
-                textTransform: 'capitalize',
-                transition: 'all var(--transition-fast)'
-              }}
-            >
-              {tab}
-            </button>
-          ))}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="tab-bar-scroll">
+          <div style={{
+            display: 'flex',
+            background: 'rgba(255, 255, 255, 0.02)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-md)',
+            padding: '4px',
+            gap: '4px',
+            width: 'max-content',
+            minWidth: '100%'
+          }}>
+            {['all', 'draft', 'sent', 'paid', 'overdue'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  background: activeTab === tab ? 'var(--primary)' : 'transparent',
+                  color: activeTab === tab ? '#fff' : 'var(--text-secondary)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '8px 14px',
+                  fontSize: '0.82rem',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  textTransform: 'capitalize',
+                  transition: 'all var(--transition-fast)',
+                  whiteSpace: 'nowrap',
+                  flex: 1
+                }}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div style={{ position: 'relative', width: '300px' }}>
-          <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '14px', top: '14px' }} />
+        <div style={{ position: 'relative' }}>
+          <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
           <input
             type="text"
             placeholder="Search invoice or client..."
             className="form-input"
-            style={{ paddingLeft: '40px' }}
+            style={{ paddingLeft: '40px', width: '100%' }}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -518,114 +524,102 @@ export const Invoices: React.FC = () => {
           ))}
         </div>
       ) : filteredInvoices.length > 0 ? (
-        <div className="custom-table-container fade-in">
-          <table className="custom-table">
-            <thead>
-              <tr>
-                <th>Invoice No.</th>
-                <th>Client</th>
-                <th>Issued</th>
-                <th>Due Date</th>
-                <th>Status</th>
-                <th>Amount</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredInvoices.map((inv) => (
-                <tr key={inv.id}>
-                  <td>
-                    <span 
-                      style={{ fontWeight: 700, color: 'var(--primary)', cursor: 'pointer', textDecoration: 'underline' }}
-                      onClick={() => navigate(`/invoices/edit/${inv.id}`)}
-                    >
-                      {inv.invoice_number}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{inv.client_name}</span>
-                      {inv.client_company && (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{inv.client_company}</span>
-                      )}
-                    </div>
-                  </td>
-                  <td>{new Date(inv.issue_date).toLocaleDateString()}</td>
-                  <td>{new Date(inv.due_date).toLocaleDateString()}</td>
-                  <td>
-                    <select
-                      value={inv.status}
-                      onChange={(e) => handleUpdateStatus(inv.id, e.target.value)}
-                      style={{
-                        background: 'var(--bg-tertiary)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '6px',
-                        padding: '4px 10px',
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                        color: inv.status === 'paid' ? 'var(--success)' : inv.status === 'overdue' ? 'var(--danger)' : inv.status === 'sent' ? 'var(--accent)' : '#d97706',
-                        cursor: 'pointer',
-                        textTransform: 'capitalize'
-                      }}
-                    >
-                      <option value="draft">Draft</option>
-                      <option value="sent">Sent</option>
-                      <option value="paid">Paid</option>
-                      <option value="overdue">Overdue</option>
-                    </select>
-                  </td>
-                  <td>{(inv.currency || '').toUpperCase()} {Number(inv.discount || 0) > 0 ? 'Discounted' : ''}</td>
+        <>
+          {/* Desktop Table */}
+          <div className="desktop-table table-scroll">
+            <div className="custom-table-container fade-in">
+              <table className="custom-table">
+                <thead>
+                  <tr>
+                    <th>Invoice No.</th>
+                    <th>Client</th>
+                    <th>Issued</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                    <th>Currency</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredInvoices.map((inv) => (
+                    <tr key={inv.id}>
+                      <td>
+                        <span
+                          style={{ fontWeight: 700, color: 'var(--primary)', cursor: 'pointer', textDecoration: 'underline' }}
+                          onClick={() => navigate(`/invoices/edit/${inv.id}`)}
+                        >
+                          {inv.invoice_number}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{inv.client_name}</span>
+                          {inv.client_company && (
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{inv.client_company}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td>{new Date(inv.issue_date).toLocaleDateString()}</td>
+                      <td>{new Date(inv.due_date).toLocaleDateString()}</td>
+                      <td>
+                        <select
+                          value={inv.status}
+                          onChange={(e) => handleUpdateStatus(inv.id, e.target.value)}
+                          style={{
+                            background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)',
+                            borderRadius: '6px', padding: '4px 10px', fontSize: '0.75rem', fontWeight: 600,
+                            color: inv.status === 'paid' ? 'var(--success)' : inv.status === 'overdue' ? 'var(--danger)' : inv.status === 'sent' ? 'var(--accent)' : '#d97706',
+                            cursor: 'pointer', textTransform: 'capitalize'
+                          }}
+                        >
+                          <option value="draft">Draft</option>
+                          <option value="sent">Sent</option>
+                          <option value="paid">Paid</option>
+                          <option value="overdue">Overdue</option>
+                        </select>
+                      </td>
+                      <td>{(inv.currency || '').toUpperCase()}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: '6px' }}>
+                          <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => navigate(`/invoices/edit/${inv.id}`)} title="Edit Invoice"><Eye size={14} /></button>
+                          <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setDownloadInvoice(inv)} title="Download"><FileDown size={14} /></button>
+                          <button className="btn btn-secondary" style={{ padding: '6px 10px', color: 'var(--accent)' }} onClick={() => handleSendReminder(inv.id)} title="Send Reminder"><Mail size={14} /></button>
+                          <button className="btn btn-secondary" style={{ padding: '6px 10px', color: 'var(--success)' }} onClick={() => openPaymentModal(inv)} title="Record Payment"><CheckCircle2 size={14} /></button>
+                          <button className="btn btn-danger" style={{ padding: '6px 10px' }} onClick={() => handleDelete(inv.id)} title="Delete"><Trash2 size={14} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-                  <td style={{ textAlign: 'right' }}>
-
-                    <div style={{ display: 'inline-flex', gap: '6px' }}>
-                      <button
-                        className="btn btn-secondary"
-                        style={{ padding: '6px 10px' }}
-                        onClick={() => navigate(`/invoices/edit/${inv.id}`)}
-                        title="Edit Invoice"
-                      >
-                        <Eye size={14} />
-                      </button>
-                      <button
-                        className="btn btn-secondary"
-                        style={{ padding: '6px 10px' }}
-                        onClick={() => setDownloadInvoice(inv)}
-                        title="Download Invoice Format"
-                      >
-                        <FileDown size={14} />
-                      </button>
-                      <button
-                        className="btn btn-secondary"
-                        style={{ padding: '6px 10px', color: 'var(--accent)' }}
-                        onClick={() => handleSendReminder(inv.id)}
-                        title="Send Email Reminder"
-                      >
-                        <Mail size={14} />
-                      </button>
-                      <button
-                        className="btn btn-secondary"
-                        style={{ padding: '6px 10px', color: 'var(--success)' }}
-                        onClick={() => openPaymentModal(inv)}
-                        title="Record Payment"
-                      >
-                        <CheckCircle2 size={14} />
-                      </button>
-                      <button
-                        className="btn btn-danger"
-                        style={{ padding: '6px 10px' }}
-                        onClick={() => handleDelete(inv.id)}
-                        title="Delete Invoice"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+          {/* Mobile Card List */}
+          <div className="mobile-card-list" style={{ gap: '12px' }}>
+            {filteredInvoices.map((inv) => (
+              <div key={inv.id} className="invoice-mobile-card" onClick={() => navigate(`/invoices/edit/${inv.id}`)}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '0.9rem' }}>{inv.invoice_number}</div>
+                    <div style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--text-primary)', marginTop: '2px' }} className="text-truncate">{inv.client_name}</div>
+                    {inv.client_company && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }} className="text-truncate">{inv.client_company}</div>}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0 }}>
+                    {getStatusBadge(inv.status)}
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Due {new Date(inv.due_date).toLocaleDateString()}</span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '8px', borderTop: '1px solid var(--border-color)' }} onClick={e => e.stopPropagation()}>
+                  <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem' }} onClick={() => setDownloadInvoice(inv)}><FileDown size={14} /></button>
+                  <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem', color: 'var(--accent)' }} onClick={() => handleSendReminder(inv.id)}><Mail size={14} /></button>
+                  <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem', color: 'var(--success)' }} onClick={() => openPaymentModal(inv)}><CheckCircle2 size={14} /></button>
+                  <button className="btn btn-danger" style={{ padding: '8px 12px', fontSize: '0.8rem' }} onClick={() => handleDelete(inv.id)}><Trash2 size={14} /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       ) : (
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', gap: '16px' }}>
           <Receipt size={40} color="var(--text-muted)" />
@@ -644,22 +638,15 @@ export const Invoices: React.FC = () => {
         </div>
       )}
 
+      {/* Mobile FAB */}
+      <button className="fab" onClick={() => navigate('/invoices/new')} title="Create Invoice">
+        <Plus size={22} />
+      </button>
+
       {/* Record Payment Modal */}
       {paymentInvoice && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div className="glass-card fade-in" style={{ width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className="modal-overlay" onClick={() => setPaymentInvoice(null)}>
+          <div className="modal-box fade-in" onClick={e => e.stopPropagation()}>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
               <h4 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Record Payment</h4>
@@ -720,12 +707,8 @@ export const Invoices: React.FC = () => {
 
       {/* Download Format Modal */}
       {downloadInvoice && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-        }}>
-          <div className="glass-card fade-in" style={{ width: '100%', maxWidth: '420px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className="modal-overlay" onClick={() => setDownloadInvoice(null)}>
+          <div className="modal-box fade-in" onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
               <h4 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Download Invoice</h4>
               <button onClick={() => setDownloadInvoice(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.4rem', lineHeight: 1 }}>&times;</button>

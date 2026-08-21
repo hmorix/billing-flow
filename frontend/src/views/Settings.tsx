@@ -321,11 +321,11 @@ export const Settings: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '32px', maxWidth: '1000px', margin: '0 auto' }}>
+    <div className="page-container" style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
       
       {/* Title */}
       <div>
-        <h2 style={{ fontSize: '1.75rem', fontWeight: 700 }} className="text-gradient">
+        <h2 style={{ fontSize: 'clamp(1.3rem, 4vw, 1.75rem)', fontWeight: 700 }} className="text-gradient">
           Organization Settings
         </h2>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '4px' }}>
@@ -362,7 +362,7 @@ export const Settings: React.FC = () => {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '28px', alignItems: 'start' }}>
+      <div className="settings-grid">
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
           
@@ -387,7 +387,7 @@ export const Settings: React.FC = () => {
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <div className="form-grid-2">
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">VAT / Tax ID</label>
                   <input
@@ -466,7 +466,7 @@ export const Settings: React.FC = () => {
 
             <form onSubmit={handleUpdateSmtp} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '14px' }}>
+              <div className="form-grid-2">
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">SMTP Server Host</label>
                   <input
@@ -490,7 +490,7 @@ export const Settings: React.FC = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <div className="form-grid-2">
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">SMTP Auth Username</label>
                   <input
@@ -585,7 +585,7 @@ export const Settings: React.FC = () => {
               Choose how your invoice reminder emails look when sent to clients. This template is applied to all payment reminder emails.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))', gap: '10px', marginBottom: '20px' }}>
+            <div className="email-gallery-grid" style={{ marginBottom: '20px' }}>
               {EMAIL_TEMPLATES.map((tpl) => {
                 const isSelected = selectedEmailTemplate === tpl.id;
                 return (

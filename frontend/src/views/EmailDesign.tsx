@@ -236,24 +236,26 @@ export const EmailDesign: React.FC = () => {
   const activeTpl = EMAIL_TEMPLATES.find(t => t.id === selectedTemplate)!;
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: '1400px', margin: '0 auto' }}>
+    <div className="page-container" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '28px', flexWrap: 'wrap' }}>
-        <button
-          onClick={() => navigate('/settings')}
-          className="btn btn-secondary"
-          style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
-        >
-          <ArrowLeft size={16} /> Back
-        </button>
-        <div style={{ flex: 1 }}>
-          <h2 style={{ fontSize: '1.6rem', fontWeight: 700, margin: 0 }} className="text-gradient">
-            Email Template Designer
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '4px' }}>
-            Pick and preview how your invoice reminder emails appear to clients.
-          </p>
+      <div className="page-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '240px' }}>
+          <button
+            onClick={() => navigate('/settings')}
+            className="btn btn-secondary"
+            style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+          >
+            <ArrowLeft size={16} /> Back
+          </button>
+          <div>
+            <h2 style={{ fontSize: 'clamp(1.2rem, 3.5vw, 1.6rem)', fontWeight: 700, margin: 0 }} className="text-gradient">
+              Email Template Designer
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '2px' }}>
+              Pick and preview how invoice reminder emails appear to clients.
+            </p>
+          </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {saved && (
@@ -265,7 +267,7 @@ export const EmailDesign: React.FC = () => {
             onClick={handleSave}
             disabled={saving}
             className="btn btn-primary"
-            style={{ padding: '10px 24px', display: 'flex', alignItems: 'center', gap: '8px' }}
+            style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px' }}
           >
             {saving ? 'Saving...' : (<><Check size={16} /> Apply Template</>)}
           </button>
@@ -273,12 +275,12 @@ export const EmailDesign: React.FC = () => {
       </div>
 
       {error && (
-        <div style={{ background: 'rgba(225,29,72,0.08)', border: '1px solid rgba(225,29,72,0.15)', color: 'var(--danger)', padding: '12px 16px', borderRadius: 'var(--radius-md)', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+        <div style={{ background: 'rgba(225,29,72,0.08)', border: '1px solid rgba(225,29,72,0.15)', color: 'var(--danger)', padding: '12px 16px', borderRadius: 'var(--radius-md)', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <ShieldAlert size={18} /> {error}
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: '24px', alignItems: 'start' }}>
+      <div className="dashboard-main-grid" style={{ alignItems: 'start' }}>
 
         {/* Left: Template selector list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

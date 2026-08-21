@@ -707,12 +707,12 @@ export const BillDesign: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '40px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div className="page-container" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="page-header">
         <div>
-          <h2 style={{ fontSize: '1.75rem', fontWeight: 700 }} className="text-gradient">Invoice Bill Design</h2>
+          <h2 style={{ fontSize: 'clamp(1.3rem, 4vw, 1.75rem)', fontWeight: 700 }} className="text-gradient">Invoice Bill Design</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '4px' }}>
             Choose or build a visual layout for all generated PDF invoices.
           </p>
@@ -720,7 +720,7 @@ export const BillDesign: React.FC = () => {
         <button
           onClick={() => navigate('/settings/design/builder')}
           className="btn btn-primary"
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px' }}
         >
           <Plus size={16} />
           <span>Create Custom Template</span>
@@ -745,7 +745,7 @@ export const BillDesign: React.FC = () => {
         <h3 style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '16px' }}>
           Built-in Templates
         </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(265px, 1fr))', gap: '24px' }}>
+        <div className="template-gallery-grid">
           {BUILT_IN_TEMPLATES.map((tpl) => {
             const isActive = activeTemplate === tpl.id;
             const isActivating = loadingId === tpl.id;
