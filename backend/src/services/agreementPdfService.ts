@@ -1,7 +1,5 @@
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
-import * as path from 'path';
-import * as fs from 'fs';
 
 export interface AgreementPdfData {
   agreementNumber: string;
@@ -37,31 +35,19 @@ export interface AgreementPdfData {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Robust Font Path Resolver (Dev & Production safe)
+// String Sanitizer: Strips out non-ASCII / Emoji characters
+// that corrupt standard PDF fonts (e.g. 📞, ⚠, ₹ -> Rs./INR)
 // ─────────────────────────────────────────────────────────────
-function resolveFont(fontName: string): string | null {
-  const searchPaths = [
-    path.join(__dirname, '..', 'fonts', fontName),
-    path.join(__dirname, '..', '..', 'src', 'fonts', fontName),
-    path.join(__dirname, '..', '..', 'fonts', fontName),
-    path.join(__dirname, 'fonts', fontName),
-    path.join(process.cwd(), 'src', 'fonts', fontName),
-    path.join(process.cwd(), 'backend', 'src', 'fonts', fontName),
-    path.join(process.cwd(), 'fonts', fontName),
-    path.join(process.cwd(), 'dist', 'fonts', fontName),
-    path.join(process.cwd(), 'backend', 'dist', 'fonts', fontName)
-  ];
-
-  for (const p of searchPaths) {
-    if (fs.existsSync(p)) {
-      return p;
-    }
-  }
-  return null;
-}
-
-function hasDevanagari(text: string): boolean {
-  return /[\u0900-\u097F]/.test(text);
+function sanitizeText(str: string | undefined | null): string {
+  if (!str) return '';
+  return str
+    .replace(/₹/g, 'INR ')
+    .replace(/[📞☎📱]/g, '')
+    .replace(/[⚠⚡✅✔✓✖❌]/g, '')
+    .replace(/[\u{1F300}-\u{1FAFF}]/gu, '') // strip all emojis
+    .replace(/[\u{2600}-\u{26FF}]/gu, '')
+    .replace(/[\u{2700}-\u{27BF}]/gu, '')
+    .trim();
 }
 
 export async function generateAgreementPDF(data: AgreementPdfData): Promise<Buffer> {
@@ -73,21 +59,11 @@ export async function generateAgreementPDF(data: AgreementPdfData): Promise<Buff
         info: {
           Title: `Legal Agreement ${data.agreementNumber}`,
           Author: 'HMorix Digital Legal Infrastructure',
-          Subject: data.title,
+          Subject: sanitizeText(data.title),
           Keywords: 'Legal Agreement, e-Stamp, Notary, HMorix, Digital Footprint',
           CreationDate: new Date(data.createdAt)
         }
       });
-
-      // Register fonts with absolute resolved paths
-      const fontRegular = resolveFont('Mukta.ttf');
-      const fontBold = resolveFont('Mukta-Bold.ttf');
-
-      const devanagariAvailable = !!(fontRegular && fontBold);
-      if (devanagariAvailable) {
-        doc.registerFont('Devanagari', fontRegular!);
-        doc.registerFont('DevanagariBold', fontBold!);
-      }
 
       const buffers: Buffer[] = [];
       doc.on('data', (chunk) => buffers.push(chunk));
@@ -107,21 +83,11 @@ export async function generateAgreementPDF(data: AgreementPdfData): Promise<Buff
       const PAGE_H = 841.89;
       const MARGIN = 50;
       const CONTENT_W = PAGE_W - MARGIN * 2;
-      const SIGNATURE_H = 150;
+      const SIGNATURE_H = 145;
       const TEXT_BOTTOM = PAGE_H - MARGIN - SIGNATURE_H - 10;
 
       const executeDate = new Date(data.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
       let currentPage = 1;
-
-      // ─────────────────────────────────────────────────────────────
-      // HELPER: Select Font for any string
-      // ─────────────────────────────────────────────────────────────
-      function getFont(text: string, bold = false): string {
-        if (devanagariAvailable && hasDevanagari(text)) {
-          return bold ? 'DevanagariBold' : 'Devanagari';
-        }
-        return bold ? 'Helvetica-Bold' : 'Helvetica';
-      }
 
       // ─────────────────────────────────────────────────────────────
       // HELPER: Draw Signature & HMorix Notary Stamp Footer
@@ -139,10 +105,10 @@ export async function generateAgreementPDF(data: AgreementPdfData): Promise<Buff
         // 4 signature columns
         const sigBoxW = Math.floor(CONTENT_W / 4) - 4;
         const sigBoxes = [
-          { label: 'FIRST PARTY / AUTHORITY', sub: data.firstPartyName, designation: data.signatoryDesignation || 'Service Provider' },
-          { label: 'SECOND PARTY / CUSTOMER', sub: data.secondPartyName, designation: data.secondPartyContact || 'Client' },
-          { label: 'WITNESS 1 (साक्षी १)', sub: data.witness1Name || '_____________________', designation: data.witness1Contact || 'Govt. ID / Phone: ________' },
-          { label: 'WITNESS 2 (साक्षी २)', sub: data.witness2Name || '_____________________', designation: data.witness2Contact || 'Govt. ID / Phone: ________' }
+          { label: 'FIRST PARTY / AUTHORITY', sub: sanitizeText(data.firstPartyName), designation: sanitizeText(data.signatoryDesignation) || 'Service Provider' },
+          { label: 'SECOND PARTY / CUSTOMER', sub: sanitizeText(data.secondPartyName), designation: sanitizeText(data.secondPartyContact) || 'Client' },
+          { label: 'WITNESS 1 / ATTESTOR 1', sub: sanitizeText(data.witness1Name) || '_____________________', designation: sanitizeText(data.witness1Contact) || 'Govt ID / Phone: ________' },
+          { label: 'WITNESS 2 / ATTESTOR 2', sub: sanitizeText(data.witness2Name) || '_____________________', designation: sanitizeText(data.witness2Contact) || 'Govt ID / Phone: ________' }
         ];
 
         sigBoxes.forEach((box, idx) => {
@@ -150,38 +116,35 @@ export async function generateAgreementPDF(data: AgreementPdfData): Promise<Buff
           const by = sigY + 16;
 
           // Box background
-          doc.rect(bx, by, sigBoxW, 95).fill('#f9fafb').stroke('#d1d5db').lineWidth(0.5);
+          doc.rect(bx, by, sigBoxW, 92).fill('#f9fafb').stroke('#d1d5db').lineWidth(0.5);
 
           // Label
-          const labelFont = getFont(box.label, true);
-          doc.fillColor('#6b7280').font(labelFont).fontSize(5.5)
+          doc.fillColor('#6b7280').font('Helvetica-Bold').fontSize(5.5)
             .text(box.label, bx + 4, by + 4, { width: sigBoxW - 8 });
 
           // Name
-          const nameFont = getFont(box.sub, true);
-          doc.fillColor('#111827').font(nameFont).fontSize(7)
-            .text(box.sub, bx + 4, by + 16, { width: sigBoxW - 8, height: 16, ellipsis: true });
+          doc.fillColor('#111827').font('Helvetica-Bold').fontSize(7)
+            .text(box.sub, bx + 4, by + 15, { width: sigBoxW - 8, height: 16, ellipsis: true });
 
           // Designation
-          const desigFont = getFont(box.designation, false);
-          doc.fillColor('#6b7280').font(desigFont).fontSize(5.5)
-            .text(box.designation, bx + 4, by + 30, { width: sigBoxW - 8, height: 14, ellipsis: true });
+          doc.fillColor('#6b7280').font('Helvetica').fontSize(5.5)
+            .text(box.designation, bx + 4, by + 28, { width: sigBoxW - 8, height: 14, ellipsis: true });
 
           // Signature line
-          const lineY = by + 68;
+          const lineY = by + 66;
           doc.moveTo(bx + 6, lineY).lineTo(bx + sigBoxW - 6, lineY).lineWidth(0.8).strokeColor('#374151').stroke();
           doc.fillColor('#9ca3af').font('Helvetica').fontSize(5.5)
             .text('Signature & Date', bx + 4, lineY + 2, { width: sigBoxW - 8 });
 
           // Thumb impression mini box
-          doc.rect(bx + sigBoxW - 24, by + 44, 20, 18).strokeColor('#9ca3af').lineWidth(0.5).stroke();
+          doc.rect(bx + sigBoxW - 24, by + 42, 20, 18).strokeColor('#9ca3af').lineWidth(0.5).stroke();
           doc.fillColor('#9ca3af').font('Helvetica').fontSize(4)
-            .text('Thumb\nMark', bx + sigBoxW - 23, by + 47, { width: 18, align: 'center' });
+            .text('Thumb\nMark', bx + sigBoxW - 23, by + 45, { width: 18, align: 'center' });
         });
 
         // ─── HMorix Official Circular Notary Stamp ───
         const stampCX = PAGE_W - MARGIN - 26;
-        const stampCY = sigY + 58;
+        const stampCY = sigY + 56;
         const stampR = 24;
 
         doc.circle(stampCX, stampCY, stampR).lineWidth(2).strokeColor('#be123c').stroke();
@@ -211,25 +174,25 @@ export async function generateAgreementPDF(data: AgreementPdfData): Promise<Buff
       doc.fillColor('#ffffff').fontSize(9.5).font('Helvetica-Bold')
         .text('GOVERNMENT OF NATIONAL CAPITAL TERRITORY', MARGIN, 46, { width: PAGE_W, align: 'center' });
       doc.fontSize(7).font('Helvetica').fillColor('#fecdd3')
-        .text(`e-Stamp Certificate | Jurisdiction: ${data.stateJurisdiction || 'Delhi, India'} | Non-Judicial Digital Notarization under HMorix Legal Infrastructure`, MARGIN, 57, { width: PAGE_W, align: 'center' });
+        .text(`e-Stamp Certificate | Jurisdiction: ${sanitizeText(data.stateJurisdiction) || 'Delhi, India'} | Non-Judicial Digital Notarization under HMorix Legal Infrastructure`, MARGIN, 57, { width: PAGE_W, align: 'center' });
 
       // Stamp Details 2-columns
       const C1 = MARGIN + 12, C2 = MARGIN + 260;
       let sY = 74;
 
-      const certNo = `IN-${(data.stateJurisdiction || 'DL').slice(0, 2).toUpperCase()}2026-${data.agreementNumber.replace(/\D/g, '').padStart(10, '0')}`;
+      const certNo = `IN-${(sanitizeText(data.stateJurisdiction) || 'DL').slice(0, 2).toUpperCase()}2026-${data.agreementNumber.replace(/\D/g, '').padStart(10, '0')}`;
       doc.font('Helvetica-Bold').fillColor('#374151').fontSize(7.5).text('Certificate No.:', C1, sY);
       doc.font('Helvetica').fillColor('#111827').text(certNo, C1 + 85, sY);
       doc.font('Helvetica-Bold').fillColor('#374151').text('Issued Date:', C2, sY);
       doc.font('Helvetica').fillColor('#111827').text(executeDate, C2 + 65, sY); sY += 12;
 
       doc.font('Helvetica-Bold').fillColor('#374151').text('First Party:', C1, sY);
-      doc.font(getFont(data.firstPartyName)).fillColor('#111827').text(data.firstPartyName, C1 + 85, sY, { width: 160, ellipsis: true });
+      doc.font('Helvetica').fillColor('#111827').text(sanitizeText(data.firstPartyName), C1 + 85, sY, { width: 160, ellipsis: true });
       doc.font('Helvetica-Bold').fillColor('#374151').text('Second Party:', C2, sY);
-      doc.font(getFont(data.secondPartyName)).fillColor('#111827').text(data.secondPartyName, C2 + 65, sY, { width: 140, ellipsis: true }); sY += 12;
+      doc.font('Helvetica').fillColor('#111827').text(sanitizeText(data.secondPartyName), C2 + 65, sY, { width: 140, ellipsis: true }); sY += 12;
 
       doc.font('Helvetica-Bold').fillColor('#374151').text('Stamp Duty:', C1, sY);
-      doc.font('Helvetica').fillColor('#111827').text(`₹ ${data.stampDutyAmount || 100}.00 Only`, C1 + 85, sY);
+      doc.font('Helvetica').fillColor('#111827').text(`INR ${data.stampDutyAmount || 100}.00 Only`, C1 + 85, sY);
       doc.font('Helvetica-Bold').fillColor('#374151').text('Total Amount:', C2, sY);
       doc.font('Helvetica').fillColor('#111827').text(
         data.totalAmount ? `${data.currency || 'INR'} ${Number(data.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : 'As Per Terms',
@@ -237,13 +200,13 @@ export async function generateAgreementPDF(data: AgreementPdfData): Promise<Buff
       ); sY += 12;
 
       doc.font('Helvetica-Bold').fillColor('#374151').text('Agreement Type:', C1, sY);
-      doc.font(getFont(data.agreementType)).fillColor('#111827').text(data.agreementType, C1 + 85, sY, { width: 160, ellipsis: true });
+      doc.font('Helvetica').fillColor('#111827').text(sanitizeText(data.agreementType), C1 + 85, sY, { width: 160, ellipsis: true });
       doc.font('Helvetica-Bold').fillColor('#374151').text('Validity:', C2, sY);
-      doc.font(getFont(data.validityPeriod || 'As Per Terms')).fillColor('#111827').text(data.validityPeriod || 'As Per Terms', C2 + 65, sY, { width: 140, ellipsis: true }); sY += 13;
+      doc.font('Helvetica').fillColor('#111827').text(sanitizeText(data.validityPeriod) || 'As Per Terms', C2 + 65, sY, { width: 140, ellipsis: true }); sY += 13;
 
       if (data.linkedInvoiceNumber) {
         doc.font('Helvetica-Bold').fillColor('#374151').text('Linked Invoice:', C1, sY);
-        doc.font('Helvetica').fillColor('#2563eb').text(`#${data.linkedInvoiceNumber}`, C1 + 85, sY);
+        doc.font('Helvetica').fillColor('#2563eb').text(`#${sanitizeText(data.linkedInvoiceNumber)}`, C1 + 85, sY);
         sY += 12;
       }
 
@@ -251,7 +214,7 @@ export async function generateAgreementPDF(data: AgreementPdfData): Promise<Buff
       doc.moveTo(MARGIN + 10, sY).lineTo(PAGE_W - MARGIN - 10, sY).lineWidth(0.5).strokeColor('#f87171').stroke();
 
       doc.fillColor('#be123c').font('Helvetica-Bold').fontSize(6.5)
-        .text('⚠ THIS IS A NON-JUDICIAL ELECTRONICALLY EXECUTED DIGITAL CONTRACT UNDER THE IT ACT, 2000 — FOR OFFICIAL REGISTRATION AFFIX REGISTERED TREASURY STAMP', MARGIN + 10, sY + 3, { width: CONTENT_W - 20, align: 'center' });
+        .text('NOTE: THIS IS A NON-JUDICIAL ELECTRONICALLY EXECUTED DIGITAL CONTRACT UNDER THE IT ACT, 2000 — FOR OFFICIAL REGISTRATION AFFIX REGISTERED TREASURY STAMP', MARGIN + 10, sY + 3, { width: CONTENT_W - 20, align: 'center' });
 
       // QR code inside stamp
       if (qrImageBuffer) {
@@ -264,9 +227,8 @@ export async function generateAgreementPDF(data: AgreementPdfData): Promise<Buff
       // ─────────────────────────────────────────────────────────────
       let y = 208;
 
-      const titleFont = getFont(data.title, true);
-      doc.font(titleFont).fillColor('#0f172a').fontSize(13)
-        .text(data.title, MARGIN, y, { width: CONTENT_W, align: 'center' });
+      doc.font('Helvetica-Bold').fillColor('#0f172a').fontSize(13)
+        .text(sanitizeText(data.title), MARGIN, y, { width: CONTENT_W, align: 'center' });
       y = doc.y + 4;
 
       doc.moveTo(MARGIN + 40, y).lineTo(PAGE_W - MARGIN - 40, y).lineWidth(1.2).strokeColor('#be123c').stroke();
@@ -291,20 +253,20 @@ export async function generateAgreementPDF(data: AgreementPdfData): Promise<Buff
       // First Party Box
       doc.rect(MARGIN, y, partyBoxW, partyBoxH).fill('#fef2f2').stroke('#fecaca').lineWidth(0.75);
       doc.fillColor('#be123c').font('Helvetica-Bold').fontSize(6.5).text('FIRST PARTY (SERVICE PROVIDER / PARTY A)', MARGIN + 8, y + 6);
-      doc.fillColor('#111827').font(getFont(data.firstPartyName, true)).fontSize(8.5).text(data.firstPartyName, MARGIN + 8, y + 16);
+      doc.fillColor('#111827').font('Helvetica-Bold').fontSize(8.5).text(sanitizeText(data.firstPartyName), MARGIN + 8, y + 16);
       if (data.signatoryDesignation) {
-        doc.font(getFont(data.signatoryDesignation)).fontSize(7).fillColor('#4b5563').text(`Role: ${data.signatoryDesignation}`, MARGIN + 8, y + 27);
+        doc.font('Helvetica').fontSize(7).fillColor('#4b5563').text(`Role: ${sanitizeText(data.signatoryDesignation)}`, MARGIN + 8, y + 27);
       }
-      if (data.firstPartyContact) doc.font('Helvetica').fontSize(7).fillColor('#374151').text(`📞 ${data.firstPartyContact}`, MARGIN + 8, y + 37);
-      if (data.firstPartyAddress) doc.font(getFont(data.firstPartyAddress)).fontSize(6.5).fillColor('#6b7280').text(data.firstPartyAddress, MARGIN + 8, y + 47, { width: partyBoxW - 16, ellipsis: true });
+      if (data.firstPartyContact) doc.font('Helvetica').fontSize(7).fillColor('#374151').text(`Contact: ${sanitizeText(data.firstPartyContact)}`, MARGIN + 8, y + 37);
+      if (data.firstPartyAddress) doc.font('Helvetica').fontSize(6.5).fillColor('#6b7280').text(sanitizeText(data.firstPartyAddress), MARGIN + 8, y + 47, { width: partyBoxW - 16, ellipsis: true });
 
       // Second Party Box
       const p2x = MARGIN + partyBoxW + 12;
       doc.rect(p2x, y, partyBoxW, partyBoxH).fill('#f0fdf4').stroke('#bbf7d0').lineWidth(0.75);
       doc.fillColor('#15803d').font('Helvetica-Bold').fontSize(6.5).text('SECOND PARTY (CLIENT / PARTY B)', p2x + 8, y + 6);
-      doc.fillColor('#111827').font(getFont(data.secondPartyName, true)).fontSize(8.5).text(data.secondPartyName, p2x + 8, y + 16);
-      if (data.secondPartyContact) doc.font('Helvetica').fontSize(7).fillColor('#374151').text(`📞 ${data.secondPartyContact}`, p2x + 8, y + 30);
-      if (data.secondPartyAddress) doc.font(getFont(data.secondPartyAddress)).fontSize(6.5).fillColor('#6b7280').text(data.secondPartyAddress, p2x + 8, y + 42, { width: partyBoxW - 16, ellipsis: true });
+      doc.fillColor('#111827').font('Helvetica-Bold').fontSize(8.5).text(sanitizeText(data.secondPartyName), p2x + 8, y + 16);
+      if (data.secondPartyContact) doc.font('Helvetica').fontSize(7).fillColor('#374151').text(`Contact: ${sanitizeText(data.secondPartyContact)}`, p2x + 8, y + 30);
+      if (data.secondPartyAddress) doc.font('Helvetica').fontSize(6.5).fillColor('#6b7280').text(sanitizeText(data.secondPartyAddress), p2x + 8, y + 42, { width: partyBoxW - 16, ellipsis: true });
 
       y += partyBoxH + 12;
 
@@ -317,7 +279,7 @@ export async function generateAgreementPDF(data: AgreementPdfData): Promise<Buff
       doc.moveTo(MARGIN, y).lineTo(MARGIN + 180, y).lineWidth(0.8).strokeColor('#be123c').stroke();
       y += 8;
 
-      const paragraphs = data.termsContent.split('\n').filter(p => p.trim());
+      const paragraphs = sanitizeText(data.termsContent).split('\n').filter(p => p.trim());
 
       for (const para of paragraphs) {
         if (doc.y > TEXT_BOTTOM - 25) {
@@ -334,8 +296,8 @@ export async function generateAgreementPDF(data: AgreementPdfData): Promise<Buff
           continue;
         }
 
-        const paraFont = getFont(para.trim(), /^[0-9१-९]+\./.test(para.trim()));
-        doc.font(paraFont).fillColor('#1f2937').fontSize(9)
+        const isHeading = /^[0-9]+\./.test(para.trim());
+        doc.font(isHeading ? 'Helvetica-Bold' : 'Helvetica').fillColor('#1f2937').fontSize(9)
           .text(para.trim(), MARGIN, doc.y, { width: CONTENT_W, lineGap: 2 });
         doc.moveDown(0.35);
       }
@@ -357,18 +319,18 @@ export async function generateAgreementPDF(data: AgreementPdfData): Promise<Buff
       let mY = metaBoxY + 6;
       if (data.paymentTerms) {
         doc.fillColor('#475569').font('Helvetica-Bold').fontSize(7.5).text('PAYMENT TERMS:', MARGIN + 8, mY);
-        doc.font(getFont(data.paymentTerms)).fillColor('#1e293b').fontSize(7.5).text(data.paymentTerms, MARGIN + 105, mY, { width: CONTENT_W - 115 });
+        doc.font('Helvetica').fillColor('#1e293b').fontSize(7.5).text(sanitizeText(data.paymentTerms), MARGIN + 105, mY, { width: CONTENT_W - 115 });
         mY += 11;
       }
       if (data.validityPeriod) {
         doc.fillColor('#475569').font('Helvetica-Bold').fontSize(7.5).text('SLA / VALIDITY:', MARGIN + 8, mY);
-        doc.font(getFont(data.validityPeriod)).fillColor('#1e293b').fontSize(7.5).text(data.validityPeriod, MARGIN + 105, mY, { width: CONTENT_W - 115 });
+        doc.font('Helvetica').fillColor('#1e293b').fontSize(7.5).text(sanitizeText(data.validityPeriod), MARGIN + 105, mY, { width: CONTENT_W - 115 });
         mY += 11;
       }
       if (data.geoAddress) {
         doc.fillColor('#475569').font('Helvetica-Bold').fontSize(7.5).text('GPS AUDIT LOG:', MARGIN + 8, mY);
         doc.font('Helvetica').fillColor('#475569').fontSize(7).text(
-          `${data.geoAddress}${data.geoLat ? ` (${data.geoLat.toFixed(4)}°N, ${data.geoLng?.toFixed(4)}°E)` : ''}`,
+          `${sanitizeText(data.geoAddress)}${data.geoLat ? ` (${data.geoLat.toFixed(4)}N, ${data.geoLng?.toFixed(4)}E)` : ''}`,
           MARGIN + 105, mY, { width: CONTENT_W - 115 }
         );
       }
@@ -411,23 +373,23 @@ export async function generateAgreementPDF(data: AgreementPdfData): Promise<Buff
 
         const clauses = [
           {
-            title: '1. LEGAL ENFORCEABILITY & ELECTRONIC SIGNATURES (विधिक वैधता एवं ई-हस्ताक्षर)',
+            title: '1. LEGAL ENFORCEABILITY & ELECTRONIC SIGNATURES',
             body: 'This electronic contract constitutes a legally binding and enforceable electronic record pursuant to Section 4 and Section 10A of the Information Technology Act, 2000 (India). All cryptographic SHA-256 signature hashes, timestamp logs, and high-accuracy GPS coordinates embedded herein provide irreversible non-repudiation proof.'
           },
           {
-            title: '2. DEFERRED SETTLEMENT & WORK FIRST, PAY LATER OBLIGATIONS (भुगतान दायित्व)',
+            title: '2. DEFERRED SETTLEMENT & WORK FIRST, PAY LATER OBLIGATIONS',
             body: 'Where services are rendered under deferred milestone or post-delivery structures, the Client (Second Party) is legally obligated to clear invoice dues within the stipulated timeframe following deliverable submission. Default in payment attracts 1.5% per month late interest and automatic revocation of intellectual property usage licenses.'
           },
           {
-            title: '3. DATA PROTECTION, PRIVACY & CONFIDENTIALITY (DPDP / GDPR अनुपालन)',
+            title: '3. DATA PROTECTION, PRIVACY & CONFIDENTIALITY (DPDP / GDPR COMPLIANCE)',
             body: 'Both parties agree to treat all business information, pricing, client lists, and technical documentation as confidential. In accordance with the Digital Personal Data Protection (DPDP) Act (India) and GDPR principles, personal data collected during contract execution is stored in encrypted form (AES-256) solely for legal attestation and is never sold or shared with third parties.'
           },
           {
-            title: '4. WARRANTIES, DEFECT REMEDIES & SLA (वारंटी एवं सेवा स्तर)',
+            title: '4. WARRANTIES, DEFECT REMEDIES & SERVICE LEVEL AGREEMENT (SLA)',
             body: 'The Service Provider guarantees that deliverables conform to the agreed scope of work. Any functional bugs or defects reported within the agreed warranty window shall be rectified without additional cost. Third-party infrastructure, government fees, and cloud licenses are excluded.'
           },
           {
-            title: '5. DISPUTE RESOLUTION & EXCLUSIVE JURISDICTION (विवाद समाधान एवं क्षेत्राधिकार)',
+            title: '5. DISPUTE RESOLUTION & EXCLUSIVE JURISDICTION',
             body: 'Any dispute arising out of or in connection with this agreement shall first be attempted to be resolved amicably through mutual discussion within 30 days. Failing settlement, the dispute shall be referred to binding arbitration in New Delhi, India, in accordance with the Arbitration and Conciliation Act, 1996.'
           }
         ];
@@ -440,13 +402,11 @@ export async function generateAgreementPDF(data: AgreementPdfData): Promise<Buff
             appY = MARGIN;
           }
 
-          const clTitleFont = getFont(cl.title, true);
-          doc.font(clTitleFont).fillColor('#1e293b').fontSize(8.5)
+          doc.font('Helvetica-Bold').fillColor('#1e293b').fontSize(8.5)
             .text(cl.title, MARGIN, appY, { width: CONTENT_W });
           appY = doc.y + 3;
 
-          const clBodyFont = getFont(cl.body, false);
-          doc.font(clBodyFont).fillColor('#475569').fontSize(7.5)
+          doc.font('Helvetica').fillColor('#475569').fontSize(7.5)
             .text(cl.body, MARGIN, appY, { width: CONTENT_W, lineGap: 2 });
           appY = doc.y + 8;
         }
