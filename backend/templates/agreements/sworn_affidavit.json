@@ -1,0 +1,16 @@
+{
+  "id": "sworn_affidavit",
+  "titleEn": "Sworn Affidavit & Declaration",
+  "titleHi": "शपथ पत्र एवं घोषणा",
+  "agreementType": "Sworn Affidavit",
+  "category": "Legal Declaration",
+  "defaultAmount": 0,
+  "currency": "INR",
+  "validityPeriod": "Permanent / Legally Binding Declaration",
+  "paymentTerms": "Non-Commercial / Legal Declaration of Facts",
+  "stampDutyDefault": 100,
+  "stateJurisdiction": "Delhi, India",
+  "requiresWitnesses": true,
+  "termsEn": "1. SOLEMN DECLARATION: The Deponent solemnly and sincerely declares that all representations, residential addresses, and identity credentials provided herein are true, correct, and verified to the best of their knowledge, belief, and conscience.\n2. INDEMNITY CLAUSE: The Deponent undertakes to hold harmless all associated service providers and formally declares no concealment of any material facts.\n3. PENALTY FOR MISREPRESENTATION: Any false declaration, misrepresentation, or concealment of material facts in this affidavit constitutes an offense punishable under the Indian Penal Code (IPC) and the Code of Criminal Procedure (CrPC).\n4. DIGITAL NOTARIZATION: This affidavit is executed and verified electronically with a cryptographic SHA-256 signature hash under the HMorix Digital Legal Infrastructure.",
+  "termsHi": "१. सत्यनिष्ठा घोषणा: शपथकर्ता घोषणा करता/करती है कि प्रस्तुत सभी विवरण, पते व पहचान पत्र सत्य एवं प्रमाणिक हैं।\n२. दायित्व: किसी भी असत्य जानकारी के लिए शपथकर्ता स्वयं कानूनी रूप से उत्तरदायी होगा/होगी।\n३. असत्य घोषणा दंड: इस शपथ पत्र में असत्य जानकारी प्रदान करना भारतीय दंड संहिता (IPC) के अंतर्गत दंडनीय अपराध है।\n४. डिजिटल नोटराइजेशन: यह शपथ पत्र HMorix डिजिटल कानूनी ढांचे के अंतर्गत SHA-256 क्रिप्टोग्राफिक हस्ताक्षर के साथ इलेक्ट्रॉनिक रूप से सत्यापित है।"
+}

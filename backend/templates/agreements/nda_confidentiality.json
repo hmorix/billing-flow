@@ -1,0 +1,16 @@
+{
+  "id": "nda_confidentiality",
+  "titleEn": "Non-Disclosure & Confidentiality Agreement (NDA)",
+  "titleHi": "गोपनीयता एवं अप्रकटीकरण अनुबंध (NDA)",
+  "agreementType": "NDA / Confidentiality",
+  "category": "Legal Protection",
+  "defaultAmount": 0,
+  "currency": "INR",
+  "validityPeriod": "3 Years from Execution Date",
+  "paymentTerms": "Non-Commercial / Protective Legal Agreement",
+  "stampDutyDefault": 100,
+  "stateJurisdiction": "Delhi, India",
+  "requiresWitnesses": true,
+  "termsEn": "1. DEFINITION OF CONFIDENTIAL INFORMATION: All technical, business, financial, strategic, and operational information shared between parties is deemed Confidential Information.\n2. OBLIGATIONS: The Receiving Party shall not disclose, reproduce, or use any Confidential Information for any purpose other than the agreed business engagement.\n3. EXCLUSIONS: Information that is publicly known, independently developed, or lawfully received from a third party without restriction is excluded from confidentiality obligations.\n4. DURATION: Obligations of confidentiality shall survive for 3 years post-termination of this agreement.\n5. REMEDIES: Breach of this NDA entitles the Disclosing Party to seek injunctive relief and monetary damages.",
+  "termsHi": "१. गोपनीय जानकारी की परिभाषा: दोनों पक्षों के बीच साझा की गई सभी तकनीकी, व्यावसायिक और वित्तीय जानकारी गोपनीय मानी जाएगी।\n२. दायित्व: प्राप्तकर्ता पक्ष किसी भी गोपनीय जानकारी को तीसरे पक्ष को नहीं बताएगा।\n३. अपवाद: सार्वजनिक रूप से उपलब्ध या स्वतंत्र रूप से विकसित जानकारी गोपनीयता से मुक्त होगी।\n४. अवधि: इस अनुबंध की समाप्ति के ३ साल बाद तक गोपनीयता के दायित्व लागू रहेंगे।\n५. उपाय: NDA उल्लंघन की स्थिति में प्रकटकर्ता पक्ष निषेधाज्ञा और हर्जाना मांगने का अधिकारी होगा।"
+}

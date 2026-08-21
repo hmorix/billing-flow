@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   FileText, ShieldCheck, MapPin, Camera, Upload, ArrowLeft,
   Sparkles, Save, CheckCircle2, AlertCircle, Globe, RefreshCw,
-  Layers, Users, Award
+  Layers, Users, Award, Receipt, CheckSquare, Square
 } from 'lucide-react';
 import { CURRENCIES, type SupportedCurrency } from '../utils/i18n';
 
@@ -24,7 +24,30 @@ interface AgreementTemplate {
   termsHi: string;
 }
 
-// Fallback presets if offline
+interface ClientOption {
+  id: string;
+  name: string;
+  email: string;
+  company_name?: string | null;
+  phone?: string | null;
+  address?: string;
+}
+
+interface InvoiceOption {
+  id: string;
+  invoice_number: string;
+  client_id: string;
+  client_name: string;
+  client_email?: string;
+  client_company?: string;
+  client_address?: string;
+  client_phone?: string;
+  currency: string;
+  due_date: string;
+  status: string;
+  items?: any[];
+}
+
 const FALLBACK_TEMPLATES: AgreementTemplate[] = [
   {
     id: 'work_first_pay_later',
@@ -76,9 +99,17 @@ export const AgreementCreate: React.FC = () => {
   const { isAuthenticated, apiFetch } = useAuth();
   const navigate = useNavigate();
 
+  // Fast Async Data Stores
   const [templates, setTemplates] = useState<AgreementTemplate[]>(FALLBACK_TEMPLATES);
+  const [clients, setClients] = useState<ClientOption[]>([]);
+  const [invoices, setInvoices] = useState<InvoiceOption[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('');
+  const [linkedInvoiceNumber, setLinkedInvoiceNumber] = useState<string>('');
+
   const [selectedTemplateId, setSelectedTemplateId] = useState('work_first_pay_later');
   const [languageMode, setLanguageMode] = useState<'bilingual' | 'en' | 'hi'>('bilingual');
+  const [attachLegalAppendix, setAttachLegalAppendix] = useState<boolean>(true);
 
   // Form Fields
   const [title, setTitle] = useState('Work First, Pay Later Agreement / कार्य पश्चात भुगतान अनुबंध');
@@ -116,11 +147,13 @@ export const AgreementCreate: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [createdAgreement, setCreatedAgreement] = useState<any | null>(null);
 
-  // Fetch JSON templates from API
+  // Fast Concurrent Data Loading
   useEffect(() => {
-    const loadTemplates = async () => {
+    const loadAllInitialData = async () => {
+      const apiUrl = import.meta.env.VITE_API_URL || '';
+      
+      // Load templates
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || '';
         const res = await fetch(`${apiUrl}/api/agreements/templates`);
         if (res.ok) {
           const list = await res.json();
@@ -130,13 +163,34 @@ export const AgreementCreate: React.FC = () => {
           }
         }
       } catch (e) {
-        // Use fallback
         applyTemplate(FALLBACK_TEMPLATES[0], languageMode);
       }
+
+      // Load clients & invoices if authenticated
+      if (isAuthenticated) {
+        try {
+          const [clientsData, invoicesData] = await Promise.allSettled([
+            apiFetch('/api/clients'),
+            apiFetch('/api/invoices')
+          ]);
+
+          if (clientsData.status === 'fulfilled' && Array.isArray(clientsData.value)) {
+            setClients(clientsData.value);
+          }
+          if (invoicesData.status === 'fulfilled') {
+            const val = invoicesData.value;
+            const invList = Array.isArray(val) ? val : (val.results || []);
+            setInvoices(invList);
+          }
+        } catch (e) {
+          console.error('Failed to load user clients/invoices:', e);
+        }
+      }
     };
-    loadTemplates();
+
+    loadAllInitialData();
     captureLocation();
-  }, []);
+  }, [isAuthenticated]);
 
   const captureLocation = () => {
     if (!navigator.geolocation) {
@@ -189,6 +243,49 @@ export const AgreementCreate: React.FC = () => {
     if (tpl) applyTemplate(tpl, lang);
   };
 
+  // Auto-Fetch & Auto-Fill Client when Selected
+  const handleClientSelect = (clientId: string) => {
+    setSelectedClientId(clientId);
+    if (!clientId) return;
+
+    const found = clients.find(c => c.id === clientId);
+    if (found) {
+      setSecondPartyName(found.company_name ? `${found.name} (${found.company_name})` : found.name);
+      setSecondPartyContact(found.phone || found.email || '');
+      setSecondPartyAddress(found.address || '');
+    }
+  };
+
+  // Auto-Fill from Linked Invoice
+  const handleInvoiceSelect = (invoiceId: string) => {
+    setSelectedInvoiceId(invoiceId);
+    if (!invoiceId) {
+      setLinkedInvoiceNumber('');
+      return;
+    }
+
+    const found = invoices.find(inv => inv.id === invoiceId);
+    if (found) {
+      setLinkedInvoiceNumber(found.invoice_number);
+      if (found.client_name) {
+        setSecondPartyName(found.client_company ? `${found.client_name} (${found.client_company})` : found.client_name);
+      }
+      if (found.client_phone || found.client_email) {
+        setSecondPartyContact(found.client_phone || found.client_email || '');
+      }
+      if (found.client_address) {
+        setSecondPartyAddress(found.client_address);
+      }
+      if (found.currency) {
+        setCurrency(found.currency.toUpperCase());
+      }
+      if (found.due_date) {
+        setPaymentTerms(`Payment due by ${new Date(found.due_date).toLocaleDateString('en-IN')} as per Invoice #${found.invoice_number}`);
+      }
+      setTitle(`Agreement for Invoice #${found.invoice_number} / ${found.client_name}`);
+    }
+  };
+
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -208,6 +305,7 @@ export const AgreementCreate: React.FC = () => {
     const payload = {
       title,
       agreementType,
+      linkedInvoiceNumber: linkedInvoiceNumber || null,
       firstPartyName,
       firstPartyContact,
       firstPartyAddress,
@@ -227,6 +325,7 @@ export const AgreementCreate: React.FC = () => {
       stampDutyAmount: Number(stampDutyAmount || 100),
       termsContent,
       language: languageMode,
+      attachLegalAppendix,
       signerPhotoUrl: signerPhoto,
       geoLat,
       geoLng,
@@ -323,7 +422,7 @@ export const AgreementCreate: React.FC = () => {
               onClick={() => handleDownloadPdf(createdAgreement.id, createdAgreement.agreement_number)}
             >
               <FileText size={16} />
-              <span>Download e-Stamp PDF (with Hindi Font &amp; Signatures)</span>
+              <span>Download e-Stamp PDF (with Hindi Font, Signatures &amp; Appendix)</span>
             </button>
             <button
               className="btn btn-secondary"
@@ -358,11 +457,11 @@ export const AgreementCreate: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <h2 style={{ fontSize: 'clamp(1.2rem, 3.5vw, 1.6rem)', fontWeight: 700 }} className="text-gradient">
-              Digital Legal Agreement &amp; Affidavit Studio
+              Digital Legal Agreement &amp; Contract Studio
             </h2>
           </div>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-            Under HMorix Digital Legal Infrastructure • Hindi/English Unicode Font • Multi-Party Signatures on Every Page
+            Under HMorix Legal Infrastructure • Unicode Devanagari Hindi Engine • 4-Party Signatures on Every Page
           </p>
         </div>
       </div>
@@ -373,11 +472,67 @@ export const AgreementCreate: React.FC = () => {
         </div>
       )}
 
+      {/* Auto-Fetch Client & Invoice Smart Link Bar */}
+      {isAuthenticated && (clients.length > 0 || invoices.length > 0) && (
+        <div className="glass-card" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(6,182,212,0.08))', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Sparkles size={16} color="var(--primary)" />
+            <strong style={{ fontSize: '0.85rem' }}>Auto-Fill from Existing Client or Invoice (No Re-entry Needed)</strong>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
+            {/* Auto-Fetch Client */}
+            {clients.length > 0 && (
+              <div>
+                <label className="form-label" style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Users size={12} color="var(--primary)" /> ⚡ Select Saved Client
+                </label>
+                <select
+                  className="form-input"
+                  style={{ fontSize: '0.82rem' }}
+                  value={selectedClientId}
+                  onChange={(e) => handleClientSelect(e.target.value)}
+                >
+                  <option value="">-- Choose Existing Client to Auto-Fill --</option>
+                  {clients.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.company_name ? `(${c.company_name})` : ''} - {c.email || c.phone}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Select Invoice */}
+            {invoices.length > 0 && (
+              <div>
+                <label className="form-label" style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Receipt size={12} color="var(--accent)" /> 📄 Link Existing Invoice / Contract
+                </label>
+                <select
+                  className="form-input"
+                  style={{ fontSize: '0.82rem' }}
+                  value={selectedInvoiceId}
+                  onChange={(e) => handleInvoiceSelect(e.target.value)}
+                >
+                  <option value="">-- Choose Invoice to Auto-Link --</option>
+                  {invoices.map(inv => (
+                    <option key={inv.id} value={inv.id}>
+                      Invoice #{inv.invoice_number} ({inv.client_name}) - Due {new Date(inv.due_date).toLocaleDateString()}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Preset Agreement Selector */}
       <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
           <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Select Agreement Archetype ({templates.length} Modular Templates Loaded)
+            Agreement Archetype ({templates.length} Modular Templates Loaded)
           </span>
           <div style={{ display: 'flex', gap: '6px' }}>
             {(['bilingual', 'en', 'hi'] as const).map(l => (
@@ -505,6 +660,27 @@ export const AgreementCreate: React.FC = () => {
               value={termsContent}
               onChange={e => setTermsContent(e.target.value)}
             />
+          </div>
+
+          {/* Attach Legal Terms Checkbox */}
+          <div
+            onClick={() => setAttachLegalAppendix(!attachLegalAppendix)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px',
+              background: attachLegalAppendix ? 'rgba(16,185,129,0.08)' : 'var(--bg-tertiary)',
+              border: attachLegalAppendix ? '1px solid rgba(16,185,129,0.3)' : '1px solid var(--border-color)',
+              borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s ease'
+            }}
+          >
+            {attachLegalAppendix ? <CheckSquare size={18} color="var(--success)" /> : <Square size={18} color="var(--text-muted)" />}
+            <div>
+              <strong style={{ fontSize: '0.85rem', color: attachLegalAppendix ? 'var(--success)' : 'var(--text-primary)' }}>
+                Attach Full Master Terms of Service &amp; Privacy Policy Appendix to PDF
+              </strong>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>
+                Appends comprehensive IT Act 2000 legal terms, DPDP data protection clauses &amp; dispute arbitration rules.
+              </p>
+            </div>
           </div>
         </div>
 

@@ -85,11 +85,13 @@ async function seedSuperAdmin(db: any) {
     await db.prepare("ALTER TABLE agreements ADD COLUMN witness2_name TEXT").run().catch(() => {});
     await db.prepare("ALTER TABLE agreements ADD COLUMN witness2_contact TEXT").run().catch(() => {});
     await db.prepare("ALTER TABLE agreements ADD COLUMN signatory_designation TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE agreements ADD COLUMN linked_invoice_number TEXT").run().catch(() => {});
     await db.prepare(`
       CREATE TABLE IF NOT EXISTS agreements (
         id TEXT PRIMARY KEY,
         organization_id TEXT,
         agreement_number TEXT UNIQUE NOT NULL,
+        linked_invoice_number TEXT,
         agreement_type TEXT NOT NULL,
         title TEXT NOT NULL,
         first_party_name TEXT NOT NULL,
@@ -1233,7 +1235,7 @@ app.post('/api/agreements', authenticateToken, async (c) => {
 
   await c.env.DB.prepare(`
     INSERT INTO agreements (
-      id, organization_id, agreement_number, agreement_type, title,
+      id, organization_id, agreement_number, linked_invoice_number, agreement_type, title,
       first_party_name, first_party_contact, first_party_address, signatory_designation,
       second_party_name, second_party_contact, second_party_address,
       witness1_name, witness1_contact, witness2_name, witness2_contact,
@@ -1241,9 +1243,9 @@ app.post('/api/agreements', authenticateToken, async (c) => {
       terms_content, language, stamp_duty_amount, state_jurisdiction,
       signer_photo_url, document_attachment_url, geo_lat, geo_lng, geo_address,
       digital_hash, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
-    id, user.organizationId, agreementNumber, body.agreementType || 'Work First Pay Later', body.title,
+    id, user.organizationId, agreementNumber, body.linkedInvoiceNumber || null, body.agreementType || 'Work First Pay Later', body.title,
     body.firstPartyName, body.firstPartyContact || null, body.firstPartyAddress || null, body.signatoryDesignation || null,
     body.secondPartyName, body.secondPartyContact || null, body.secondPartyAddress || null,
     body.witness1Name || null, body.witness1Contact || null,
@@ -1270,7 +1272,7 @@ app.post('/api/agreements/public', async (c) => {
 
   await c.env.DB.prepare(`
     INSERT INTO agreements (
-      id, organization_id, agreement_number, agreement_type, title,
+      id, organization_id, agreement_number, linked_invoice_number, agreement_type, title,
       first_party_name, first_party_contact, first_party_address, signatory_designation,
       second_party_name, second_party_contact, second_party_address,
       witness1_name, witness1_contact, witness2_name, witness2_contact,
@@ -1278,9 +1280,9 @@ app.post('/api/agreements/public', async (c) => {
       terms_content, language, stamp_duty_amount, state_jurisdiction,
       signer_photo_url, document_attachment_url, geo_lat, geo_lng, geo_address,
       digital_hash, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
-    id, null, agreementNumber, body.agreementType || 'Work First Pay Later', body.title,
+    id, null, agreementNumber, body.linkedInvoiceNumber || null, body.agreementType || 'Work First Pay Later', body.title,
     body.firstPartyName, body.firstPartyContact || null, body.firstPartyAddress || null, body.signatoryDesignation || null,
     body.secondPartyName, body.secondPartyContact || null, body.secondPartyAddress || null,
     body.witness1Name || null, body.witness1Contact || null,
@@ -1326,6 +1328,7 @@ app.get('/api/agreements/verify/:hash', async (c) => {
     message: 'Official Legal Agreement Verified & Authenticated by HMorix Legal Infrastructure.',
     agreement: {
       agreementNumber: agreement.agreement_number,
+      linkedInvoiceNumber: agreement.linked_invoice_number,
       title: agreement.title,
       agreementType: agreement.agreement_type,
       firstParty: agreement.first_party_name,
@@ -1357,6 +1360,7 @@ app.get('/api/agreements/:id/pdf', async (c) => {
   try {
     const pdfBuffer = await generateAgreementPDF({
       agreementNumber: agreement.agreement_number,
+      linkedInvoiceNumber: agreement.linked_invoice_number,
       agreementType: agreement.agreement_type,
       title: agreement.title,
       firstPartyName: agreement.first_party_name,
@@ -1383,6 +1387,7 @@ app.get('/api/agreements/:id/pdf', async (c) => {
       geoLng: agreement.geo_lng ? Number(agreement.geo_lng) : undefined,
       geoAddress: agreement.geo_address,
       digitalHash: agreement.digital_hash,
+      attachLegalAppendix: true,
       createdAt: agreement.created_at
     });
 

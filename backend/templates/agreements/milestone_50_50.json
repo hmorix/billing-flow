@@ -1,0 +1,16 @@
+{
+  "id": "milestone_50_50",
+  "titleEn": "50-50 Milestone Split Payment Agreement",
+  "titleHi": "50-50 चरणबद्ध भुगतान अनुबंध",
+  "agreementType": "50-50 Milestone Payment",
+  "category": "Milestone Billing",
+  "defaultAmount": 50000,
+  "currency": "INR",
+  "validityPeriod": "45 Calendar Days",
+  "paymentTerms": "50% Advance on project kickoff, 50% upon final deliverable handover",
+  "stampDutyDefault": 100,
+  "stateJurisdiction": "Delhi, India",
+  "requiresWitnesses": true,
+  "termsEn": "1. PAYMENT SPLIT STRUCTURE: A non-refundable 50% advance mobilization fee is due prior to project kickoff; the remaining 50% balance shall be payable upon final delivery.\n2. REVISIONS & AMENDMENTS: Up to two rounds of minor revisions within agreed scope are included. Substantial alterations beyond initial specifications will be billed separately.\n3. IP OWNERSHIP: Full ownership and usage rights transfer unconditionally to the Second Party only upon 100% clearance of the balance contract consideration.\n4. TERMINATION CLAUSE: In the event of premature cancellation by the Second Party, the 50% advance mobilization fee is forfeited to cover allocated resources.",
+  "termsHi": "१. भुगतान संरचना: कार्य प्रारंभ होने से पूर्व ५०% गैर-वापसी योग्य अग्रिम राशि देय होगी; शेष ५०% राशि अंतिम कार्य सुपुर्दगी पर देय होगी।\n२. संशोधन एवं सुधार: कार्य के दायरे में दो दौर के संशोधन सम्मिलित हैं। अतिरिक्त कार्य के लिए अलग से शुल्क तय किया जाएगा।\n३. बौद्धिक संपदा का स्वामित्व: पूर्ण भुगतान प्राप्त होने के उपरांत ही स्वामित्व अधिकार द्वितीय पक्ष को हस्तांतरित होंगे।\n४. रद्दीकरण नियम: ग्राहक द्वारा कार्य रद्द करने पर अग्रिम राशि वापस नहीं होगी।"
+}
