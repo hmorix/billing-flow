@@ -97,6 +97,51 @@ const BUILT_IN_TEMPLATES: TemplateOption[] = [
     typography: 'Helvetica',
     badge: 'Luxury · Gold',
     backgroundColor: '#fffbeb'
+  },
+  {
+    id: 'sidebar_mono',
+    name: 'Sidebar Monochrome',
+    description: 'Dark left sidebar with QR code area, dates and client info in panel. Clean white body with large INVOICE title and detailed footer.',
+    primaryColor: '#1a1a1a',
+    typography: 'Helvetica Clean',
+    badge: 'QR · Sidebar',
+    backgroundColor: '#ffffff'
+  },
+  {
+    id: 'clean_purple_pro',
+    name: 'Clean Purple Pro',
+    description: 'Circle logo mark top-left, large bold INVOICE header, purple table headers with clean line-separated rows and colored totals.',
+    primaryColor: '#4338ca',
+    typography: 'Helvetica Modern',
+    badge: 'Corporate · Purple',
+    backgroundColor: '#ffffff'
+  },
+  {
+    id: 'orange_accent',
+    name: 'Orange Accent',
+    description: 'Brand name top-left with geometric orange corner accents, bold INVOICE in orange, QTY-first table columns and orange GRAND TOTAL box.',
+    primaryColor: '#f97316',
+    typography: 'Helvetica',
+    badge: 'Bold · Orange',
+    backgroundColor: '#ffffff'
+  },
+  {
+    id: 'navy_geometric',
+    name: 'Navy Geometric',
+    description: 'Full-width dark navy header with geometric circle motifs, left payment sidebar, items table, and navy footer bar with contact info.',
+    primaryColor: '#1e3a5f',
+    typography: 'Helvetica',
+    badge: 'Geometric · Navy',
+    backgroundColor: '#ffffff'
+  },
+  {
+    id: 'teal_corporate',
+    name: 'Teal Corporate',
+    description: 'Dark charcoal top-left block for company, teal right header with invoice details, numbered item rows, and teal total bar. Executive look.',
+    primaryColor: '#00897b',
+    typography: 'Helvetica',
+    badge: 'Teal · Executive',
+    backgroundColor: '#ffffff'
   }
 ];
 
@@ -403,6 +448,158 @@ const MiniInvoicePreview: React.FC<{ tpl: TemplateOption }> = ({ tpl }) => {
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
             <div style={{ background: tpl.primaryColor, color: '#fff', padding: '2px 7px', borderRadius: '2px', fontWeight: 'bold' }}>TOTAL DUE: $8,500.00</div>
+          </div>
+        </>
+      )}
+
+      {/* ── 9. Sidebar Monochrome ── */}
+      {tpl.id === 'sidebar_mono' && (
+        <>
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '38%', height: '100%', background: tpl.primaryColor, padding: '6px', boxSizing: 'border-box' }}>
+            <div style={{ width: '100%', height: '30px', background: '#333', marginBottom: '5px', display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '1px', padding: '2px' }}>
+              {[...Array(16)].map((_, i) => <div key={i} style={{ background: i % 2 === 0 ? '#fff' : '#333' }} />)}
+            </div>
+            <div style={{ color: '#9ca3af', fontSize: '4px', fontWeight: 'bold' }}>DATE:</div>
+            <div style={{ color: '#fff', fontSize: '4.5px', marginBottom: '3px' }}>01 January 2025</div>
+            <div style={{ color: '#9ca3af', fontSize: '4px', fontWeight: 'bold' }}>TO:</div>
+            <div style={{ color: '#fff', fontSize: '5px', fontWeight: 'bold' }}>John Doe</div>
+            <div style={{ color: '#9ca3af', fontSize: '4px' }}>john@email.com</div>
+          </div>
+          <div style={{ marginLeft: '40%' }}>
+            <div style={{ fontWeight: 'bold', fontSize: '11px', color: '#1a1a1a', lineHeight: 1 }}>INVOICE</div>
+            <div style={{ color: '#9ca3af', fontSize: '4px', marginBottom: '4px' }}>Payment Info</div>
+            <div style={{ background: '#f3f4f6', padding: '2px 3px', marginBottom: '4px', fontSize: '4px' }}>
+              <span>Inv: #001</span>
+            </div>
+            <div style={{ background: '#1a1a1a', color: '#fff', padding: '2px 3px', display: 'flex', justifyContent: 'space-between', fontSize: '4px', marginBottom: '2px' }}>
+              <span>Description</span><span>Total</span>
+            </div>
+            <div style={{ padding: '1px 3px', display: 'flex', justifyContent: 'space-between', fontSize: '4px', borderBottom: '0.5px solid #e5e7eb' }}>
+              <span>Web Design</span><span>$1,200</span>
+            </div>
+            <div style={{ padding: '1px 3px', background: '#f9fafb', display: 'flex', justifyContent: 'space-between', fontSize: '4px' }}>
+              <span>Consulting</span><span>$800</span>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── 10. Clean Purple Pro ── */}
+      {tpl.id === 'clean_purple_pro' && (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: tpl.primaryColor, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '7px', fontWeight: 'bold' }}>A</div>
+              <span style={{ fontWeight: 'bold', fontSize: '6px', color: '#1e1b4b' }}>Acme Corp</span>
+            </div>
+            <span style={{ fontWeight: 'bold', fontSize: '10px', color: tpl.primaryColor }}>INVOICE</span>
+          </div>
+          <div style={{ height: '0.5px', background: '#e5e7eb', marginBottom: '5px' }} />
+          <div style={{ display: 'flex', gap: '4px', marginBottom: '5px', fontSize: '4px' }}>
+            <div style={{ flex: 1 }}><div style={{ fontWeight: 'bold', marginBottom: '1px' }}>Office Address</div><div style={{ color: '#4b5563' }}>123 Business Ave</div></div>
+            <div style={{ flex: 1 }}><div style={{ color: '#6b7280' }}>To:</div><div style={{ fontWeight: 'bold' }}>Client Name</div><div style={{ color: '#4b5563' }}>client@email.com</div></div>
+          </div>
+          <div style={{ background: tpl.primaryColor, color: '#fff', padding: '2px 4px', display: 'flex', justifyContent: 'space-between', fontSize: '4px', fontWeight: 'bold', marginBottom: '2px' }}>
+            <span>Description</span><span>Price</span><span>Qty</span><span>Total</span>
+          </div>
+          <div style={{ padding: '2px 4px', display: 'flex', justifyContent: 'space-between', borderBottom: '0.5px solid #e5e7eb', fontSize: '4px' }}>
+            <span style={{ flex: 2 }}>Website Design</span><span>$2,000</span><span>1</span><span>$2,000</span>
+          </div>
+          <div style={{ padding: '2px 4px', display: 'flex', justifyContent: 'space-between', fontSize: '4px', borderBottom: '0.5px solid #e5e7eb' }}>
+            <span style={{ flex: 2 }}>Branding Kit</span><span>$500</span><span>2</span><span>$1,000</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '3px' }}>
+            <div style={{ background: tpl.primaryColor, color: '#fff', padding: '2px 6px', fontSize: '4.5px', fontWeight: 'bold' }}>TOTAL DUE: $3,000</div>
+          </div>
+        </>
+      )}
+
+      {/* ── 11. Orange Accent ── */}
+      {tpl.id === 'orange_accent' && (
+        <>
+          <div style={{ position: 'absolute', top: 0, right: 0, width: '25%', height: '40%', background: tpl.primaryColor, borderRadius: '0 6px 0 0' }} />
+          <div style={{ position: 'absolute', bottom: 0, left: 0, width: '12%', height: '30%', background: tpl.primaryColor, borderRadius: '0 0 0 6px' }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', position: 'relative', zIndex: 1 }}>
+            <div>
+              <div style={{ fontWeight: 'bold', fontSize: '6px', color: '#1a1a1a' }}>MyBrand Co.</div>
+              <div style={{ fontSize: '4px', color: '#6b7280' }}>123 Main Street</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '12px', color: tpl.primaryColor, lineHeight: 1 }}>INVOICE</div>
+              <div style={{ fontSize: '4px', color: '#1a1a1a' }}>Jan 01, 2025</div>
+            </div>
+          </div>
+          <div style={{ height: '0.5px', background: '#d1d5db', marginBottom: '4px' }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '4px', color: '#9ca3af', fontWeight: 'bold', marginBottom: '2px' }}>
+            <span>QTY</span><span style={{ flex: 2, textAlign: 'center' }}>DESCRIPTION</span><span>PRICE</span><span>TOTAL</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '4px', padding: '1px 0', borderBottom: '0.5px solid #e5e7eb' }}>
+            <span>2</span><span style={{ flex: 2, textAlign: 'center' }}>Logo Design</span><span>$500</span><span style={{ fontWeight: 'bold' }}>$1,000</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
+            <div style={{ background: tpl.primaryColor, color: '#fff', padding: '2px 6px', fontSize: '4.5px', fontWeight: 'bold' }}>GRAND TOTAL: $1,000</div>
+          </div>
+        </>
+      )}
+
+      {/* ── 12. Navy Geometric ── */}
+      {tpl.id === 'navy_geometric' && (
+        <>
+          <div style={{ background: tpl.primaryColor, margin: '-10px -10px 5px -10px', padding: '6px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', right: '4px', top: '-4px', width: '22px', height: '22px', borderRadius: '50%', background: '#2563a8', opacity: 0.8 }} />
+            <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '6px' }}>LOGO</span>
+            <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '9px' }}>INVOICE:</span>
+          </div>
+          <div style={{ display: 'flex', gap: '4px', marginBottom: '4px', fontSize: '4px' }}>
+            <div style={{ width: '38%', background: '#f1f5f9', padding: '3px' }}>
+              <div style={{ color: tpl.primaryColor, fontWeight: 'bold', fontSize: '4px' }}>PAYMENT</div>
+              <div style={{ color: tpl.primaryColor, fontWeight: 'bold', fontSize: '4px', marginBottom: '2px' }}>METHOD</div>
+              <div style={{ color: '#4b5563' }}>Bank Account</div>
+              <div style={{ color: '#4b5563' }}>PayPal</div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ background: tpl.primaryColor, color: '#fff', padding: '2px 3px', display: 'flex', justifyContent: 'space-between', fontSize: '4px', fontWeight: 'bold', marginBottom: '1px' }}>
+                <span>PRODUCT</span><span>TOTAL</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 3px', fontSize: '4px', borderBottom: '0.5px solid #e5e7eb' }}>
+                <span>Web App</span><span style={{ color: tpl.primaryColor, fontWeight: 'bold' }}>$3,000</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 3px', fontSize: '4px', background: '#f8fafc' }}>
+                <span>Mobile</span><span style={{ color: tpl.primaryColor, fontWeight: 'bold' }}>$2,000</span>
+              </div>
+            </div>
+          </div>
+          <div style={{ background: tpl.primaryColor, margin: '0 -10px', padding: '3px 10px' }}>
+            <div style={{ color: '#93c5fd', fontSize: '4px', textAlign: 'center' }}>contact@company.com | +123 456 789</div>
+          </div>
+        </>
+      )}
+
+      {/* ── 13. Teal Corporate ── */}
+      {tpl.id === 'teal_corporate' && (
+        <>
+          <div style={{ display: 'flex', margin: '-10px -10px 6px -10px', height: '42px' }}>
+            <div style={{ background: '#1a1a2e', width: '42%', padding: '5px 6px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '5.5px' }}>Acme Corp</div>
+              <div style={{ color: '#9ca3af', fontSize: '3.5px' }}>Company Tagline</div>
+            </div>
+            <div style={{ background: tpl.primaryColor, flex: 1, padding: '5px 6px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '10px', lineHeight: 1 }}>INVOICE</div>
+              <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: '3.5px' }}>#INV-2025-001</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '4px', marginBottom: '4px', fontSize: '4px' }}>
+            <div style={{ flex: 1 }}><div style={{ color: tpl.primaryColor, fontWeight: 'bold' }}>INVOICE TO:</div><div style={{ fontWeight: 'bold' }}>John Doe</div><div style={{ color: '#4b5563' }}>Client Corp</div></div>
+            <div style={{ flex: 1 }}><div style={{ color: tpl.primaryColor, fontWeight: 'bold' }}>PAYMENT METHOD</div><div style={{ color: '#4b5563' }}>Account: 12345678</div></div>
+          </div>
+          <div style={{ background: tpl.primaryColor, color: '#fff', padding: '2px 4px', display: 'flex', justifyContent: 'space-between', fontSize: '4px', fontWeight: 'bold', marginBottom: '1px' }}>
+            <span>NO.</span><span style={{ flex: 2 }}>DESCRIPTION</span><span>PRICE</span><span>TOTAL</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 4px', fontSize: '4px', borderBottom: '0.5px solid #e5e7eb' }}>
+            <span style={{ color: '#6b7280' }}>01</span><span style={{ flex: 2 }}>Web Dev</span><span>$3,000</span><span style={{ color: tpl.primaryColor, fontWeight: 'bold' }}>$3,000</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2px' }}>
+            <div style={{ background: tpl.primaryColor, color: '#fff', padding: '2px 5px', fontSize: '4.5px', fontWeight: 'bold' }}>Total: $3,000</div>
           </div>
         </>
       )}

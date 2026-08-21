@@ -783,7 +783,12 @@ app.put('/api/organization/template', async (c) => {
     'emerald_clean',
     'ocean_breeze',
     'monochrome_luxury',
-    'golden_elegance'
+    'golden_elegance',
+    'sidebar_mono',
+    'clean_purple_pro',
+    'orange_accent',
+    'navy_geometric',
+    'teal_corporate'
   ];
 
   // Allow either built-in templates OR custom template IDs (UUIDs)
