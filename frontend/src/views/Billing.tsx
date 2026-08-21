@@ -305,12 +305,24 @@ export const CheckoutMock: React.FC = () => {
         });
 
         // Redirect back to successful page
-        window.location.href = successUrl;
+        if (successUrl.startsWith('http://') || successUrl.startsWith('https://')) {
+          window.location.href = successUrl;
+        } else {
+          navigate(successUrl);
+        }
       } catch (err) {
         alert('Payment processing failed in mock mode');
         setIsProcessing(false);
       }
     }, 1500);
+  };
+
+  const handleCancelClick = () => {
+    if (cancelUrl.startsWith('http://') || cancelUrl.startsWith('https://')) {
+      window.location.href = cancelUrl;
+    } else {
+      navigate(cancelUrl);
+    }
   };
 
   return (
@@ -330,7 +342,7 @@ export const CheckoutMock: React.FC = () => {
             <span style={{ fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Stripe Sandbox Terminal</span>
             <h4 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Complete Subscription</h4>
           </div>
-          <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => window.location.href = cancelUrl}>
+          <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={handleCancelClick}>
             Cancel
           </button>
         </div>
@@ -428,7 +440,11 @@ export const PortalMock: React.FC = () => {
       });
 
       alert('Subscription canceled successfully.');
-      window.location.href = returnUrl;
+      if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {
+        window.location.href = returnUrl;
+      } else {
+        navigate(returnUrl);
+      }
     } catch (err) {
       alert('Failed to process cancelation.');
       setIsProcessing(false);
@@ -449,10 +465,22 @@ export const PortalMock: React.FC = () => {
       });
 
       alert(`Tier changed to ${newPlan} successfully.`);
-      window.location.href = returnUrl;
+      if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {
+        window.location.href = returnUrl;
+      } else {
+        navigate(returnUrl);
+      }
     } catch (err) {
       alert('Failed to modify plan tier.');
       setIsProcessing(false);
+    }
+  };
+
+  const handleReturnClick = () => {
+    if (returnUrl.startsWith('http://') || returnUrl.startsWith('https://')) {
+      window.location.href = returnUrl;
+    } else {
+      navigate(returnUrl);
     }
   };
 
@@ -469,7 +497,7 @@ export const PortalMock: React.FC = () => {
         
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
-          <button className="btn btn-secondary" style={{ padding: '8px' }} onClick={() => window.location.href = returnUrl}>
+          <button className="btn btn-secondary" style={{ padding: '8px' }} onClick={handleReturnClick}>
             <ArrowLeft size={16} />
           </button>
           <div>
