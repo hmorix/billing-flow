@@ -32,25 +32,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobileDrawer, isDrawer 
 
   return (
     <aside
-      className={isDrawer ? 'mobile-drawer-content' : 'sidebar glass-card'}
-      style={{
-        width: '280px',
-        height: '100vh',
-        position: isDrawer ? 'relative' : 'fixed',
-        left: 0,
-        top: 0,
-        borderRadius: 0,
-        borderTop: 'none',
-        borderLeft: 'none',
-        borderBottom: 'none',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        padding: '24px 16px',
-        zIndex: 100,
-        background: 'var(--bg-secondary)',
-        overflowY: 'auto'
-      }}
+      className={isDrawer ? 'mobile-drawer-content' : 'sidebar'}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', flex: 1 }}>
         {/* Brand / Logo + Theme Switch */}
