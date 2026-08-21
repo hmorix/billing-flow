@@ -33,7 +33,7 @@ const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 // Inject adapters and environment variables
 app.use('*', async (c, next) => {
   if (!c.env || !c.env.DB) {
-    c.env = c.env || {};
+    c.env = (c.env || {}) as any;
     
     // Check if we need to initialize adapters
     if (!(globalThis as any).__dbAdapter) {
