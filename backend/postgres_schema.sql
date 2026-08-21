@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS organizations (
   phone TEXT,
   logo_url TEXT,
   invoice_template TEXT DEFAULT 'modern_purple' NOT NULL,
+  email_template TEXT DEFAULT 'professional' NOT NULL,
   smtp_host TEXT,
   smtp_port INTEGER,
   smtp_user TEXT,

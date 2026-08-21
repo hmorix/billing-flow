@@ -1,5 +1,57 @@
 import PDFDocument from 'pdfkit';
 
+async function resolveLogoUri(logoUrl: string | null | undefined, env: any): Promise<string | null> {
+  if (!logoUrl) return null;
+  if (logoUrl.startsWith('data:image/')) return logoUrl;
+
+  try {
+    let key = logoUrl;
+    if (logoUrl.includes('/billingflow-logos/')) {
+      key = logoUrl.split('/billingflow-logos/').pop() || logoUrl;
+    } else if (logoUrl.startsWith('/uploads/')) {
+      key = logoUrl.replace('/uploads/', '');
+    }
+
+    if (env?.BUCKET?.get) {
+      try {
+        const logoObject = await env.BUCKET.get(key);
+        if (logoObject) {
+          const logoArrayBuffer = await logoObject.arrayBuffer();
+          const logoBytes = new Uint8Array(logoArrayBuffer);
+          let binary = '';
+          for (let i = 0; i < logoBytes.byteLength; i++) {
+            binary += String.fromCharCode(logoBytes[i]);
+          }
+          const base64 = btoa(binary);
+          const ext = key.split('.').pop()?.toLowerCase() ?? 'png';
+          const mime = (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg' : 'image/png';
+          return `data:${mime};base64,${base64}`;
+        }
+      } catch (e) {
+        // Fallback to fetch below
+      }
+    }
+
+    if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
+      const res = await fetch(logoUrl);
+      if (res.ok) {
+        const arrayBuf = await res.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuf);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        const base64 = btoa(binary);
+        const contentType = res.headers.get('content-type') || 'image/png';
+        return `data:${contentType};base64,${base64}`;
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to resolve logo image for PDF:', err);
+  }
+  return null;
+}
+
 // Format currency helper with thousands separators
 function formatCurrency(amount: number, currency: string = 'USD'): string {
   const num = Number(amount || 0);
@@ -63,27 +115,7 @@ export async function generateInvoicePDF(invoiceId: string, organizationId: stri
       doc.on('error', (err) => reject(err));
 
       // --- Resolve Logo to Base64 Data URI ---
-      let logoUri: string | null = null;
-      if (organization.logo_url) {
-        try {
-          const logoKey = organization.logo_url.replace('/uploads/', '');
-          const logoObject = await env.BUCKET.get(logoKey);
-          if (logoObject) {
-            const logoArrayBuffer = await logoObject.arrayBuffer();
-            const logoBytes = new Uint8Array(logoArrayBuffer);
-            let binary = '';
-            for (let i = 0; i < logoBytes.byteLength; i++) {
-              binary += String.fromCharCode(logoBytes[i]);
-            }
-            const base64 = btoa(binary);
-            const ext = logoKey.split('.').pop()?.toLowerCase() ?? 'png';
-            const mime = (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg' : 'image/png';
-            logoUri = `data:${mime};base64,${base64}`;
-          }
-        } catch (logoErr) {
-          console.warn('Logo load failed, skipping logo embed:', logoErr);
-        }
-      }
+      const logoUri: string | null = await resolveLogoUri(organization.logo_url, env);
 
       // Route drawing to selected template engine
       const template = organization.invoice_template || 'modern_purple';

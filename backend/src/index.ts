@@ -77,6 +77,7 @@ async function seedSuperAdmin(db: any) {
   try {
     await db.prepare("ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0").run().catch(() => {});
     await db.prepare("ALTER TABLE users ADD COLUMN verification_code TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE organizations ADD COLUMN email_template TEXT DEFAULT 'professional'").run().catch(() => {});
   } catch (e) {
     // Columns might already exist
   }
