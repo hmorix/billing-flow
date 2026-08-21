@@ -4,6 +4,7 @@
 
 import { Hono } from 'hono';
 import { handle } from 'hono/vercel';
+import { getRequestListener } from '@hono/node-server';
 import { cors } from 'hono/cors';
 import { verify, sign } from 'hono/jwt';
 import bcrypt from 'bcryptjs';
@@ -1099,11 +1100,7 @@ app.delete('/api/admin/payments/:id', requireSuperAdmin, async (c) => {
   return c.json({ message: 'Payment deleted.' });
 });
 
-export const GET = handle(app);
-export const POST = handle(app);
-export const PUT = handle(app);
-export const DELETE = handle(app);
-export const OPTIONS = handle(app);
+export { app };
+export default getRequestListener(app.fetch);
 
-export default handle(app);
 
