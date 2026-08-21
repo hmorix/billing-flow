@@ -245,14 +245,23 @@ export const InvoiceEdit: React.FC = () => {
 
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Currency</label>
-            <input
-              type="text"
-              required
-              placeholder="USD"
+            <select
               className="form-input"
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
-            />
+              style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)' }}
+            >
+              <option value="INR">INR (₹) - Indian Rupee (Default)</option>
+              <option value="USD">USD ($) - US Dollar</option>
+              <option value="EUR">EUR (€) - Euro</option>
+              <option value="GBP">GBP (£) - British Pound</option>
+              <option value="AED">AED (د.إ) - UAE Dirham</option>
+              <option value="CAD">CAD (CA$) - Canadian Dollar</option>
+              <option value="AUD">AUD (A$) - Australian Dollar</option>
+              <option value="JPY">JPY (¥) - Japanese Yen</option>
+              <option value="SAR">SAR (﷼) - Saudi Riyal</option>
+              <option value="SGD">SGD (S$) - Singapore Dollar</option>
+            </select>
           </div>
 
         </div>

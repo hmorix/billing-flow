@@ -9,8 +9,8 @@ import { cors } from 'hono/cors';
 import { verify, sign } from 'hono/jwt';
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
-import Stripe from 'stripe';
 import { generateInvoicePDF } from './services/pdfService';
+import { generateAgreementPDF } from './services/agreementPdfService';
 import { sendReminderEmail } from './services/emailService';
 import { D1DatabaseAdapter, R2ToSupabaseStorageAdapter } from './adapters';
 
@@ -79,8 +79,39 @@ async function seedSuperAdmin(db: any) {
     await db.prepare("ALTER TABLE users ADD COLUMN verification_code TEXT").run().catch(() => {});
     await db.prepare("ALTER TABLE organizations ADD COLUMN email_template TEXT DEFAULT 'professional'").run().catch(() => {});
     await db.prepare("ALTER TABLE organizations ADD COLUMN payment_qr_link TEXT").run().catch(() => {});
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS agreements (
+        id TEXT PRIMARY KEY,
+        organization_id TEXT,
+        agreement_number TEXT UNIQUE NOT NULL,
+        agreement_type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        first_party_name TEXT NOT NULL,
+        first_party_contact TEXT,
+        first_party_address TEXT,
+        second_party_name TEXT NOT NULL,
+        second_party_contact TEXT,
+        second_party_address TEXT,
+        payment_terms TEXT,
+        total_amount REAL,
+        currency TEXT DEFAULT 'INR',
+        validity_period TEXT,
+        terms_content TEXT NOT NULL,
+        language TEXT DEFAULT 'bilingual',
+        stamp_duty_amount REAL DEFAULT 100,
+        state_jurisdiction TEXT DEFAULT 'Delhi, India',
+        signer_photo_url TEXT,
+        document_attachment_url TEXT,
+        geo_lat REAL,
+        geo_lng REAL,
+        geo_address TEXT,
+        digital_hash TEXT UNIQUE NOT NULL,
+        status TEXT DEFAULT 'executed',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
   } catch (e) {
-    // Columns might already exist
+    // Columns/tables might already exist
   }
 
   const superadminEmail = 'admin@billingflow.com';
@@ -1128,6 +1159,195 @@ app.delete('/api/admin/payments/:id', requireSuperAdmin, async (c) => {
     ]);
   }
   return c.json({ message: 'Payment deleted.' });
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// LEGAL AGREEMENT & NOTARY VERIFICATION ENDPOINTS (Powered by HMorix)
+// ═══════════════════════════════════════════════════════════════════
+
+async function createAgreementHash(payload: any): Promise<string> {
+  const rawString = `${payload.agreementNumber}|${payload.title}|${payload.firstPartyName}|${payload.secondPartyName}|${payload.totalAmount}|${payload.termsContent}|${payload.geoLat || 0}|${payload.geoLng || 0}|${Date.now()}`;
+  const msgUint8 = new TextEncoder().encode(rawString);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// 1. Get organization agreements (Authenticated)
+app.get('/api/agreements', authenticateToken, async (c) => {
+  const user = c.get('user');
+  const { results } = await c.env.DB.prepare(
+    "SELECT * FROM agreements WHERE organization_id = ? ORDER BY created_at DESC"
+  ).bind(user.organizationId).all();
+  return c.json(results || []);
+});
+
+// 2. Create organization agreement (Authenticated)
+app.post('/api/agreements', authenticateToken, async (c) => {
+  const user = c.get('user');
+  const body = await c.req.json();
+  
+  const id = crypto.randomUUID();
+  const agreementNumber = body.agreementNumber || `AGR-${Date.now().toString().slice(-6)}`;
+  const digitalHash = await createAgreementHash({ ...body, agreementNumber });
+
+  await c.env.DB.prepare(`
+    INSERT INTO agreements (
+      id, organization_id, agreement_number, agreement_type, title,
+      first_party_name, first_party_contact, first_party_address,
+      second_party_name, second_party_contact, second_party_address,
+      payment_terms, total_amount, currency, validity_period,
+      terms_content, language, stamp_duty_amount, state_jurisdiction,
+      signer_photo_url, document_attachment_url, geo_lat, geo_lng, geo_address,
+      digital_hash, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    id, user.organizationId, agreementNumber, body.agreementType || 'Work First Pay Later', body.title,
+    body.firstPartyName, body.firstPartyContact || null, body.firstPartyAddress || null,
+    body.secondPartyName, body.secondPartyContact || null, body.secondPartyAddress || null,
+    body.paymentTerms || null, Number(body.totalAmount || 0), body.currency || 'INR', body.validityPeriod || null,
+    body.termsContent, body.language || 'bilingual', Number(body.stampDutyAmount || 100), body.stateJurisdiction || 'Delhi, India',
+    body.signerPhotoUrl || null, body.documentAttachmentUrl || null,
+    body.geoLat ? Number(body.geoLat) : null, body.geoLng ? Number(body.geoLng) : null, body.geoAddress || null,
+    digitalHash, 'executed'
+  ).run();
+
+  const created = await c.env.DB.prepare("SELECT * FROM agreements WHERE id = ?").bind(id).first();
+  return c.json(created, 201);
+});
+
+// 3. Create Public / Guest agreement (Without Registration)
+app.post('/api/agreements/public', async (c) => {
+  const body = await c.req.json();
+  
+  const id = crypto.randomUUID();
+  const agreementNumber = `HM-AGR-${Date.now().toString().slice(-6)}`;
+  const digitalHash = await createAgreementHash({ ...body, agreementNumber });
+
+  await c.env.DB.prepare(`
+    INSERT INTO agreements (
+      id, organization_id, agreement_number, agreement_type, title,
+      first_party_name, first_party_contact, first_party_address,
+      second_party_name, second_party_contact, second_party_address,
+      payment_terms, total_amount, currency, validity_period,
+      terms_content, language, stamp_duty_amount, state_jurisdiction,
+      signer_photo_url, document_attachment_url, geo_lat, geo_lng, geo_address,
+      digital_hash, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    id, null, agreementNumber, body.agreementType || 'Work First Pay Later', body.title,
+    body.firstPartyName, body.firstPartyContact || null, body.firstPartyAddress || null,
+    body.secondPartyName, body.secondPartyContact || null, body.secondPartyAddress || null,
+    body.paymentTerms || null, Number(body.totalAmount || 0), body.currency || 'INR', body.validityPeriod || null,
+    body.termsContent, body.language || 'bilingual', Number(body.stampDutyAmount || 100), body.stateJurisdiction || 'Delhi, India',
+    body.signerPhotoUrl || null, body.documentAttachmentUrl || null,
+    body.geoLat ? Number(body.geoLat) : null, body.geoLng ? Number(body.geoLng) : null, body.geoAddress || null,
+    digitalHash, 'executed'
+  ).run();
+
+  const created = await c.env.DB.prepare("SELECT * FROM agreements WHERE id = ?").bind(id).first();
+  return c.json(created, 201);
+});
+
+// 4. Get agreement details by ID
+app.get('/api/agreements/:id', async (c) => {
+  const id = c.req.param('id');
+  const agreement = await c.env.DB.prepare("SELECT * FROM agreements WHERE id = ?").bind(id).first();
+  if (!agreement) return c.json({ error: 'Agreement document not found' }, 404);
+  return c.json(agreement);
+});
+
+// 5. Public verification endpoint by SHA-256 digital hash
+app.get('/api/agreements/verify/:hash', async (c) => {
+  const hash = c.req.param('hash');
+  const agreement = await c.env.DB.prepare(
+    "SELECT * FROM agreements WHERE digital_hash = ? OR agreement_number = ?"
+  ).bind(hash, hash).first();
+  
+  if (!agreement) {
+    return c.json({
+      verified: false,
+      message: 'Cryptographic hash not found or document was modified.',
+      hash
+    }, 404);
+  }
+
+  return c.json({
+    verified: true,
+    message: 'Official Legal Agreement Verified & Authenticated by HMorix Legal Infrastructure.',
+    agreement: {
+      agreementNumber: agreement.agreement_number,
+      title: agreement.title,
+      agreementType: agreement.agreement_type,
+      firstParty: agreement.first_party_name,
+      secondParty: agreement.second_party_name,
+      totalAmount: agreement.total_amount,
+      currency: agreement.currency,
+      validityPeriod: agreement.validity_period,
+      stateJurisdiction: agreement.state_jurisdiction,
+      stampDutyAmount: agreement.stamp_duty_amount,
+      geoLat: agreement.geo_lat,
+      geoLng: agreement.geo_lng,
+      geoAddress: agreement.geo_address,
+      digitalHash: agreement.digital_hash,
+      status: agreement.status,
+      executedAt: agreement.created_at
+    }
+  });
+});
+
+// 6. Generate Agreement PDF
+app.get('/api/agreements/:id/pdf', async (c) => {
+  const id = c.req.param('id');
+  const agreement = await c.env.DB.prepare("SELECT * FROM agreements WHERE id = ?").bind(id).first();
+  if (!agreement) return c.text('Agreement not found', 404);
+
+  try {
+    const pdfBuffer = await generateAgreementPDF({
+      agreementNumber: agreement.agreement_number,
+      agreementType: agreement.agreement_type,
+      title: agreement.title,
+      firstPartyName: agreement.first_party_name,
+      firstPartyContact: agreement.first_party_contact,
+      firstPartyAddress: agreement.first_party_address,
+      secondPartyName: agreement.second_party_name,
+      secondPartyContact: agreement.second_party_contact,
+      secondPartyAddress: agreement.second_party_address,
+      paymentTerms: agreement.payment_terms,
+      totalAmount: agreement.total_amount ? Number(agreement.total_amount) : undefined,
+      currency: agreement.currency || 'INR',
+      validityPeriod: agreement.validity_period,
+      termsContent: agreement.terms_content,
+      language: agreement.language,
+      stampDutyAmount: agreement.stamp_duty_amount ? Number(agreement.stamp_duty_amount) : 100,
+      stateJurisdiction: agreement.state_jurisdiction,
+      signerPhotoUrl: agreement.signer_photo_url,
+      geoLat: agreement.geo_lat ? Number(agreement.geo_lat) : undefined,
+      geoLng: agreement.geo_lng ? Number(agreement.geo_lng) : undefined,
+      geoAddress: agreement.geo_address,
+      digitalHash: agreement.digital_hash,
+      createdAt: agreement.created_at
+    });
+
+    return new Response(pdfBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="Agreement_${agreement.agreement_number}.pdf"`
+      }
+    });
+  } catch (err: any) {
+    console.error('PDF Generation Error:', err);
+    return c.text(`Failed to generate Agreement PDF: ${err.message}`, 500);
+  }
+});
+
+// 7. Delete agreement (Authenticated)
+app.delete('/api/agreements/:id', authenticateToken, async (c) => {
+  const id = c.req.param('id');
+  const user = c.get('user');
+  await c.env.DB.prepare("DELETE FROM agreements WHERE id = ? AND organization_id = ?").bind(id, user.organizationId).run();
+  return c.json({ message: 'Agreement deleted successfully.' });
 });
 
 export { app };

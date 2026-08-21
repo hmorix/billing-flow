@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Search, FileDown, Mail, CheckCircle2, Trash2, Eye, Receipt, ShieldAlert } from 'lucide-react';
+import { Plus, Search, FileDown, Mail, CheckCircle2, Trash2, Eye, Receipt, ShieldAlert, Share2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { shareViaWhatsApp, generateInvoiceWhatsAppText } from '../utils/whatsappService';
 
 interface Invoice {
   id: string;
@@ -399,6 +400,34 @@ export const Invoices: React.FC = () => {
     }
   };
 
+  const handleWhatsAppShare = async (inv: Invoice) => {
+    try {
+      const fullData = await apiFetch(`/api/invoices/${inv.id}`);
+      const subtotal = (fullData.items || []).reduce((acc: number, it: any) => acc + (Number(it.quantity) * Number(it.unit_price)), 0);
+      const discount = Number(fullData.discount || 0);
+      const taxRate = Number(fullData.tax_rate || 0);
+      const taxable = Math.max(0, subtotal - discount);
+      const total = taxable + (taxable * (taxRate / 100));
+
+      const text = generateInvoiceWhatsAppText({
+        invoiceNumber: fullData.invoice_number,
+        clientName: fullData.client_name,
+        clientPhone: fullData.client_phone,
+        organizationName: organization?.name || 'Our Company',
+        issueDate: fullData.issue_date,
+        dueDate: fullData.due_date,
+        currency: fullData.currency || 'INR',
+        total,
+        items: fullData.items,
+        notes: fullData.notes
+      });
+
+      shareViaWhatsApp(text, fullData.client_phone);
+    } catch (err: any) {
+      alert(`Failed to prepare WhatsApp message: ${err.message || err}`);
+    }
+  };
+
   const openPaymentModal = (invoice: Invoice) => {
     setPaymentInvoice(invoice);
     setPaymentMethod('stripe');
@@ -583,6 +612,7 @@ export const Invoices: React.FC = () => {
                         <div style={{ display: 'inline-flex', gap: '6px' }}>
                           <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => navigate(`/invoices/edit/${inv.id}`)} title="Edit Invoice"><Eye size={14} /></button>
                           <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setDownloadInvoice(inv)} title="Download"><FileDown size={14} /></button>
+                          <button className="btn btn-secondary" style={{ padding: '6px 10px', color: '#25D366' }} onClick={() => handleWhatsAppShare(inv)} title="Share via WhatsApp (No Payment Link)"><Share2 size={14} /></button>
                           <button className="btn btn-secondary" style={{ padding: '6px 10px', color: 'var(--accent)' }} onClick={() => handleSendReminder(inv.id)} title="Send Reminder"><Mail size={14} /></button>
                           <button className="btn btn-secondary" style={{ padding: '6px 10px', color: 'var(--success)' }} onClick={() => openPaymentModal(inv)} title="Record Payment"><CheckCircle2 size={14} /></button>
                           <button className="btn btn-danger" style={{ padding: '6px 10px' }} onClick={() => handleDelete(inv.id)} title="Delete"><Trash2 size={14} /></button>
@@ -611,10 +641,11 @@ export const Invoices: React.FC = () => {
                   </div>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '8px', borderTop: '1px solid var(--border-color)' }} onClick={e => e.stopPropagation()}>
-                  <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem' }} onClick={() => setDownloadInvoice(inv)}><FileDown size={14} /></button>
-                  <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem', color: 'var(--accent)' }} onClick={() => handleSendReminder(inv.id)}><Mail size={14} /></button>
-                  <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem', color: 'var(--success)' }} onClick={() => openPaymentModal(inv)}><CheckCircle2 size={14} /></button>
-                  <button className="btn btn-danger" style={{ padding: '8px 12px', fontSize: '0.8rem' }} onClick={() => handleDelete(inv.id)}><Trash2 size={14} /></button>
+                  <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem' }} onClick={() => setDownloadInvoice(inv)} title="Download"><FileDown size={14} /></button>
+                  <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem', color: '#25D366' }} onClick={() => handleWhatsAppShare(inv)} title="WhatsApp"><Share2 size={14} /></button>
+                  <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem', color: 'var(--accent)' }} onClick={() => handleSendReminder(inv.id)} title="Email"><Mail size={14} /></button>
+                  <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem', color: 'var(--success)' }} onClick={() => openPaymentModal(inv)} title="Pay"><CheckCircle2 size={14} /></button>
+                  <button className="btn btn-danger" style={{ padding: '8px 12px', fontSize: '0.8rem' }} onClick={() => handleDelete(inv.id)} title="Delete"><Trash2 size={14} /></button>
                 </div>
               </div>
             ))}
