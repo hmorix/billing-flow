@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { Receipt, Mail, Lock, User, Building, Sun, Moon } from 'lucide-react';
+import { Mail, Lock, User, Building, Sun, Moon } from 'lucide-react';
+import { BillingFlowLogo } from '../components/BillingFlowLogo';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
@@ -69,26 +70,12 @@ export const Login: React.FC = () => {
       </div>
       <div className="glass-card fade-in" style={{ width: '100%', maxWidth: '440px', padding: '40px 32px' }}>
         {/* Header */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
-          <div style={{
-            background: 'linear-gradient(135deg, var(--primary), var(--accent))',
-            borderRadius: '12px',
-            width: '48px',
-            height: '48px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 8px 24px var(--primary-glow)'
-          }}>
-            <Receipt size={26} color="#fff" />
-          </div>
-          <h1 className="text-gradient-primary" style={{ fontSize: '1.75rem', fontWeight: 800 }}>
-            BillingFlow
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', textAlign: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', marginBottom: '32px' }}>
+          <BillingFlowLogo size={46} subtext="Enterprise SaaS Platform" />
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', textAlign: 'center', marginTop: '4px' }}>
             {isLogin 
               ? 'Sign in to manage invoices, payments, and clients' 
-              : 'Create a new multi-tenant SaaS organization account'}
+              : 'Create a new multi-tenant organization account'}
           </p>
         </div>
 

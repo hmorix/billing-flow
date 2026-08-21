@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, FileSpreadsheet, Users, CreditCard, LogOut, Receipt, Shield, Settings as SettingsIcon, Palette, Sun, Moon, X, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { BillingFlowLogo } from './BillingFlowLogo';
 import { VerifiedBadge } from './VerifiedBadge';
 
 interface SidebarProps {
@@ -54,35 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobileDrawer, isDrawer 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', flex: 1 }}>
         {/* Brand / Logo + Theme Switch */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div
-              style={{
-                background: 'linear-gradient(135deg, var(--primary), var(--accent))',
-                borderRadius: '10px',
-                width: '38px',
-                height: '38px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 4px 12px var(--primary-glow)'
-              }}
-            >
-              <Receipt size={20} color="#fff" />
-            </div>
-            <div>
-              <h1
-                style={{
-                  fontSize: '1.15rem',
-                  fontWeight: 800,
-                  letterSpacing: '-0.02em',
-                  color: 'var(--text-primary)'
-                }}
-              >
-                BILLINGFLOW
-              </h1>
-              <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>HMORIX Manager</p>
-            </div>
-          </div>
+          <BillingFlowLogo size={36} subtext="Enterprise Platform" />
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <button

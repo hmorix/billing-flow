@@ -1,8 +1,9 @@
 import React from 'react';
-import { Menu, Sun, Moon, Receipt } from 'lucide-react';
+import { Menu, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { VerifiedBadge } from './VerifiedBadge';
+import { BillingFlowLogo } from './BillingFlowLogo';
 
 interface MobileHeaderProps {
   onOpenDrawer: () => void;
@@ -30,24 +31,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({ onOpenDrawer }) => {
         >
           <Menu size={24} />
         </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div
-            style={{
-              background: 'linear-gradient(135deg, var(--primary), var(--accent))',
-              borderRadius: '8px',
-              width: '28px',
-              height: '28px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            <Receipt size={16} color="#fff" />
-          </div>
-          <span style={{ fontSize: '1rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
-            BILLINGFLOW
-          </span>
-        </div>
+        <BillingFlowLogo size={28} showText subtext="" />
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
