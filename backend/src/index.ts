@@ -112,6 +112,8 @@ async function authenticateToken(c: any, next: any) {
   try {
     const payload = await verify(token, c.env.JWT_SECRET, 'HS256');
     c.set('user', payload);
+    // Ensure DB columns migration
+    seedSuperAdmin(c.env.DB).catch(() => {});
     await next();
   } catch (err: any) {
     console.error('JWT Verification Failed:', err.message || err);
@@ -767,9 +769,20 @@ app.put('/api/organization/profile', async (c) => {
   const { name, address, taxId, phone, paymentQrLink } = await c.req.json();
   if (!name) return c.json({ error: 'Organization name is required.' }, 400);
 
-  await c.env.DB.prepare("UPDATE organizations SET name = ?, address = ?, tax_id = ?, phone = ?, payment_qr_link = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-    .bind(name, address || null, taxId || null, phone || null, paymentQrLink || null, user.organizationId)
-    .run();
+  // Auto-run schema column addition
+  await c.env.DB.prepare("ALTER TABLE organizations ADD COLUMN payment_qr_link TEXT").run().catch(() => {});
+
+  try {
+    await c.env.DB.prepare("UPDATE organizations SET name = ?, address = ?, tax_id = ?, phone = ?, payment_qr_link = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+      .bind(name, address || null, taxId || null, phone || null, paymentQrLink || null, user.organizationId)
+      .run();
+  } catch (err) {
+    // Retry update after column creation
+    await c.env.DB.prepare("ALTER TABLE organizations ADD COLUMN payment_qr_link TEXT").run().catch(() => {});
+    await c.env.DB.prepare("UPDATE organizations SET name = ?, address = ?, tax_id = ?, phone = ?, payment_qr_link = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+      .bind(name, address || null, taxId || null, phone || null, paymentQrLink || null, user.organizationId)
+      .run();
+  }
 
   return c.json({ message: 'Profile updated.' });
 });
