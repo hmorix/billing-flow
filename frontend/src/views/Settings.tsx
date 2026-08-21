@@ -90,6 +90,7 @@ export const Settings: React.FC = () => {
   const [address, setAddress] = useState(organization?.address || '');
   const [taxId, setTaxId] = useState(organization?.taxId || '');
   const [phone, setPhone] = useState(organization?.phone || '');
+  const [paymentQrLink, setPaymentQrLink] = useState(organization?.paymentQrLink || '');
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
 
@@ -155,7 +156,8 @@ export const Settings: React.FC = () => {
           name: companyName,
           address,
           taxId,
-          phone
+          phone,
+          paymentQrLink
         })
       });
 
@@ -163,7 +165,8 @@ export const Settings: React.FC = () => {
         name: companyName,
         address,
         taxId,
-        phone
+        phone,
+        paymentQrLink
       });
       setProfileSuccess(true);
     } catch (err: any) {
@@ -419,6 +422,20 @@ export const Settings: React.FC = () => {
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                 />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Payment / QR Code Link (Printed on PDF Invoices)</label>
+                <input
+                  type="text"
+                  placeholder="https://pay.stripe.com/your-org or upi://pay?pa=yourorg@upi"
+                  className="form-input"
+                  value={paymentQrLink}
+                  onChange={(e) => setPaymentQrLink(e.target.value)}
+                />
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                  Enter your custom payment link, PayPal, Stripe, or UPI URL. A real QR code will be generated and embedded in PDF invoices.
+                </span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>

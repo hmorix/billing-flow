@@ -78,6 +78,7 @@ async function seedSuperAdmin(db: any) {
     await db.prepare("ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0").run().catch(() => {});
     await db.prepare("ALTER TABLE users ADD COLUMN verification_code TEXT").run().catch(() => {});
     await db.prepare("ALTER TABLE organizations ADD COLUMN email_template TEXT DEFAULT 'professional'").run().catch(() => {});
+    await db.prepare("ALTER TABLE organizations ADD COLUMN payment_qr_link TEXT").run().catch(() => {});
   } catch (e) {
     // Columns might already exist
   }
@@ -290,7 +291,8 @@ app.get('/api/auth/me', async (c) => {
       smtpPort: org.smtp_port,
       smtpUser: org.smtp_user,
       smtpFrom: org.smtp_from,
-      smtpHasPassword: !!org.smtp_pass
+      smtpHasPassword: !!org.smtp_pass,
+      paymentQrLink: org.payment_qr_link || null
     }
   });
 });
@@ -762,11 +764,11 @@ app.post('/api/billing/webhook', async (c) => {
 // --- PROFILE SETTINGS ---
 app.put('/api/organization/profile', async (c) => {
   const user = c.get('user');
-  const { name, address, taxId, phone } = await c.req.json();
+  const { name, address, taxId, phone, paymentQrLink } = await c.req.json();
   if (!name) return c.json({ error: 'Organization name is required.' }, 400);
 
-  await c.env.DB.prepare("UPDATE organizations SET name = ?, address = ?, tax_id = ?, phone = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-    .bind(name, address || null, taxId || null, phone || null, user.organizationId)
+  await c.env.DB.prepare("UPDATE organizations SET name = ?, address = ?, tax_id = ?, phone = ?, payment_qr_link = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+    .bind(name, address || null, taxId || null, phone || null, paymentQrLink || null, user.organizationId)
     .run();
 
   return c.json({ message: 'Profile updated.' });

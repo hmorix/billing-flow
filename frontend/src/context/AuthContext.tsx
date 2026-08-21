@@ -25,6 +25,7 @@ export interface Organization {
   smtpUser?: string | null;
   smtpFrom?: string | null;
   smtpHasPassword?: boolean;
+  paymentQrLink?: string | null;
 }
 
 
