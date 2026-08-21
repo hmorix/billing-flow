@@ -108,11 +108,13 @@ async function seedSuperAdmin(db: any) {
         geo_address TEXT,
         digital_hash TEXT UNIQUE NOT NULL,
         status TEXT DEFAULT 'executed',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
-    `).run().catch(() => {});
-  } catch (e) {
-    // Columns/tables might already exist
+    `).run().catch((err: any) => {
+      console.error('Error creating agreements table:', err);
+    });
+  } catch (e: any) {
+    console.error('Migration error:', e);
   }
 
   const superadminEmail = 'admin@billingflow.com';
@@ -144,8 +146,8 @@ async function authenticateToken(c: any, next: any) {
   try {
     const payload = await verify(token, c.env.JWT_SECRET, 'HS256');
     c.set('user', payload);
-    // Ensure DB columns migration
-    seedSuperAdmin(c.env.DB).catch(() => {});
+    // Ensure DB columns & tables migration
+    await seedSuperAdmin(c.env.DB);
     await next();
   } catch (err: any) {
     console.error('JWT Verification Failed:', err.message || err);
@@ -1219,6 +1221,7 @@ app.post('/api/agreements', authenticateToken, async (c) => {
 
 // 3. Create Public / Guest agreement (Without Registration)
 app.post('/api/agreements/public', async (c) => {
+  await seedSuperAdmin(c.env.DB);
   const body = await c.req.json();
   
   const id = crypto.randomUUID();
@@ -1252,6 +1255,7 @@ app.post('/api/agreements/public', async (c) => {
 
 // 4. Get agreement details by ID
 app.get('/api/agreements/:id', async (c) => {
+  await seedSuperAdmin(c.env.DB);
   const id = c.req.param('id');
   const agreement = await c.env.DB.prepare("SELECT * FROM agreements WHERE id = ?").bind(id).first();
   if (!agreement) return c.json({ error: 'Agreement document not found' }, 404);
@@ -1260,6 +1264,7 @@ app.get('/api/agreements/:id', async (c) => {
 
 // 5. Public verification endpoint by SHA-256 digital hash
 app.get('/api/agreements/verify/:hash', async (c) => {
+  await seedSuperAdmin(c.env.DB);
   const hash = c.req.param('hash');
   const agreement = await c.env.DB.prepare(
     "SELECT * FROM agreements WHERE digital_hash = ? OR agreement_number = ?"
