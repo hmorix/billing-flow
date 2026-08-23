@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Search, FileDown, Mail, CheckCircle2, Trash2, Eye, Receipt, ShieldAlert, Share2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, FileDown, Mail, CheckCircle2, Trash2, Eye, Receipt, ShieldAlert, Share2, ChevronLeft, ChevronRight, Link2, ExternalLink, Check } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { shareViaWhatsApp, generateInvoiceWhatsAppText } from '../utils/whatsappService';
 
@@ -17,6 +17,7 @@ interface Invoice {
   client_name: string;
   client_email: string;
   client_company: string | null;
+  view_token?: string;
 }
 
 export const Invoices: React.FC = () => {
@@ -27,6 +28,7 @@ export const Invoices: React.FC = () => {
   const [timeFilter, setTimeFilter] = useState<'all' | 'today' | '7d' | '15d' | '1m'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [copiedInvoiceId, setCopiedInvoiceId] = useState<string | null>(null);
 
 
   // Payment modal state
@@ -402,14 +404,31 @@ export const Invoices: React.FC = () => {
     }
   };
 
+  const handleCopyPublicLink = (inv: Invoice) => {
+    const publicUrl = `${window.location.origin}/view/invoice/${inv.view_token || inv.id}`;
+    navigator.clipboard.writeText(publicUrl);
+    setCopiedInvoiceId(inv.id);
+    setTimeout(() => setCopiedInvoiceId(null), 2500);
+  };
+
   const handleWhatsAppShare = async (inv: Invoice) => {
     try {
       const fullData = await apiFetch(`/api/invoices/${inv.id}`);
       const subtotal = (fullData.items || []).reduce((acc: number, it: any) => acc + (Number(it.quantity) * Number(it.unit_price)), 0);
       const discount = Number(fullData.discount || 0);
-      const taxRate = Number(fullData.tax_rate || 0);
+      const cgstRate = Number(fullData.cgst_rate || 0);
+      const sgstRate = Number(fullData.sgst_rate || 0);
+      const igstRate = Number(fullData.igst_rate || 0);
+      const flatTaxRate = Number(fullData.tax_rate || 0);
+
       const taxable = Math.max(0, subtotal - discount);
-      const total = taxable + (taxable * (taxRate / 100));
+      let totalTax = 0;
+      if (cgstRate > 0 || sgstRate > 0) totalTax = taxable * ((cgstRate + sgstRate) / 100);
+      else if (igstRate > 0) totalTax = taxable * (igstRate / 100);
+      else if (flatTaxRate > 0) totalTax = taxable * (flatTaxRate / 100);
+
+      const total = taxable + totalTax;
+      const publicBillUrl = `${window.location.origin}/view/invoice/${fullData.view_token || fullData.id}`;
 
       const text = generateInvoiceWhatsAppText({
         invoiceNumber: fullData.invoice_number,
@@ -420,8 +439,9 @@ export const Invoices: React.FC = () => {
         dueDate: fullData.due_date,
         currency: fullData.currency || 'INR',
         total,
+        publicBillUrl,
         items: fullData.items,
-        notes: fullData.notes
+        notes: fullData.notes || fullData.terms_conditions
       });
 
       shareViaWhatsApp(text, fullData.client_phone);
@@ -514,7 +534,7 @@ export const Invoices: React.FC = () => {
             Invoice Manager
           </h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '4px' }}>
-            Draft, track, send reminders, and record payments.
+            Draft, track, send reminders, share private bill links, and record payments.
           </p>
         </div>
         <button className="btn btn-primary hide-mobile" onClick={() => navigate('/invoices/new')}>
@@ -683,9 +703,25 @@ export const Invoices: React.FC = () => {
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', gap: '6px' }}>
                           <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => navigate(`/invoices/edit/${inv.id}`)} title="Edit Invoice"><Eye size={14} /></button>
-                          <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setDownloadInvoice(inv)} title="Download"><FileDown size={14} /></button>
-                          <button className="btn btn-secondary" style={{ padding: '6px 10px', color: '#25D366' }} onClick={() => handleWhatsAppShare(inv)} title="Share via WhatsApp (No Payment Link)"><Share2 size={14} /></button>
-                          <button className="btn btn-secondary" style={{ padding: '6px 10px', color: 'var(--accent)' }} onClick={() => handleSendReminder(inv.id)} title="Send Reminder"><Mail size={14} /></button>
+                          <button
+                            className="btn btn-secondary"
+                            style={{ padding: '6px 10px', color: copiedInvoiceId === inv.id ? '#10b981' : '#38bdf8' }}
+                            onClick={() => handleCopyPublicLink(inv)}
+                            title="Copy Public Bill Link (No login required)"
+                          >
+                            {copiedInvoiceId === inv.id ? <Check size={14} /> : <Link2 size={14} />}
+                          </button>
+                          <button
+                            className="btn btn-secondary"
+                            style={{ padding: '6px 10px', color: '#818cf8' }}
+                            onClick={() => window.open(`/view/invoice/${inv.view_token || inv.id}`, '_blank')}
+                            title="View Public Bill Statement"
+                          >
+                            <ExternalLink size={14} />
+                          </button>
+                          <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setDownloadInvoice(inv)} title="Download Official Document"><FileDown size={14} /></button>
+                          <button className="btn btn-secondary" style={{ padding: '6px 10px', color: '#25D366' }} onClick={() => handleWhatsAppShare(inv)} title="Share via WhatsApp"><Share2 size={14} /></button>
+                          <button className="btn btn-secondary" style={{ padding: '6px 10px', color: 'var(--accent)' }} onClick={() => handleSendReminder(inv.id)} title="Send Reminder Email"><Mail size={14} /></button>
                           <button className="btn btn-secondary" style={{ padding: '6px 10px', color: 'var(--success)' }} onClick={() => openPaymentModal(inv)} title="Record Payment"><CheckCircle2 size={14} /></button>
                           <button className="btn btn-danger" style={{ padding: '6px 10px' }} onClick={() => handleDelete(inv.id)} title="Delete"><Trash2 size={14} /></button>
                         </div>
@@ -712,7 +748,23 @@ export const Invoices: React.FC = () => {
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Due {new Date(inv.due_date).toLocaleDateString()}</span>
                   </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '8px', borderTop: '1px solid var(--border-color)' }} onClick={e => e.stopPropagation()}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '8px', borderTop: '1px solid var(--border-color)', flexWrap: 'wrap' }} onClick={e => e.stopPropagation()}>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ padding: '8px 12px', fontSize: '0.8rem', color: copiedInvoiceId === inv.id ? '#10b981' : '#38bdf8' }}
+                    onClick={() => handleCopyPublicLink(inv)}
+                    title="Copy Public Link"
+                  >
+                    {copiedInvoiceId === inv.id ? <Check size={14} /> : <Link2 size={14} />}
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ padding: '8px 12px', fontSize: '0.8rem', color: '#818cf8' }}
+                    onClick={() => window.open(`/view/invoice/${inv.view_token || inv.id}`, '_blank')}
+                    title="View Online"
+                  >
+                    <ExternalLink size={14} />
+                  </button>
                   <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem' }} onClick={() => setDownloadInvoice(inv)} title="Download"><FileDown size={14} /></button>
                   <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem', color: '#25D366' }} onClick={() => handleWhatsAppShare(inv)} title="WhatsApp"><Share2 size={14} /></button>
                   <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem', color: 'var(--accent)' }} onClick={() => handleSendReminder(inv.id)} title="Email"><Mail size={14} /></button>

@@ -91,6 +91,21 @@ export const Settings: React.FC = () => {
   const [taxId, setTaxId] = useState(organization?.taxId || '');
   const [phone, setPhone] = useState(organization?.phone || '');
   const [paymentQrLink, setPaymentQrLink] = useState(organization?.paymentQrLink || '');
+
+  // Bank & Payment Details
+  const [bankName, setBankName] = useState(organization?.bankName || '');
+  const [bankAccountNo, setBankAccountNo] = useState(organization?.bankAccountNo || '');
+  const [bankIfsc, setBankIfsc] = useState(organization?.bankIfsc || '');
+  const [bankUpiId, setBankUpiId] = useState(organization?.bankUpiId || '');
+  const [contactPhone, setContactPhone] = useState(organization?.contactPhone || '');
+  const [contactEmail, setContactEmail] = useState(organization?.contactEmail || '');
+
+  // Signatory & Terms
+  const [signatoryName, setSignatoryName] = useState(organization?.signatoryName || '');
+  const [signatoryDesignation, setSignatoryDesignation] = useState(organization?.signatoryDesignation || '');
+  const [termsConditions, setTermsConditions] = useState(organization?.termsConditions || '');
+  const [thanksMessage, setThanksMessage] = useState(organization?.thanksMessage || '');
+
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
 
@@ -142,7 +157,6 @@ export const Settings: React.FC = () => {
     }
   };
 
-
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setProfileLoading(true);
@@ -157,7 +171,17 @@ export const Settings: React.FC = () => {
           address,
           taxId,
           phone,
-          paymentQrLink
+          paymentQrLink,
+          bankName,
+          bankAccountNo,
+          bankIfsc,
+          bankUpiId,
+          contactPhone,
+          contactEmail,
+          signatoryName,
+          signatoryDesignation,
+          termsConditions,
+          thanksMessage
         })
       });
 
@@ -166,9 +190,20 @@ export const Settings: React.FC = () => {
         address,
         taxId,
         phone,
-        paymentQrLink
+        paymentQrLink,
+        bankName,
+        bankAccountNo,
+        bankIfsc,
+        bankUpiId,
+        contactPhone,
+        contactEmail,
+        signatoryName,
+        signatoryDesignation,
+        termsConditions,
+        thanksMessage
       });
       setProfileSuccess(true);
+      setTimeout(() => setProfileSuccess(false), 3000);
     } catch (err: any) {
       setError(err.message || 'Failed to update organization profile.');
     } finally {
@@ -436,6 +471,138 @@ export const Settings: React.FC = () => {
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
                   Enter your custom payment link, PayPal, Stripe, or UPI URL. A real QR code will be generated and embedded in PDF invoices.
                 </span>
+              </div>
+
+              {/* Bank & Payment Details Section */}
+              <div style={{ background: 'rgba(99, 102, 241, 0.04)', border: '1px solid rgba(99, 102, 241, 0.15)', borderRadius: '10px', padding: '16px', marginTop: '6px' }}>
+                <h5 style={{ margin: '0 0 12px', fontSize: '0.9rem', fontWeight: 700, color: 'var(--primary)' }}>
+                  🏦 Bank Account & Payment Contact Details (Printed on Invoices)
+                </h5>
+                <div className="form-grid-2">
+                  <div className="form-group" style={{ marginBottom: '10px' }}>
+                    <label className="form-label">Bank Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. HDFC Bank / State Bank of India / Chase"
+                      className="form-input"
+                      value={bankName}
+                      onChange={(e) => setBankName(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: '10px' }}>
+                    <label className="form-label">Bank Account Number</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 50100492819283"
+                      className="form-input"
+                      value={bankAccountNo}
+                      onChange={(e) => setBankAccountNo(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-grid-2">
+                  <div className="form-group" style={{ marginBottom: '10px' }}>
+                    <label className="form-label">IFSC / SWIFT / Branch Code</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. HDFC0001234"
+                      className="form-input"
+                      value={bankIfsc}
+                      onChange={(e) => setBankIfsc(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: '10px' }}>
+                    <label className="form-label">UPI ID / VPA (Instant Mobile Payment)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. yourbusiness@okaxis"
+                      className="form-input"
+                      value={bankUpiId}
+                      onChange={(e) => setBankUpiId(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-grid-2">
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Payment Contact Phone</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. +91 98765 43210"
+                      className="form-input"
+                      value={contactPhone}
+                      onChange={(e) => setContactPhone(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Payment Contact Email</label>
+                    <input
+                      type="email"
+                      placeholder="e.g. billing@yourcompany.com"
+                      className="form-input"
+                      value={contactEmail}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Authorized Signatory Section */}
+              <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '16px' }}>
+                <h5 style={{ margin: '0 0 12px', fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  ✍️ Authorized Signatory Details
+                </h5>
+                <div className="form-grid-2">
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Signatory Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Rahul Sharma"
+                      className="form-input"
+                      value={signatoryName}
+                      onChange={(e) => setSignatoryName(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Signatory Designation / Role</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Managing Director / Partner"
+                      className="form-input"
+                      value={signatoryDesignation}
+                      onChange={(e) => setSignatoryDesignation(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Default Terms & Thanks Message */}
+              <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', borderRadius: '10px', padding: '16px' }}>
+                <h5 style={{ margin: '0 0 12px', fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  📜 Default Terms & Conditions and Greetings
+                </h5>
+                <div className="form-group" style={{ marginBottom: '12px' }}>
+                  <label className="form-label">Default Terms & Conditions</label>
+                  <textarea
+                    placeholder="e.g. 1. Payment due within 30 days. 2. Goods once sold will not be taken back. 3. Subject to Delhi jurisdiction."
+                    className="form-input"
+                    rows={3}
+                    style={{ resize: 'vertical', fontFamily: 'var(--font-sans)', fontSize: '0.85rem' }}
+                    value={termsConditions}
+                    onChange={(e) => setTermsConditions(e.target.value)}
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Default Thanks / Business Greeting</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Thank you for choosing our business! We look forward to serving you again."
+                    className="form-input"
+                    value={thanksMessage}
+                    onChange={(e) => setThanksMessage(e.target.value)}
+                  />
+                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>

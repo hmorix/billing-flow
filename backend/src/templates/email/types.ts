@@ -5,8 +5,30 @@ export interface EmailTemplateData {
   issueDate: string;
   dueDate: string;
   currency: string;
+  subtotal: string;
+  discount?: string;
+  hasCgstSgst?: boolean;
+  cgstRate?: number;
+  cgstAmount?: string;
+  sgstRate?: number;
+  sgstAmount?: string;
+  hasIgst?: boolean;
+  igstRate?: number;
+  igstAmount?: string;
+  hasFlatTax?: boolean;
+  taxRate?: number;
+  taxAmount?: string;
   total: string;
+  publicBillUrl: string;
   logoUrl?: string | null;
+  bankName?: string | null;
+  bankAccountNo?: string | null;
+  bankIfsc?: string | null;
+  bankUpiId?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
+  termsConditions?: string | null;
+  thanksMessage?: string | null;
 }
 
 export function getLogoHeader(logoUrl: string | null | undefined, orgName: string): { light: string; dark: string } {

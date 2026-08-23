@@ -26,6 +26,16 @@ export interface Organization {
   smtpFrom?: string | null;
   smtpHasPassword?: boolean;
   paymentQrLink?: string | null;
+  termsConditions?: string | null;
+  bankName?: string | null;
+  bankAccountNo?: string | null;
+  bankIfsc?: string | null;
+  bankUpiId?: string | null;
+  signatoryName?: string | null;
+  signatoryDesignation?: string | null;
+  thanksMessage?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
 }
 
 

@@ -12,6 +12,7 @@ export interface InvoiceWhatsAppPayload {
   dueDate: string;
   currency: string;
   total: number;
+  publicBillUrl?: string;
   items?: Array<{ description: string; quantity: number; unit_price: number }>;
   notes?: string;
 }
@@ -38,7 +39,7 @@ export function sanitizePhoneNumber(phone?: string | null): string {
 }
 
 /**
- * Generate formatted WhatsApp message text for an Invoice (No Payment Link)
+ * Generate formatted WhatsApp message text for an Invoice
  */
 export function generateInvoiceWhatsAppText(data: InvoiceWhatsAppPayload): string {
   const formattedTotal = formatCurrency(data.total, (data.currency || 'INR') as SupportedCurrency);
@@ -48,23 +49,20 @@ export function generateInvoiceWhatsAppText(data: InvoiceWhatsAppPayload): strin
     .join('\n');
 
   return (
-`📄 *INVOICE NOTIFICATION — ${data.invoiceNumber}*
+`📄 *TAX INVOICE — ${data.invoiceNumber}*
 ────────────────────────
 Dear *${data.clientName}*,
 
 Greetings from *${data.organizationName}*.
 
-Here are the details for your recent billing invoice:
+Here are the billing details for your invoice:
 • *Invoice Number:* ${data.invoiceNumber}
 • *Issue Date:* ${new Date(data.issueDate).toLocaleDateString('en-IN')}
 • *Due Date:* ${new Date(data.dueDate).toLocaleDateString('en-IN')}
 • *Total Due:* *${formattedTotal}*
 
-${itemsList ? `*Key Deliverables / Items:*\n${itemsList}\n` : ''}${data.notes ? `*Notes & Terms:*\n${data.notes}\n` : ''}
-────────────────────────
-_Please refer to the official PDF document or reach out to us for bank wire/clearing instructions._
-
-_Generated via BillingFlow • Powered by HMorix Legal & FinTech Platform_`
+${itemsList ? `*Key Items / Services:*\n${itemsList}\n` : ''}${data.publicBillUrl ? `*🔗 View & Download Bill Online (No login required):*\n${data.publicBillUrl}\n\n` : ''}${data.notes ? `*Notes & Terms:*\n${data.notes}\n` : ''}────────────────────────
+_Generated via BillingFlow • Powered by HMorix_`
   );
 }
 

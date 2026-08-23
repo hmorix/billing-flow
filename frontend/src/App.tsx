@@ -31,6 +31,7 @@ const TemplateBuilder = lazy(() => import('./views/TemplateBuilder').then(m => (
 const Admin = lazy(() => import('./views/Admin').then(m => ({ default: m.Admin })));
 const EmailDesign = lazy(() => import('./views/EmailDesign').then(m => ({ default: m.EmailDesign })));
 const LegalTerms = lazy(() => import('./views/LegalTerms').then(m => ({ default: m.LegalTerms })));
+const InvoiceView = lazy(() => import('./views/InvoiceView').then(m => ({ default: m.InvoiceView })));
 
 export const App: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -68,7 +69,7 @@ export const App: React.FC = () => {
     );
   }
 
-  // If user is not logged in, render public routes (Landing Page, Login, Public Agreement Creator, Verification Portal, API Docs)
+  // If user is not logged in, render public routes (Landing Page, Login, Public Agreement Creator, Verification Portal, API Docs, Public Invoices)
   if (!isAuthenticated) {
     return (
       <Suspense fallback={<DashboardSkeleton />}>
@@ -76,6 +77,8 @@ export const App: React.FC = () => {
           <Route path="/" element={<LandingPage />} />
           <Route path="/landing" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/view/invoice/:id" element={<InvoiceView />} />
+          <Route path="/invoices/view/:id" element={<InvoiceView />} />
           <Route path="/agreements/new" element={<AgreementCreate />} />
           <Route path="/agreements/public" element={<AgreementCreate />} />
           <Route path="/verify/:hash" element={<AgreementVerify />} />
@@ -110,6 +113,22 @@ export const App: React.FC = () => {
 
       <Routes>
         {/* Public / Standalone Views without Sidebar */}
+        <Route
+          path="/view/invoice/:id"
+          element={
+            <Suspense fallback={<DashboardSkeleton />}>
+              <InvoiceView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/invoices/view/:id"
+          element={
+            <Suspense fallback={<DashboardSkeleton />}>
+              <InvoiceView />
+            </Suspense>
+          }
+        />
         <Route
           path="/landing"
           element={

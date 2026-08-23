@@ -1,3 +1,4 @@
+import 'dotenv/config';
 // Shims for PDFKit and other Node.js libraries running in Cloudflare Workers
 (globalThis as any).__dirname = '';
 (globalThis as any).__filename = '';
@@ -87,6 +88,24 @@ async function seedSuperAdmin(db: any) {
     await db.prepare("ALTER TABLE users ADD COLUMN verification_code TEXT").run().catch(() => {});
     await db.prepare("ALTER TABLE organizations ADD COLUMN email_template TEXT DEFAULT 'professional'").run().catch(() => {});
     await db.prepare("ALTER TABLE organizations ADD COLUMN payment_qr_link TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE organizations ADD COLUMN terms_conditions TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE organizations ADD COLUMN bank_name TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE organizations ADD COLUMN bank_account_no TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE organizations ADD COLUMN bank_ifsc TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE organizations ADD COLUMN bank_upi_id TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE organizations ADD COLUMN signatory_name TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE organizations ADD COLUMN signatory_designation TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE organizations ADD COLUMN thanks_message TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE organizations ADD COLUMN contact_email TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE organizations ADD COLUMN contact_phone TEXT").run().catch(() => {});
+
+    await db.prepare("ALTER TABLE invoices ADD COLUMN cgst_rate REAL DEFAULT 0").run().catch(() => {});
+    await db.prepare("ALTER TABLE invoices ADD COLUMN sgst_rate REAL DEFAULT 0").run().catch(() => {});
+    await db.prepare("ALTER TABLE invoices ADD COLUMN igst_rate REAL DEFAULT 0").run().catch(() => {});
+    await db.prepare("ALTER TABLE invoices ADD COLUMN terms_conditions TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE invoices ADD COLUMN thanks_message TEXT").run().catch(() => {});
+    await db.prepare("ALTER TABLE invoices ADD COLUMN view_token TEXT").run().catch(() => {});
+
     await db.prepare("ALTER TABLE agreements ADD COLUMN witness1_name TEXT").run().catch(() => {});
     await db.prepare("ALTER TABLE agreements ADD COLUMN witness1_contact TEXT").run().catch(() => {});
     await db.prepare("ALTER TABLE agreements ADD COLUMN witness2_name TEXT").run().catch(() => {});
@@ -249,7 +268,18 @@ app.post('/api/auth/register', async (c) => {
         smtpPort: null,
         smtpUser: null,
         smtpFrom: null,
-        smtpHasPassword: false
+        smtpHasPassword: false,
+        paymentQrLink: null,
+        termsConditions: null,
+        bankName: null,
+        bankAccountNo: null,
+        bankIfsc: null,
+        bankUpiId: null,
+        signatoryName: null,
+        signatoryDesignation: null,
+        thanksMessage: null,
+        contactEmail: null,
+        contactPhone: null
       }
     }, 201);
   } catch (err: any) {
@@ -305,9 +335,68 @@ app.post('/api/auth/login', async (c) => {
       smtpPort: org.smtp_port,
       smtpUser: org.smtp_user,
       smtpFrom: org.smtp_from,
-      smtpHasPassword: !!org.smtp_pass
+      smtpHasPassword: !!org.smtp_pass,
+      paymentQrLink: org.payment_qr_link || null,
+      termsConditions: org.terms_conditions || null,
+      bankName: org.bank_name || null,
+      bankAccountNo: org.bank_account_no || null,
+      bankIfsc: org.bank_ifsc || null,
+      bankUpiId: org.bank_upi_id || null,
+      signatoryName: org.signatory_name || null,
+      signatoryDesignation: org.signatory_designation || null,
+      thanksMessage: org.thanks_message || null,
+      contactEmail: org.contact_email || null,
+      contactPhone: org.contact_phone || null
     }
   });
+});
+
+// --- PUBLIC INVOICE ACCESS (NO LOGIN REQUIRED) ---
+app.get('/api/public/invoices/:id', async (c) => {
+  await seedSuperAdmin(c.env.DB);
+  const idOrToken = c.req.param('id');
+
+  const invoice = await c.env.DB.prepare("SELECT * FROM invoices WHERE id = ? OR view_token = ?")
+    .bind(idOrToken, idOrToken)
+    .first();
+
+  if (!invoice) return c.json({ error: 'Invoice not found.' }, 404);
+
+  const client = await c.env.DB.prepare("SELECT * FROM clients WHERE id = ?")
+    .bind(invoice.client_id)
+    .first();
+
+  const organization = await c.env.DB.prepare("SELECT id, name, slug, logo_url, invoice_template, address, tax_id, phone, payment_qr_link, terms_conditions, bank_name, bank_account_no, bank_ifsc, bank_upi_id, signatory_name, signatory_designation, thanks_message, contact_email, contact_phone FROM organizations WHERE id = ?")
+    .bind(invoice.organization_id)
+    .first();
+
+  const { results: items } = await c.env.DB.prepare("SELECT * FROM invoice_items WHERE invoice_id = ?")
+    .bind(invoice.id)
+    .all();
+
+  return c.json({
+    invoice,
+    client: client || { name: 'Valued Client' },
+    organization: organization || { name: 'BillingFlow Organization' },
+    items: items || []
+  });
+});
+
+app.get('/api/public/invoices/:id/pdf', async (c) => {
+  await seedSuperAdmin(c.env.DB);
+  const idOrToken = c.req.param('id');
+  try {
+    const pdfStream = await generateInvoicePDF(idOrToken, null, c.env);
+    return new Response(pdfStream, {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="invoice-${idOrToken}.pdf"`,
+      },
+    });
+  } catch (e: any) {
+    console.error('Public PDF generation failed:', e);
+    return c.json({ error: e.message || 'Failed to generate invoice PDF.' }, 404);
+  }
 });
 
 // --- PROTECTED ROUTES ---
@@ -347,7 +436,17 @@ app.get('/api/auth/me', async (c) => {
       smtpUser: org.smtp_user,
       smtpFrom: org.smtp_from,
       smtpHasPassword: !!org.smtp_pass,
-      paymentQrLink: org.payment_qr_link || null
+      paymentQrLink: org.payment_qr_link || null,
+      termsConditions: org.terms_conditions || null,
+      bankName: org.bank_name || null,
+      bankAccountNo: org.bank_account_no || null,
+      bankIfsc: org.bank_ifsc || null,
+      bankUpiId: org.bank_upi_id || null,
+      signatoryName: org.signatory_name || null,
+      signatoryDesignation: org.signatory_designation || null,
+      thanksMessage: org.thanks_message || null,
+      contactEmail: org.contact_email || null,
+      contactPhone: org.contact_phone || null
     }
   });
 });
@@ -489,7 +588,22 @@ app.get('/api/invoices/:id', async (c) => {
 
 app.post('/api/invoices', async (c) => {
   const user = c.get('user');
-  const { clientId, invoiceNumber, issueDate, dueDate, taxRate, discount, currency, notes, items } = await c.req.json();
+  const {
+    clientId,
+    invoiceNumber,
+    issueDate,
+    dueDate,
+    taxRate,
+    cgstRate,
+    sgstRate,
+    igstRate,
+    discount,
+    currency,
+    notes,
+    termsConditions,
+    thanksMessage,
+    items
+  } = await c.req.json();
 
   if (!clientId || !issueDate || !dueDate || !items || !Array.isArray(items) || items.length === 0) {
     return c.json({ error: 'Client, dates, and at least one line item are required.' }, 400);
@@ -510,10 +624,28 @@ app.post('/api/invoices', async (c) => {
   }
 
   const invoiceId = crypto.randomUUID();
+  const viewToken = crypto.randomUUID();
 
   const statements = [
-    c.env.DB.prepare("INSERT INTO invoices (id, organization_id, client_id, invoice_number, status, issue_date, due_date, tax_rate, discount, currency, notes) VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)")
-      .bind(invoiceId, user.organizationId, clientId, finalInvoiceNumber, issueDate, dueDate, taxRate || 0, discount || 0, currency || 'USD', notes || null)
+    c.env.DB.prepare("INSERT INTO invoices (id, organization_id, client_id, invoice_number, status, issue_date, due_date, tax_rate, cgst_rate, sgst_rate, igst_rate, discount, currency, notes, terms_conditions, thanks_message, view_token) VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .bind(
+        invoiceId,
+        user.organizationId,
+        clientId,
+        finalInvoiceNumber,
+        issueDate,
+        dueDate,
+        taxRate || 0,
+        cgstRate || 0,
+        sgstRate || 0,
+        igstRate || 0,
+        discount || 0,
+        currency || 'INR',
+        notes || null,
+        termsConditions || null,
+        thanksMessage || null,
+        viewToken
+      )
   ];
 
   items.forEach((item: any) => {
@@ -525,13 +657,29 @@ app.post('/api/invoices', async (c) => {
 
   await c.env.DB.batch(statements);
 
-  return c.json({ id: invoiceId, invoice_number: finalInvoiceNumber }, 201);
+  return c.json({ id: invoiceId, invoice_number: finalInvoiceNumber, view_token: viewToken }, 201);
 });
 
 app.put('/api/invoices/:id', async (c) => {
   const user = c.get('user');
   const id = c.req.param('id');
-  const { clientId, invoiceNumber, status, issueDate, dueDate, taxRate, discount, currency, notes, items } = await c.req.json();
+  const {
+    clientId,
+    invoiceNumber,
+    status,
+    issueDate,
+    dueDate,
+    taxRate,
+    cgstRate,
+    sgstRate,
+    igstRate,
+    discount,
+    currency,
+    notes,
+    termsConditions,
+    thanksMessage,
+    items
+  } = await c.req.json();
 
   const invoice = await c.env.DB.prepare("SELECT * FROM invoices WHERE id = ? AND organization_id = ?").bind(id, user.organizationId).first();
   if (!invoice) return c.json({ error: 'Invoice not found.' }, 404);
@@ -541,9 +689,29 @@ app.put('/api/invoices/:id', async (c) => {
     if (existing) return c.json({ error: `Invoice number ${invoiceNumber} is already in use.` }, 400);
   }
 
+  const viewToken = invoice.view_token || crypto.randomUUID();
+
   const statements = [
-    c.env.DB.prepare("UPDATE invoices SET client_id = ?, invoice_number = ?, status = ?, issue_date = ?, due_date = ?, tax_rate = ?, discount = ?, currency = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ?")
-      .bind(clientId || invoice.client_id, invoiceNumber || invoice.invoice_number, status || invoice.status, issueDate || invoice.issue_date, dueDate || invoice.due_date, taxRate !== undefined ? taxRate : invoice.tax_rate, discount !== undefined ? discount : invoice.discount, currency || invoice.currency, notes !== undefined ? notes : invoice.notes, id, user.organizationId)
+    c.env.DB.prepare("UPDATE invoices SET client_id = ?, invoice_number = ?, status = ?, issue_date = ?, due_date = ?, tax_rate = ?, cgst_rate = ?, sgst_rate = ?, igst_rate = ?, discount = ?, currency = ?, notes = ?, terms_conditions = ?, thanks_message = ?, view_token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ?")
+      .bind(
+        clientId || invoice.client_id,
+        invoiceNumber || invoice.invoice_number,
+        status || invoice.status,
+        issueDate || invoice.issue_date,
+        dueDate || invoice.due_date,
+        taxRate !== undefined ? taxRate : invoice.tax_rate,
+        cgstRate !== undefined ? cgstRate : (invoice.cgst_rate || 0),
+        sgstRate !== undefined ? sgstRate : (invoice.sgst_rate || 0),
+        igstRate !== undefined ? igstRate : (invoice.igst_rate || 0),
+        discount !== undefined ? discount : invoice.discount,
+        currency || invoice.currency,
+        notes !== undefined ? notes : invoice.notes,
+        termsConditions !== undefined ? termsConditions : invoice.terms_conditions,
+        thanksMessage !== undefined ? thanksMessage : invoice.thanks_message,
+        viewToken,
+        id,
+        user.organizationId
+      )
   ];
 
   if (items && Array.isArray(items)) {
@@ -557,7 +725,7 @@ app.put('/api/invoices/:id', async (c) => {
   }
 
   await c.env.DB.batch(statements);
-  return c.json({ message: 'Invoice updated successfully.' });
+  return c.json({ message: 'Invoice updated successfully.', view_token: viewToken });
 });
 
 app.delete('/api/invoices/:id', async (c) => {
@@ -906,23 +1074,64 @@ app.post('/api/billing/webhook', async (c) => {
 // --- PROFILE SETTINGS ---
 app.put('/api/organization/profile', async (c) => {
   const user = c.get('user');
-  const { name, address, taxId, phone, paymentQrLink } = await c.req.json();
+  const {
+    name,
+    address,
+    taxId,
+    phone,
+    paymentQrLink,
+    termsConditions,
+    bankName,
+    bankAccountNo,
+    bankIfsc,
+    bankUpiId,
+    signatoryName,
+    signatoryDesignation,
+    thanksMessage,
+    contactEmail,
+    contactPhone
+  } = await c.req.json();
   if (!name) return c.json({ error: 'Organization name is required.' }, 400);
 
-  // Auto-run schema column addition
-  await c.env.DB.prepare("ALTER TABLE organizations ADD COLUMN payment_qr_link TEXT").run().catch(() => {});
-
-  try {
-    await c.env.DB.prepare("UPDATE organizations SET name = ?, address = ?, tax_id = ?, phone = ?, payment_qr_link = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-      .bind(name, address || null, taxId || null, phone || null, paymentQrLink || null, user.organizationId)
-      .run();
-  } catch (err) {
-    // Retry update after column creation
-    await c.env.DB.prepare("ALTER TABLE organizations ADD COLUMN payment_qr_link TEXT").run().catch(() => {});
-    await c.env.DB.prepare("UPDATE organizations SET name = ?, address = ?, tax_id = ?, phone = ?, payment_qr_link = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-      .bind(name, address || null, taxId || null, phone || null, paymentQrLink || null, user.organizationId)
-      .run();
-  }
+  await c.env.DB.prepare(`
+    UPDATE organizations SET
+      name = ?,
+      address = ?,
+      tax_id = ?,
+      phone = ?,
+      payment_qr_link = ?,
+      terms_conditions = ?,
+      bank_name = ?,
+      bank_account_no = ?,
+      bank_ifsc = ?,
+      bank_upi_id = ?,
+      signatory_name = ?,
+      signatory_designation = ?,
+      thanks_message = ?,
+      contact_email = ?,
+      contact_phone = ?,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `)
+    .bind(
+      name,
+      address || null,
+      taxId || null,
+      phone || null,
+      paymentQrLink || null,
+      termsConditions || null,
+      bankName || null,
+      bankAccountNo || null,
+      bankIfsc || null,
+      bankUpiId || null,
+      signatoryName || null,
+      signatoryDesignation || null,
+      thanksMessage || null,
+      contactEmail || null,
+      contactPhone || null,
+      user.organizationId
+    )
+    .run();
 
   return c.json({ message: 'Profile updated.' });
 });

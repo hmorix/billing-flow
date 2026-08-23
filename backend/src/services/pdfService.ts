@@ -54,10 +54,14 @@ async function resolveLogoUri(logoUrl: string | null | undefined, env: any): Pro
   return null;
 }
 
-async function resolveQrCodeUri(paymentLink: string | null | undefined): Promise<string | null> {
-  if (!paymentLink || !paymentLink.trim()) return null;
+async function resolveQrCodeUri(
+  paymentLink: string | null | undefined,
+  fallbackUpiOrUrl?: string | null
+): Promise<string | null> {
+  const target = paymentLink?.trim() || fallbackUpiOrUrl?.trim();
+  if (!target) return null;
   try {
-    return await QRCode.toDataURL(paymentLink.trim(), {
+    return await QRCode.toDataURL(target, {
       margin: 1,
       width: 250,
       color: { dark: '#000000', light: '#ffffff' }
@@ -68,29 +72,47 @@ async function resolveQrCodeUri(paymentLink: string | null | undefined): Promise
   }
 }
 
-export async function generateInvoicePDF(invoiceId: string, organizationId: string, env: any): Promise<Buffer> {
-  const invoice = await env.DB.prepare("SELECT * FROM invoices WHERE id = ? AND organization_id = ?")
-    .bind(invoiceId, organizationId)
-    .first();
+export async function generateInvoicePDF(
+  invoiceIdOrToken: string,
+  organizationId?: string | null,
+  env?: any
+): Promise<Buffer> {
+  let invoice: any = null;
+
+  if (organizationId) {
+    invoice = await env.DB.prepare("SELECT * FROM invoices WHERE (id = ? OR view_token = ?) AND organization_id = ?")
+      .bind(invoiceIdOrToken, invoiceIdOrToken, organizationId)
+      .first();
+  } else {
+    invoice = await env.DB.prepare("SELECT * FROM invoices WHERE id = ? OR view_token = ?")
+      .bind(invoiceIdOrToken, invoiceIdOrToken)
+      .first();
+  }
+
   if (!invoice) throw new Error('Invoice not found');
 
+  const orgId = organizationId || invoice.organization_id;
+
   const client = await env.DB.prepare("SELECT * FROM clients WHERE id = ? AND organization_id = ?")
-    .bind(invoice.client_id, organizationId)
+    .bind(invoice.client_id, orgId)
     .first();
   if (!client) throw new Error('Client not found');
 
   const organization = await env.DB.prepare("SELECT * FROM organizations WHERE id = ?")
-    .bind(organizationId)
+    .bind(orgId)
     .first();
   if (!organization) throw new Error('Organization not found');
 
   const { results: items } = await env.DB.prepare("SELECT * FROM invoice_items WHERE invoice_id = ?")
-    .bind(invoiceId)
+    .bind(invoice.id)
     .all();
+
+  const baseUrl = process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
+  const publicBillUrl = `${baseUrl.replace(/\/$/, '')}/view/invoice/${invoice.id}`;
 
   return new Promise(async (resolve, reject) => {
     try {
-      const doc = new PDFDocument({ margin: 0 });
+      const doc = new PDFDocument({ margin: 0, size: 'A4' });
       const chunks: Buffer[] = [];
 
       doc.on('data', (chunk) => chunks.push(chunk));
@@ -98,7 +120,13 @@ export async function generateInvoicePDF(invoiceId: string, organizationId: stri
       doc.on('error', (err) => reject(err));
 
       const logoUri: string | null = await resolveLogoUri(organization.logo_url, env);
-      const qrCodeUri: string | null = await resolveQrCodeUri(organization.payment_qr_link);
+
+      // Resolve QR Code: Payment QR Link -> UPI Payment string -> Public Bill Online Link
+      let fallbackTarget = publicBillUrl;
+      if (organization.bank_upi_id) {
+        fallbackTarget = `upi://pay?pa=${encodeURIComponent(organization.bank_upi_id)}&pn=${encodeURIComponent(organization.name)}`;
+      }
+      const qrCodeUri: string | null = await resolveQrCodeUri(organization.payment_qr_link, fallbackTarget);
 
       const template = organization.invoice_template || 'modern_purple';
       
@@ -107,9 +135,10 @@ export async function generateInvoicePDF(invoiceId: string, organizationId: stri
         invoice,
         client,
         organization,
-        items,
+        items: items || [],
         logoUri,
-        qrCodeUri
+        qrCodeUri,
+        publicBillUrl
       });
 
       doc.end();

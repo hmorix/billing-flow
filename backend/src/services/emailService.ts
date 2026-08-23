@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { renderEmailTemplate } from '../templates/email';
+import { calculateTaxBreakdown } from '../templates/pdf/types';
 
 export async function sendReminderEmail(invoiceId: string, organizationId: string, env: any) {
   const invoice = await env.DB.prepare("SELECT * FROM invoices WHERE id = ? AND organization_id = ?")
@@ -29,13 +30,14 @@ export async function sendReminderEmail(invoiceId: string, organizationId: strin
     subtotal += Number(item.quantity) * Number(item.unit_price);
   });
 
-  const discount = Number(invoice.discount || 0);
-  const taxableAmount = Math.max(0, subtotal - discount);
-  const tax = taxableAmount * (Number(invoice.tax_rate || 0) / 100);
-  const total = taxableAmount + tax;
+  const taxInfo = calculateTaxBreakdown(invoice, subtotal);
+  const total = taxInfo.grandTotal;
 
-  const subject = `Reminder: Invoice ${invoice.invoice_number} from ${org.name}`;
-  const body = `Dear ${client.name},\n\nThis is a payment reminder regarding Invoice ${invoice.invoice_number} issued by ${org.name}.\n\nTotal Due: ${invoice.currency || 'USD'} ${total.toFixed(2)}\nDue Date: ${new Date(invoice.due_date).toLocaleDateString()}\n\nThank you,\n${org.name}`;
+  const appUrl = (typeof process !== 'undefined' && process.env?.APP_URL) ? process.env.APP_URL : 'http://localhost:5173';
+  const publicBillUrl = `${appUrl}/view/invoice/${invoice.view_token || invoice.id}`;
+
+  const subject = `Tax Invoice #${invoice.invoice_number} from ${org.name}`;
+  const body = `Dear ${client.name},\n\nThis is a payment notice regarding Invoice ${invoice.invoice_number} issued by ${org.name}.\n\nTotal Due: ${invoice.currency || 'INR'} ${total.toFixed(2)}\nDue Date: ${new Date(invoice.due_date).toLocaleDateString()}\n\nYou can view and download your invoice privately here:\n${publicBillUrl}\n\nThank you,\n${org.name}`;
 
   const emailTemplateKey = org.email_template || 'professional';
 
@@ -43,11 +45,33 @@ export async function sendReminderEmail(invoiceId: string, organizationId: strin
     orgName: org.name,
     clientName: client.name,
     invoiceNumber: invoice.invoice_number,
-    issueDate: new Date(invoice.issue_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-    dueDate: new Date(invoice.due_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-    currency: invoice.currency || 'USD',
+    issueDate: new Date(invoice.issue_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+    dueDate: new Date(invoice.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+    currency: invoice.currency || 'INR',
+    subtotal: subtotal.toFixed(2),
+    discount: taxInfo.discount > 0 ? taxInfo.discount.toFixed(2) : undefined,
+    hasCgstSgst: taxInfo.hasCgstSgst,
+    cgstRate: taxInfo.cgstRate,
+    cgstAmount: taxInfo.cgstAmount.toFixed(2),
+    sgstRate: taxInfo.sgstRate,
+    sgstAmount: taxInfo.sgstAmount.toFixed(2),
+    hasIgst: taxInfo.hasIgst,
+    igstRate: taxInfo.igstRate,
+    igstAmount: taxInfo.igstAmount.toFixed(2),
+    hasFlatTax: taxInfo.hasFlatTax,
+    taxRate: taxInfo.taxRate,
+    taxAmount: taxInfo.taxAmount.toFixed(2),
     total: total.toFixed(2),
+    publicBillUrl,
     logoUrl: org.logo_url || null,
+    bankName: org.bank_name || null,
+    bankAccountNo: org.bank_account_no || null,
+    bankIfsc: org.bank_ifsc || null,
+    bankUpiId: org.bank_upi_id || null,
+    contactPhone: org.contact_phone || org.phone || null,
+    contactEmail: org.contact_email || null,
+    termsConditions: invoice.terms_conditions || org.terms_conditions || null,
+    thanksMessage: invoice.thanks_message || org.thanks_message || null,
   });
 
   let sentReal = false;
@@ -81,5 +105,5 @@ export async function sendReminderEmail(invoiceId: string, organizationId: strin
     .bind(crypto.randomUUID(), organizationId, invoiceId, client.email, subject, body)
     .run();
 
-  return { to_email: client.email, subject, body, sentReal };
+  return { to_email: client.email, subject, body, sentReal, publicBillUrl };
 }
