@@ -32,6 +32,10 @@ type Variables = {
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
+// Process-level flag: ensures schema migrations only run ONCE per server startup
+let _migrationDone = false;
+
+
 // Inject adapters and environment variables
 app.use('*', async (c, next) => {
   if (!c.env || !c.env.DB) {
@@ -75,6 +79,9 @@ app.onError((err, c) => {
 
 // --- SYSTEM SEED HELPER ---
 async function seedSuperAdmin(db: any) {
+  // Only run migrations once per process — avoids ALTER TABLE overhead on every request
+  if (_migrationDone) return;
+  _migrationDone = true;
   try {
     await db.prepare("ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0").run().catch(() => {});
     await db.prepare("ALTER TABLE users ADD COLUMN verification_code TEXT").run().catch(() => {});
@@ -642,34 +649,92 @@ app.get('/api/analytics/dashboard', async (c) => {
   const user = c.get('user');
   const orgId = user.organizationId;
 
-  // 1. Total Revenue
-  const revRes = await c.env.DB.prepare("SELECT SUM(amount) as total FROM payments WHERE organization_id = ?").bind(orgId).first();
-  const totalRevenue = Number(revRes?.total || 0);
+  const now = new Date();
+  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-  // 2. Outstanding amount
-  const unpaid = await c.env.DB.prepare("SELECT id, tax_rate, discount FROM invoices WHERE organization_id = ? AND status IN ('sent', 'overdue')").bind(orgId).all();
-  let outstandingAmount = 0;
-  for (const inv of unpaid.results) {
-    const items = await c.env.DB.prepare("SELECT quantity, unit_price FROM invoice_items WHERE invoice_id = ?").bind(inv.id).all();
-    const sub = items.results.reduce((acc: number, it: any) => acc + Number(it.quantity) * Number(it.unit_price), 0);
-    const tax = Math.max(0, sub - Number(inv.discount)) * (Number(inv.tax_rate) / 100);
-    outstandingAmount += (Math.max(0, sub - Number(inv.discount)) + tax);
+  // Pre-compute 6-month date ranges (oldest first)
+  const monthRanges: { start: string; end: string; name: string }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    monthRanges.push({
+      start: new Date(d.getFullYear(), d.getMonth(), 1).toISOString(),
+      end: new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59).toISOString(),
+      name: d.toLocaleString('default', { month: 'short' }),
+    });
   }
 
-  // 3. SaaS Subscription plan
-  const org = await c.env.DB.prepare("SELECT subscription_plan FROM organizations WHERE id = ?").bind(orgId).first();
+  // Run ALL independent queries in parallel — eliminates sequential waterfall
+  const [
+    revRes,
+    outstandingRes,
+    org,
+    monthlyRes,
+    statusCounts,
+    recentInvoices,
+    recentPayments,
+    emailLogsRes,
+    ...monthlyRevenues
+  ] = await Promise.all([
+    // 1. Total revenue (all time)
+    c.env.DB.prepare("SELECT SUM(amount) as total FROM payments WHERE organization_id = ?")
+      .bind(orgId).first(),
+
+    // 2. Outstanding amount — single JOIN query replaces N+1 loop
+    c.env.DB.prepare(`
+      SELECT COALESCE(SUM(
+        GREATEST(0, sub_totals.sub - CAST(inv.discount AS REAL)) +
+        GREATEST(0, sub_totals.sub - CAST(inv.discount AS REAL)) * (CAST(inv.tax_rate AS REAL) / 100)
+      ), 0) as outstanding
+      FROM invoices inv
+      JOIN (
+        SELECT invoice_id, SUM(CAST(quantity AS REAL) * CAST(unit_price AS REAL)) as sub
+        FROM invoice_items
+        GROUP BY invoice_id
+      ) sub_totals ON sub_totals.invoice_id = inv.id
+      WHERE inv.organization_id = ? AND inv.status IN ('sent', 'overdue')
+    `).bind(orgId).first(),
+
+    // 3. Org subscription plan (for SaaS MRR)
+    c.env.DB.prepare("SELECT subscription_plan FROM organizations WHERE id = ?")
+      .bind(orgId).first(),
+
+    // 4. Current month revenue
+    c.env.DB.prepare("SELECT SUM(amount) as total FROM payments WHERE organization_id = ? AND payment_date >= ?")
+      .bind(orgId, firstDayOfMonth).first(),
+
+    // 5. Invoice status distribution
+    c.env.DB.prepare("SELECT status, COUNT(id) as count FROM invoices WHERE organization_id = ? GROUP BY status")
+      .bind(orgId).all(),
+
+    // 6. Recent invoices for activity feed
+    c.env.DB.prepare("SELECT invoices.invoice_number, invoices.status, invoices.created_at, clients.name as client_name FROM invoices JOIN clients ON invoices.client_id = clients.id WHERE invoices.organization_id = ? ORDER BY invoices.created_at DESC LIMIT 5")
+      .bind(orgId).all(),
+
+    // 7. Recent payments for activity feed
+    c.env.DB.prepare("SELECT payments.amount, payments.payment_date, invoices.invoice_number FROM payments JOIN invoices ON payments.invoice_id = invoices.id WHERE payments.organization_id = ? ORDER BY payments.payment_date DESC LIMIT 5")
+      .bind(orgId).all(),
+
+    // 8. Email reminder logs
+    c.env.DB.prepare("SELECT * FROM email_logs WHERE organization_id = ? ORDER BY created_at DESC LIMIT 10")
+      .bind(orgId).all(),
+
+    // 9–14. All 6 monthly chart data queries — run concurrently instead of sequential loop
+    ...monthRanges.map(({ start, end }) =>
+      c.env.DB.prepare("SELECT SUM(amount) as total FROM payments WHERE organization_id = ? AND payment_date >= ? AND payment_date <= ?")
+        .bind(orgId, start, end)
+        .first()
+    ),
+  ]);
+
+  const totalRevenue = Number(revRes?.total || 0);
+  const outstandingAmount = Number(outstandingRes?.outstanding || 0);
+  const businessMonthlyRevenue = Number(monthlyRes?.total || 0);
+
   let saasMrr = 0;
   if (org?.subscription_plan === 'growth') saasMrr = 49;
   if (org?.subscription_plan === 'enterprise') saasMrr = 199;
 
-  // Tenant collections current month
-  const now = new Date();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const monthlyRes = await c.env.DB.prepare("SELECT SUM(amount) as total FROM payments WHERE organization_id = ? AND payment_date >= ?").bind(orgId, firstDay).first();
-  const businessMonthlyRevenue = Number(monthlyRes?.total || 0);
-
-  // 4. Status distribution
-  const statusCounts = await c.env.DB.prepare("SELECT status, COUNT(id) as count FROM invoices WHERE organization_id = ? GROUP BY status").bind(orgId).all();
   const distribution = { draft: 0, sent: 0, paid: 0, overdue: 0 };
   statusCounts.results.forEach((item: any) => {
     if (item.status in distribution) {
@@ -677,54 +742,37 @@ app.get('/api/analytics/dashboard', async (c) => {
     }
   });
 
-  // 5. Last 6 months timeline chart
-  const graphData = [];
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date();
-    d.setMonth(d.getMonth() - i);
-    const start = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
-    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59).toISOString();
-
-    const sumRes = await c.env.DB.prepare("SELECT SUM(amount) as total FROM payments WHERE organization_id = ? AND payment_date >= ? AND payment_date <= ?")
-      .bind(orgId, start, end)
-      .first();
-
-    graphData.push({
-      name: d.toLocaleString('default', { month: 'short' }),
-      revenue: Number(sumRes?.total || 0)
-    });
-  }
-
-  // 6. Recent activities
-  const recentInvoices = await c.env.DB.prepare("SELECT invoices.invoice_number, invoices.status, invoices.created_at, clients.name as client_name FROM invoices JOIN clients ON invoices.client_id = clients.id WHERE invoices.organization_id = ? ORDER BY invoices.created_at DESC LIMIT 5").bind(orgId).all();
-  const recentPayments = await c.env.DB.prepare("SELECT payments.amount, payments.payment_date, invoices.invoice_number FROM payments JOIN invoices ON payments.invoice_id = invoices.id WHERE payments.organization_id = ? ORDER BY payments.payment_date DESC LIMIT 5").bind(orgId).all();
+  // Map month results back to graph data
+  const graphData = monthRanges.map((range, i) => ({
+    name: range.name,
+    revenue: Number((monthlyRevenues[i] as any)?.total || 0),
+  }));
 
   const activities = [
     ...recentInvoices.results.map((inv: any) => ({
       type: 'invoice_created',
       message: `Invoice ${inv.invoice_number} created for ${inv.client_name}`,
       date: inv.created_at,
-      status: inv.status
+      status: inv.status,
     })),
     ...recentPayments.results.map((pay: any) => ({
       type: 'payment_received',
       message: `Payment of $${Number(pay.amount).toFixed(2)} received for ${pay.invoice_number}`,
       date: pay.payment_date,
-      status: 'paid'
-    }))
+      status: 'paid',
+    })),
   ]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5);
-
-  const emailLogs = await c.env.DB.prepare("SELECT * FROM email_logs WHERE organization_id = ? ORDER BY created_at DESC LIMIT 10").bind(orgId).all();
 
   return c.json({
     metrics: { totalRevenue, outstandingAmount, saasSubscriptionMrr: saasMrr, businessMonthlyRevenue, distribution },
     graphData,
     activities,
-    emailLogs: emailLogs.results
+    emailLogs: emailLogsRes.results,
   });
 });
+
 
 // --- STRIPE / BILLING ---
 app.post('/api/billing/checkout', async (c) => {

@@ -45,7 +45,11 @@ interface AuthContextType {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
+// In-memory API cache: key -> { data, ts }
+const _apiCache = new Map<string, { data: any; ts: number }>();
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
@@ -65,7 +69,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     setUser(null);
     setOrganization(null);
+    _apiCache.clear(); // Clear cached data on logout
   };
+
 
   const updateOrganization = (updatedFields: Partial<Organization>) => {
     if (organization) {
@@ -90,6 +96,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
+    const method = (options.method || 'GET').toUpperCase();
+    const cacheKey = `${method}:${endpoint}`;
+
+    // Return cached result for GET requests if still fresh (30 seconds TTL)
+    if (method === 'GET' && _apiCache.has(cacheKey)) {
+      const cached = _apiCache.get(cacheKey)!;
+      if (Date.now() - cached.ts < 30_000) {
+        return cached.data;
+      }
+      _apiCache.delete(cacheKey);
+    }
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
@@ -116,8 +134,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return response.blob();
     }
 
-    return response.json();
+    const data = await response.json();
+
+    // Cache successful GET responses
+    if (method === 'GET') {
+      _apiCache.set(cacheKey, { data, ts: Date.now() });
+    } else {
+      // Invalidate related GET caches on mutations
+      _apiCache.clear();
+    }
+
+    return data;
   };
+
 
   useEffect(() => {
     const fetchMe = async () => {
