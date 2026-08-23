@@ -24,7 +24,6 @@ export default defineConfig({
       },
     },
     sourcemap: false,
-    minify: 'esbuild',
     target: 'esnext',
   },
   optimizeDeps: {
