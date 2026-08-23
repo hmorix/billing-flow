@@ -135,7 +135,7 @@ export const Dashboard: React.FC = () => {
             Real-time multi-tenant metrics and analytics feed.
           </p>
         </div>
-        <button className="btn btn-secondary" onClick={fetchDashboardData}>
+        <button className="btn btn-secondary" onClick={() => fetchDashboardData()}>
           <RefreshCw size={16} />
           <span>Refresh</span>
         </button>
