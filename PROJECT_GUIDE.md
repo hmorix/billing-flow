@@ -315,7 +315,11 @@ npm run build      # production build to frontend/dist/
 - [x] **[OPTIMIZED]** Outstanding amount computed in single JOIN query (no N+1)
 - [x] **[OPTIMIZED]** Frontend GET responses cached 30s (TTL cache in AuthContext)
 - [x] **[OPTIMIZED]** Vite build with vendor chunk splitting for better browser caching
+- [x] **[FEATURE]** Dashboard graph timeframe selector (7D, 15D, 1M, 3M, 6M)
+- [x] **[FEATURE]** Invoice timeframe filter (Today, 7 Days, 15 Days, 1 Month)
+- [x] **[FIX]** Vercel SPA routing configured to eliminate 404 on page refresh and direct links
 - [x] **[DOCUMENTED]** PROJECT_GUIDE.md created for AI/developer onboarding
+
 
 ## 🛠️ Known Issues / TODO
 

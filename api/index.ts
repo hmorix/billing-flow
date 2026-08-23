@@ -1,8 +1,9 @@
-import { getRequestListener } from '@hono/node-server';
+import { handle } from 'hono/vercel';
 import { app } from '../backend/src/index';
 
 export const config = {
   runtime: 'nodejs',
 };
 
-export default getRequestListener(app.fetch);
+export default handle(app);
+

@@ -43,11 +43,14 @@ export const Dashboard: React.FC = () => {
   const [emailLogs, setEmailLogs] = useState<EmailLogItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedEmail, setSelectedEmail] = useState<EmailLogItem | null>(null);
+  const [graphPeriod, setGraphPeriod] = useState<'7d' | '15d' | '1m' | '3m' | '6m'>('6m');
+  const [isGraphLoading, setIsGraphLoading] = useState(false);
 
-  const fetchDashboardData = async () => {
+
+  const fetchDashboardData = async (period = graphPeriod) => {
     setIsLoading(true);
     try {
-      const data = await apiFetch('/api/analytics/dashboard');
+      const data = await apiFetch(`/api/analytics/dashboard?period=${period}`);
       setMetrics(data.metrics);
       setGraphData(data.graphData);
       setActivities(data.activities);
@@ -59,9 +62,23 @@ export const Dashboard: React.FC = () => {
     }
   };
 
+  const handlePeriodChange = async (period: '7d' | '15d' | '1m' | '3m' | '6m') => {
+    setGraphPeriod(period);
+    setIsGraphLoading(true);
+    try {
+      const data = await apiFetch(`/api/analytics/dashboard?period=${period}`);
+      setGraphData(data.graphData);
+    } catch (err) {
+      console.error('Failed to update graph period:', err);
+    } finally {
+      setIsGraphLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetchDashboardData();
+    fetchDashboardData(graphPeriod);
   }, [organization?.subscriptionPlan]);
+
 
   if (isLoading) {
     return (
@@ -176,8 +193,43 @@ export const Dashboard: React.FC = () => {
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             <h4 style={{ fontSize: '1rem', fontWeight: 600 }}>Invoice Collection History</h4>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Last 6 Months</span>
+            <div style={{
+              display: 'flex',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '2px',
+              gap: '2px'
+            }}>
+              {[
+                { id: '7d', label: '7D' },
+                { id: '15d', label: '15D' },
+                { id: '1m', label: '1M' },
+                { id: '3m', label: '3M' },
+                { id: '6m', label: '6M' }
+              ].map((p) => (
+                <button
+                  key={p.id}
+                  disabled={isGraphLoading}
+                  onClick={() => handlePeriodChange(p.id as any)}
+                  style={{
+                    background: graphPeriod === p.id ? 'var(--primary)' : 'transparent',
+                    color: graphPeriod === p.id ? '#fff' : 'var(--text-secondary)',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '3px 8px',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all var(--transition-fast)'
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
           </div>
+
 
           <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '150px' }}>
             {graphData.length > 0 ? (

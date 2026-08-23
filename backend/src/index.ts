@@ -652,16 +652,62 @@ app.get('/api/analytics/dashboard', async (c) => {
   const now = new Date();
   const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-  // Pre-compute 6-month date ranges (oldest first)
+  const period = c.req.query('period') || '6m';
+
+  // Compute graph date ranges according to requested timeframe
   const monthRanges: { start: string; end: string; name: string }[] = [];
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date();
-    d.setMonth(d.getMonth() - i);
-    monthRanges.push({
-      start: new Date(d.getFullYear(), d.getMonth(), 1).toISOString(),
-      end: new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59).toISOString(),
-      name: d.toLocaleString('default', { month: 'short' }),
-    });
+  if (period === '7d') {
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0).toISOString();
+      const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59).toISOString();
+      const name = d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
+      monthRanges.push({ start, end, name });
+    }
+  } else if (period === '15d') {
+    for (let i = 14; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0).toISOString();
+      const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59).toISOString();
+      const name = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      monthRanges.push({ start, end, name });
+    }
+  } else if (period === '1m') {
+    for (let i = 3; i >= 0; i--) {
+      const dStart = new Date();
+      dStart.setDate(dStart.getDate() - (i + 1) * 7 + 1);
+      const dEnd = new Date();
+      dEnd.setDate(dEnd.getDate() - i * 7);
+      const start = new Date(dStart.getFullYear(), dStart.getMonth(), dStart.getDate(), 0, 0, 0).toISOString();
+      const end = new Date(dEnd.getFullYear(), dEnd.getMonth(), dEnd.getDate(), 23, 59, 59).toISOString();
+      const name = `W${4 - i} (${dStart.getDate()}/${dStart.getMonth() + 1})`;
+      monthRanges.push({ start, end, name });
+    }
+  } else if (period === '3m') {
+    for (let i = 2; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const start = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0).toISOString();
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59).toISOString();
+      monthRanges.push({
+        start,
+        end,
+        name: d.toLocaleString('default', { month: 'short' }),
+      });
+    }
+  } else {
+    // Default 6m
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      monthRanges.push({
+        start: new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0).toISOString(),
+        end: new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59).toISOString(),
+        name: d.toLocaleString('default', { month: 'short' }),
+      });
+    }
   }
 
   // Run ALL independent queries in parallel — eliminates sequential waterfall

@@ -24,8 +24,10 @@ export const Invoices: React.FC = () => {
   const navigate = useNavigate();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [activeTab, setActiveTab] = useState('all');
+  const [timeFilter, setTimeFilter] = useState<'all' | 'today' | '7d' | '15d' | '1m'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+
 
   // Payment modal state
   const [paymentInvoice, setPaymentInvoice] = useState<Invoice | null>(null);
@@ -469,14 +471,34 @@ export const Invoices: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 50;
 
-  // Filtering invoices
+  // Filtering invoices with timeframe and status
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const sevenDaysAgo = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+  const fifteenDaysAgo = now.getTime() - 15 * 24 * 60 * 60 * 1000;
+  const oneMonthAgo = now.getTime() - 30 * 24 * 60 * 60 * 1000;
+
   const filteredInvoices = invoices.filter(inv => {
     const matchesSearch = 
       inv.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inv.client_name.toLowerCase().includes(searchQuery.toLowerCase());
+      inv.client_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (inv.client_company && inv.client_company.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    if (activeTab === 'all') return matchesSearch;
-    return inv.status === activeTab && matchesSearch;
+    const matchesStatus = activeTab === 'all' || inv.status?.toLowerCase() === activeTab.toLowerCase();
+
+    const invTime = new Date(inv.issue_date || (inv as any).created_at).getTime();
+    let matchesTime = true;
+    if (timeFilter === 'today') {
+      matchesTime = invTime >= startOfToday;
+    } else if (timeFilter === '7d') {
+      matchesTime = invTime >= sevenDaysAgo;
+    } else if (timeFilter === '15d') {
+      matchesTime = invTime >= fifteenDaysAgo;
+    } else if (timeFilter === '1m') {
+      matchesTime = invTime >= oneMonthAgo;
+    }
+
+    return matchesSearch && matchesStatus && matchesTime;
   });
 
   const totalPages = Math.ceil(filteredInvoices.length / PAGE_SIZE) || 1;
@@ -501,9 +523,47 @@ export const Invoices: React.FC = () => {
         </button>
       </div>
 
-      {/* Tabs and Search */}
+      {/* Tabs, Timeframe Filter, and Search */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div className="tab-bar-scroll">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+          {/* Status Tabs */}
+          <div className="tab-bar-scroll" style={{ flex: '1 1 auto', minWidth: '260px' }}>
+            <div style={{
+              display: 'flex',
+              background: 'rgba(255, 255, 255, 0.02)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--radius-md)',
+              padding: '4px',
+              gap: '4px',
+              width: 'max-content',
+              minWidth: '100%'
+            }}>
+              {['all', 'draft', 'sent', 'paid', 'overdue'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => { setActiveTab(tab); setCurrentPage(1); }}
+                  style={{
+                    background: activeTab === tab ? 'var(--primary)' : 'transparent',
+                    color: activeTab === tab ? '#fff' : 'var(--text-secondary)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px 14px',
+                    fontSize: '0.82rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    textTransform: 'capitalize',
+                    transition: 'all var(--transition-fast)',
+                    whiteSpace: 'nowrap',
+                    flex: 1
+                  }}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Timeframe Filter Pills */}
           <div style={{
             display: 'flex',
             background: 'rgba(255, 255, 255, 0.02)',
@@ -511,33 +571,38 @@ export const Invoices: React.FC = () => {
             borderRadius: 'var(--radius-md)',
             padding: '4px',
             gap: '4px',
-            width: 'max-content',
-            minWidth: '100%'
+            flexShrink: 0,
+            overflowX: 'auto'
           }}>
-            {['all', 'draft', 'sent', 'paid', 'overdue'].map((tab) => (
+            {[
+              { id: 'all', label: 'All Time' },
+              { id: 'today', label: 'Today' },
+              { id: '7d', label: '7 Days' },
+              { id: '15d', label: '15 Days' },
+              { id: '1m', label: '1 Month' }
+            ].map((tf) => (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
+                key={tf.id}
+                onClick={() => { setTimeFilter(tf.id as any); setCurrentPage(1); }}
                 style={{
-                  background: activeTab === tab ? 'var(--primary)' : 'transparent',
-                  color: activeTab === tab ? '#fff' : 'var(--text-secondary)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '8px 14px',
-                  fontSize: '0.82rem',
-                  fontWeight: 500,
+                  background: timeFilter === tf.id ? 'var(--primary-glow)' : 'transparent',
+                  color: timeFilter === tf.id ? 'var(--primary)' : 'var(--text-secondary)',
+                  border: timeFilter === tf.id ? '1px solid var(--primary)' : '1px solid transparent',
+                  borderRadius: '6px',
+                  padding: '6px 10px',
+                  fontSize: '0.76rem',
+                  fontWeight: 600,
                   cursor: 'pointer',
-                  textTransform: 'capitalize',
                   transition: 'all var(--transition-fast)',
-                  whiteSpace: 'nowrap',
-                  flex: 1
+                  whiteSpace: 'nowrap'
                 }}
               >
-                {tab}
+                {tf.label}
               </button>
             ))}
           </div>
         </div>
+
 
         <div style={{ position: 'relative' }}>
           <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
