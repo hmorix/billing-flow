@@ -5,7 +5,13 @@ export class D1DatabaseAdapter {
   pool: Pool;
   
   constructor(connectionString: string) {
-    this.pool = new Pool({ connectionString });
+    this.pool = new Pool({
+      connectionString,
+      max: 3,                   // Vercel serverless: keep pool small
+      idleTimeoutMillis: 10000, // release idle connections quickly
+      connectionTimeoutMillis: 10000, // fail fast if DB is unreachable
+      ssl: { rejectUnauthorized: false }, // required for Supabase pooler
+    });
   }
 
   prepare(query: string) {

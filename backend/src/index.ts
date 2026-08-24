@@ -878,18 +878,11 @@ app.get('/api/analytics/dashboard', async (c) => {
     }
   }
 
-  // Run ALL independent queries in parallel — eliminates sequential waterfall
-  const [
-    revRes,
-    outstandingRes,
-    org,
-    monthlyRes,
-    statusCounts,
-    recentInvoices,
-    recentPayments,
-    emailLogsRes,
-    ...monthlyRevenues
-  ] = await Promise.all([
+  const overallStart = monthRanges[0]?.start ?? firstDayOfMonth;
+  const overallEnd = monthRanges[monthRanges.length - 1]?.end ?? now.toISOString();
+
+  // Batch 1: Core metrics (4 queries, fits within pool limit)
+  const [revRes, outstandingRes, org, monthlyRes] = await Promise.all([
     // 1. Total revenue (all time)
     c.env.DB.prepare("SELECT SUM(amount) as total FROM payments WHERE organization_id = ?")
       .bind(orgId).first(),
@@ -916,7 +909,10 @@ app.get('/api/analytics/dashboard', async (c) => {
     // 4. Current month revenue
     c.env.DB.prepare("SELECT SUM(amount) as total FROM payments WHERE organization_id = ? AND payment_date >= ?")
       .bind(orgId, firstDayOfMonth).first(),
+  ]);
 
+  // Batch 2: Activity & distribution data (4 queries)
+  const [statusCounts, recentInvoices, recentPayments, emailLogsRes] = await Promise.all([
     // 5. Invoice status distribution
     c.env.DB.prepare("SELECT status, COUNT(id) as count FROM invoices WHERE organization_id = ? GROUP BY status")
       .bind(orgId).all(),
@@ -932,14 +928,21 @@ app.get('/api/analytics/dashboard', async (c) => {
     // 8. Email reminder logs
     c.env.DB.prepare("SELECT * FROM email_logs WHERE organization_id = ? ORDER BY created_at DESC LIMIT 10")
       .bind(orgId).all(),
-
-    // 9–14. All 6 monthly chart data queries — run concurrently instead of sequential loop
-    ...monthRanges.map(({ start, end }) =>
-      c.env.DB.prepare("SELECT SUM(amount) as total FROM payments WHERE organization_id = ? AND payment_date >= ? AND payment_date <= ?")
-        .bind(orgId, start, end)
-        .first()
-    ),
   ]);
+
+  // Batch 3: ONE query for all chart periods — replaces N separate queries
+  // Fetch all payments in the full date range, then bucket them in JS
+  const allPaymentsRes = await c.env.DB.prepare(
+    "SELECT amount, payment_date FROM payments WHERE organization_id = ? AND payment_date >= ? AND payment_date <= ?"
+  ).bind(orgId, overallStart, overallEnd).all();
+
+  const allPayments: { amount: string; payment_date: string }[] = allPaymentsRes.results || [];
+  const graphData = monthRanges.map((range) => {
+    const rangeTotal = allPayments
+      .filter((p) => p.payment_date >= range.start && p.payment_date <= range.end)
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+    return { name: range.name, revenue: rangeTotal };
+  });
 
   const totalRevenue = Number(revRes?.total || 0);
   const outstandingAmount = Number(outstandingRes?.outstanding || 0);
@@ -955,12 +958,6 @@ app.get('/api/analytics/dashboard', async (c) => {
       distribution[item.status as keyof typeof distribution] = Number(item.count);
     }
   });
-
-  // Map month results back to graph data
-  const graphData = monthRanges.map((range, i) => ({
-    name: range.name,
-    revenue: Number((monthlyRevenues[i] as any)?.total || 0),
-  }));
 
   const activities = [
     ...recentInvoices.results.map((inv: any) => ({
