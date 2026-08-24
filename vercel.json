@@ -25,10 +25,11 @@
       }
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/|uploads/).*)",
       "destination": {
         "type": "service",
-        "service": "frontend"
+        "service": "frontend",
+        "path": "/index.html"
       }
     }
   ]
