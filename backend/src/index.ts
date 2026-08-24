@@ -328,7 +328,7 @@ app.get('/api/public/invoices/:id/pdf', async (c) => {
   const idOrToken = c.req.param('id');
   try {
     const pdfStream = await generateInvoicePDF(idOrToken, null, c.env);
-    return new Response(pdfStream, {
+    return new Response(pdfStream as any, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `inline; filename="invoice-${idOrToken}.pdf"`,
@@ -696,7 +696,7 @@ app.get('/api/invoices/:id/pdf', async (c) => {
     const freshBuffer = Buffer.from(pdfBuffer);
     console.log(`[PDF] Fresh buffer length: ${freshBuffer.length}, sending as response...`);
 
-    return new Response(freshBuffer, {
+    return new Response(freshBuffer as any, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
@@ -1632,7 +1632,7 @@ app.get('/api/agreements/:id/pdf', async (c) => {
       createdAt: agreement.created_at
     });
 
-    return new Response(pdfBuffer, {
+    return new Response(pdfBuffer as any, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
