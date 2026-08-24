@@ -3,22 +3,29 @@ import { createClient } from '@supabase/supabase-js';
 
 export class D1DatabaseAdapter {
   pool: Pool;
-  
+
   constructor(connectionString: string) {
-    this.pool = new Pool({
-      connectionString,
-      max: 3,                   // Vercel serverless: keep pool small
-      idleTimeoutMillis: 10000, // release idle connections quickly
-      connectionTimeoutMillis: 10000, // fail fast if DB is unreachable
-      ssl: { rejectUnauthorized: false }, // required for Supabase pooler
-    });
+    if (!(globalThis as any).__pgPool) {
+      (globalThis as any).__pgPool = new Pool({
+        connectionString,
+        max: 5,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 10000,
+        ssl: { rejectUnauthorized: false },
+      });
+
+      (globalThis as any).__pgPool.on('error', (err: any) => {
+        console.warn('PG Pool background idle client error:', err.message);
+      });
+    }
+    this.pool = (globalThis as any).__pgPool;
   }
 
   prepare(query: string) {
     let index = 1;
     // Replace ? with $1, $2, etc.
     const pgQuery = query.replace(/\?/g, () => `$${index++}`);
-    
+
     return {
       pgQuery,
       pool: this.pool,
@@ -54,13 +61,15 @@ export class D1DatabaseAdapter {
       await client.query('COMMIT');
       return results;
     } catch (e) {
-      await client.query('ROLLBACK');
+      await client.query('ROLLBACK').catch(() => {});
       throw e;
     } finally {
       client.release();
     }
   }
 }
+
+
 
 export class R2ToSupabaseStorageAdapter {
   supabase: any;
