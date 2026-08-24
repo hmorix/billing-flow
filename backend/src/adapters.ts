@@ -1,6 +1,32 @@
 import { Pool } from 'pg';
 import { createClient } from '@supabase/supabase-js';
 
+async function executeWithRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+  let lastErr: any;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastErr = err;
+      const msg = String(err?.message || err || '');
+      const isTransient = msg.includes('nxdomain') || 
+                          msg.includes('connection timeout') || 
+                          msg.includes('Connection terminated') ||
+                          msg.includes('ECONNRESET') ||
+                          msg.includes('ETIMEDOUT') ||
+                          msg.includes('closed') ||
+                          msg.includes('Closed');
+      if (isTransient && attempt < maxRetries) {
+        console.warn(`[DB Pooler transient error attempt ${attempt}/${maxRetries}]: ${msg}. Retrying in ${attempt * 200}ms...`);
+        await new Promise(r => setTimeout(r, attempt * 200));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+}
+
 export class D1DatabaseAdapter {
   pool: Pool;
 
@@ -9,7 +35,7 @@ export class D1DatabaseAdapter {
     if (!(globalThis as any).__pgPool) {
       (globalThis as any).__pgPool = new Pool({
         connectionString: connStr,
-        max: 5,
+        max: 10,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 30000,
         keepAlive: true,
@@ -29,6 +55,7 @@ export class D1DatabaseAdapter {
     // Replace ? with $1, $2, etc.
     const pgQuery = query.replace(/\?/g, () => `$${index++}`);
 
+    const self = this;
     return {
       pgQuery,
       pool: this.pool,
@@ -38,37 +65,45 @@ export class D1DatabaseAdapter {
         return this;
       },
       async first() {
-        const res = await this.pool.query(this.pgQuery, this.params);
-        return res.rows[0] || null;
+        return executeWithRetry(async () => {
+          const res = await self.pool.query(this.pgQuery, this.params);
+          return res.rows[0] || null;
+        });
       },
       async all() {
-        const res = await this.pool.query(this.pgQuery, this.params);
-        return { results: res.rows };
+        return executeWithRetry(async () => {
+          const res = await self.pool.query(this.pgQuery, this.params);
+          return { results: res.rows };
+        });
       },
       async run() {
-        const res = await this.pool.query(this.pgQuery, this.params);
-        return { success: true, meta: res };
+        return executeWithRetry(async () => {
+          const res = await self.pool.query(this.pgQuery, this.params);
+          return { success: true, meta: res };
+        });
       }
     };
   }
 
   async batch(statements: any[]) {
-    const client = await this.pool.connect();
-    try {
-      await client.query('BEGIN');
-      const results = [];
-      for (const stmt of statements) {
-        const res = await client.query(stmt.pgQuery, stmt.params);
-        results.push(res);
+    return executeWithRetry(async () => {
+      const client = await this.pool.connect();
+      try {
+        await client.query('BEGIN');
+        const results = [];
+        for (const stmt of statements) {
+          const res = await client.query(stmt.pgQuery, stmt.params);
+          results.push(res);
+        }
+        await client.query('COMMIT');
+        return results;
+      } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw e;
+      } finally {
+        client.release();
       }
-      await client.query('COMMIT');
-      return results;
-    } catch (e) {
-      await client.query('ROLLBACK').catch(() => {});
-      throw e;
-    } finally {
-      client.release();
-    }
+    });
   }
 }
 
