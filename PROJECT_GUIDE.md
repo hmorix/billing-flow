@@ -317,8 +317,16 @@ npm run build      # production build to frontend/dist/
 - [x] **[OPTIMIZED]** Vite build with vendor chunk splitting for better browser caching
 - [x] **[FEATURE]** Dashboard graph timeframe selector (7D, 15D, 1M, 3M, 6M)
 - [x] **[FEATURE]** Invoice timeframe filter (Today, 7 Days, 15 Days, 1 Month)
-- [x] **[FIX]** Vercel SPA routing configured to eliminate 404 on page refresh and direct links
-- [x] **[DOCUMENTED]** PROJECT_GUIDE.md created for AI/developer onboarding
+- [x] **[FIX]** Vercel Multi-Services Architecture (`services` in `vercel.json` for `frontend` and `backend`)
+- [x] **[FIX]** Vercel SPA filesystem routing (`handle: "filesystem"` + `src: "/(.*)", dest: "/index.html"`) to eliminate 404 on refresh and direct links
+- [x] **[FIX]** Hono native export (`export default app`) for Vercel Node runtime
+- [x] **[FEATURE]** Live `/api/debug/db-info` diagnostics page with live connection tester and 1-click `DATABASE_URL` copy
+- [x] **[FEATURE]** Direct physical PDF attachment in Nodemailer emails (clients receive `.pdf` directly in inbox)
+- [x] **[FEATURE]** Direct PDF file sharing via native Web Share API for WhatsApp & mobile apps
+- [x] **[FEATURE]** Automated Google Drive Cloud Sync & 1-minute Google Apps Script Webhook integration
+- [x] **[FEATURE]** Accidental refresh protection (F5/Ctrl+R keyboard interceptor & mobile pull-to-refresh disabled)
+- [x] **[FEATURE]** Custom dark-mode 404 page (`NotFound.tsx`) and System Maintenance page (`Maintenance.tsx`)
+- [x] **[DOCUMENTED]** PROJECT_GUIDE.md updated with full architectural reference
 
 
 ## 🛠️ Known Issues / TODO

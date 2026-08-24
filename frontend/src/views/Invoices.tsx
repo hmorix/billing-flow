@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Search, FileDown, Mail, CheckCircle2, Trash2, Eye, Receipt, ShieldAlert, Share2, ChevronLeft, ChevronRight, Link2, ExternalLink, Check } from 'lucide-react';
+import { Plus, Search, FileDown, Mail, CheckCircle2, Trash2, Eye, Receipt, ShieldAlert, Share2, ChevronLeft, ChevronRight, Link2, ExternalLink, Check, Cloud } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { shareViaWhatsApp, generateInvoiceWhatsAppText } from '../utils/whatsappService';
 
@@ -469,6 +469,25 @@ export const Invoices: React.FC = () => {
     }
   };
 
+  const handleUploadToDrive = async (inv: Invoice) => {
+    const webhookUrl = localStorage.getItem('gdrive_webhook_url');
+    const folderId = localStorage.getItem('gdrive_folder_id');
+    if (!webhookUrl) {
+      alert('Please configure your Google Drive Webhook URL in Settings first.');
+      navigate('/settings');
+      return;
+    }
+    try {
+      const res = await apiFetch(`/api/invoices/${inv.id}/sync-drive`, {
+        method: 'POST',
+        body: JSON.stringify({ webhookUrl, folderId: folderId || undefined })
+      });
+      alert(res.message || `Invoice #${inv.invoice_number} synced to Google Drive!`);
+    } catch (err: any) {
+      alert(`Failed to upload to Google Drive: ${err.message || err}`);
+    }
+  };
+
   const openPaymentModal = (invoice: Invoice) => {
     setPaymentInvoice(invoice);
     setPaymentMethod('stripe');
@@ -739,6 +758,7 @@ export const Invoices: React.FC = () => {
                             <ExternalLink size={14} />
                           </button>
                           <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setDownloadInvoice(inv)} title="Download Official Document"><FileDown size={14} /></button>
+                          <button className="btn btn-secondary" style={{ padding: '6px 10px', color: '#4285f4' }} onClick={() => handleUploadToDrive(inv)} title="Upload PDF to Google Drive"><Cloud size={14} /></button>
                           <button className="btn btn-secondary" style={{ padding: '6px 10px', color: '#25D366' }} onClick={() => handleWhatsAppShare(inv)} title="Share via WhatsApp"><Share2 size={14} /></button>
                           <button className="btn btn-secondary" style={{ padding: '6px 10px', color: 'var(--accent)' }} onClick={() => handleSendReminder(inv.id)} title="Send Reminder Email"><Mail size={14} /></button>
                           <button className="btn btn-secondary" style={{ padding: '6px 10px', color: 'var(--success)' }} onClick={() => openPaymentModal(inv)} title="Record Payment"><CheckCircle2 size={14} /></button>
@@ -785,6 +805,7 @@ export const Invoices: React.FC = () => {
                     <ExternalLink size={14} />
                   </button>
                   <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem' }} onClick={() => setDownloadInvoice(inv)} title="Download"><FileDown size={14} /></button>
+                  <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem', color: '#4285f4' }} onClick={() => handleUploadToDrive(inv)} title="Drive"><Cloud size={14} /></button>
                   <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem', color: '#25D366' }} onClick={() => handleWhatsAppShare(inv)} title="WhatsApp"><Share2 size={14} /></button>
                   <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem', color: 'var(--accent)' }} onClick={() => handleSendReminder(inv.id)} title="Email"><Mail size={14} /></button>
                   <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem', color: 'var(--success)' }} onClick={() => openPaymentModal(inv)} title="Pay"><CheckCircle2 size={14} /></button>
