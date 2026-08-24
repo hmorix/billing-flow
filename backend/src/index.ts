@@ -1,4 +1,9 @@
 import 'dotenv/config';
+import dns from 'node:dns';
+if (typeof dns.setDefaultResultOrder === 'function') {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 // Shims for PDFKit and other Node.js libraries running in Cloudflare Workers
 (globalThis as any).__dirname = '';
 (globalThis as any).__filename = '';

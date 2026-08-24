@@ -5,12 +5,15 @@ export class D1DatabaseAdapter {
   pool: Pool;
 
   constructor(connectionString: string) {
+    const connStr = (connectionString || process.env.DATABASE_URL || '').trim();
     if (!(globalThis as any).__pgPool) {
       (globalThis as any).__pgPool = new Pool({
-        connectionString,
+        connectionString: connStr,
         max: 5,
         idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 10000,
+        connectionTimeoutMillis: 30000,
+        keepAlive: true,
+        keepAliveInitialDelayMillis: 10000,
         ssl: { rejectUnauthorized: false },
       });
 
