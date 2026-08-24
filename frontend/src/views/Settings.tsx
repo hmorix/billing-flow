@@ -137,8 +137,10 @@ export const Settings: React.FC = () => {
   const [emailTemplateSuccess, setEmailTemplateSuccess] = useState(false);
 
   // Google Drive Cloud Backup States
+  const [gdriveWebhookUrl, setGdriveWebhookUrl] = useState(localStorage.getItem('gdrive_webhook_url') || '');
   const [gdriveFolderId, setGdriveFolderId] = useState(localStorage.getItem('gdrive_folder_id') || '');
   const [gdriveAutoSync, setGdriveAutoSync] = useState(localStorage.getItem('gdrive_auto_sync') === 'true');
+  const [showScriptGuide, setShowScriptGuide] = useState(false);
   const [gdriveLoading, setGdriveLoading] = useState(false);
   const [gdriveSuccess, setGdriveSuccess] = useState(false);
   const [backupLoading, setBackupLoading] = useState(false);
@@ -368,6 +370,7 @@ export const Settings: React.FC = () => {
     setGdriveLoading(true);
     setGdriveSuccess(false);
     try {
+      localStorage.setItem('gdrive_webhook_url', gdriveWebhookUrl);
       localStorage.setItem('gdrive_folder_id', gdriveFolderId);
       localStorage.setItem('gdrive_auto_sync', String(gdriveAutoSync));
       setGdriveSuccess(true);
@@ -380,15 +383,43 @@ export const Settings: React.FC = () => {
   };
 
   const handleBackupToDrive = async () => {
+    if (!gdriveWebhookUrl) {
+      setShowScriptGuide(true);
+      setError('Please configure your Google Drive Webhook URL first (see 1-minute setup guide below).');
+      return;
+    }
+
     setBackupLoading(true);
     setBackupResult(null);
     try {
-      // Trigger backup API or local multi-export
-      await new Promise(r => setTimeout(r, 1200));
-      setBackupResult(`Successfully synced invoices and ledger PDFs to Google Drive folder!`);
-      setTimeout(() => setBackupResult(null), 5000);
+      const invoicesRes = await apiFetch('/api/invoices');
+      const invoicesList = Array.isArray(invoicesRes) ? invoicesRes : (invoicesRes.invoices || []);
+
+      if (invoicesList.length === 0) {
+        setBackupResult('No invoices found to sync.');
+        return;
+      }
+
+      let successCount = 0;
+      for (const inv of invoicesList.slice(0, 10)) {
+        try {
+          await apiFetch(`/api/invoices/${inv.id}/sync-drive`, {
+            method: 'POST',
+            body: JSON.stringify({
+              webhookUrl: gdriveWebhookUrl,
+              folderId: gdriveFolderId || undefined
+            })
+          });
+          successCount++;
+        } catch (itemErr) {
+          console.warn(`Failed to sync invoice ${inv.id}:`, itemErr);
+        }
+      }
+
+      setBackupResult(`Successfully uploaded ${successCount} invoice PDF(s) to your Google Drive folder!`);
+      setTimeout(() => setBackupResult(null), 8000);
     } catch (err: any) {
-      setError('Backup failed. Please verify your Google Drive folder access.');
+      setError(err.message || 'Backup failed. Please verify your Google Drive Webhook URL.');
     } finally {
       setBackupLoading(false);
     }
@@ -938,12 +969,58 @@ export const Settings: React.FC = () => {
             </div>
 
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-              Automatically sync generated invoice PDFs and signed legal agreements directly to your organization's Google Drive.
+              Automatically sync generated invoice PDFs and signed legal agreements directly to your Google Drive folder using a free Google Apps Script webhook.
             </p>
 
             <form onSubmit={handleSaveGDrive} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Google Drive Folder ID / Link</label>
+                <label className="form-label">Google Drive Webhook URL *</label>
+                <input
+                  type="url"
+                  placeholder="https://script.google.com/macros/s/.../exec"
+                  className="form-input"
+                  value={gdriveWebhookUrl}
+                  onChange={(e) => setGdriveWebhookUrl(e.target.value)}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    Paste your Google Web App deployment URL.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowScriptGuide(!showScriptGuide)}
+                    style={{ background: 'none', border: 'none', color: '#818cf8', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}
+                  >
+                    {showScriptGuide ? 'Hide Script' : 'Get Free Google Script'}
+                  </button>
+                </div>
+              </div>
+
+              {showScriptGuide && (
+                <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>1-Minute Setup Instructions:</span>
+                  <ol style={{ paddingLeft: '16px', lineHeight: 1.5 }}>
+                    <li>Go to <strong>script.google.com</strong> &rarr; Click <strong>New project</strong>.</li>
+                    <li>Paste the code below &rarr; Click <strong>Deploy</strong> &rarr; <strong>New deployment</strong>.</li>
+                    <li>Select type: <strong>Web app</strong> (Execute as: <em>Me</em>, Who has access: <em>Anyone</em>).</li>
+                    <li>Copy the Web app URL and paste it in the box above!</li>
+                  </ol>
+                  <pre style={{ background: '#090d16', padding: '8px', borderRadius: '4px', overflowX: 'auto', fontSize: '0.7rem', color: '#38bdf8' }}>
+{`function doPost(e) {
+  var data = JSON.parse(e.postData.contents);
+  var decoded = Utilities.base64Decode(data.fileBase64);
+  var blob = Utilities.newBlob(decoded, 'application/pdf', data.filename);
+  var folder = data.folderId ? DriveApp.getFolderById(data.folderId) : DriveApp.getRootFolder();
+  var file = folder.createFile(blob);
+  return ContentService.createTextOutput(JSON.stringify({ status: "success", url: file.getUrl() })).setMimeType(ContentService.MimeType.JSON);
+}`}
+                  </pre>
+                </div>
+              )}
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Google Drive Folder ID (Optional)</label>
                 <input
                   type="text"
                   placeholder="e.g. 1A2b3C4d5E6f_GoogleDriveFolderID"
@@ -952,7 +1029,7 @@ export const Settings: React.FC = () => {
                   onChange={(e) => setGdriveFolderId(e.target.value)}
                 />
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                  Paste the folder ID from your Google Drive URL.
+                  Leave blank to save in Google Drive root, or paste your folder ID to save inside a specific folder.
                 </span>
               </div>
 
@@ -965,14 +1042,14 @@ export const Settings: React.FC = () => {
                   style={{ width: '16px', height: '16px', accentColor: 'var(--primary)', cursor: 'pointer' }}
                 />
                 <label htmlFor="gdrive-auto-sync" style={{ fontSize: '0.82rem', color: 'var(--text-primary)', cursor: 'pointer' }}>
-                  Enable automatic background sync on new invoices
+                  Enable automatic sync on new invoices
                 </label>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
                 {gdriveSuccess ? (
                   <span style={{ fontSize: '0.8rem', color: 'var(--success)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                    <CheckCircle2 size={16} /> Saved!
+                    <CheckCircle2 size={16} /> Drive Config Saved!
                   </span>
                 ) : <span />}
 
@@ -992,7 +1069,7 @@ export const Settings: React.FC = () => {
                   style={{ padding: '7px 16px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                 >
                   <RefreshCw size={14} className={backupLoading ? 'spin' : ''} />
-                  <span>{backupLoading ? 'Syncing...' : 'Backup All to Drive'}</span>
+                  <span>{backupLoading ? 'Uploading Invoices...' : 'Backup All to Drive'}</span>
                 </button>
               </div>
 

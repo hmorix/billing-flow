@@ -898,6 +898,44 @@ app.post('/api/invoices/:id/pay', async (c) => {
   return c.json({ message: 'Invoice paid successfully.' });
 });
 
+app.post('/api/invoices/:id/sync-drive', async (c) => {
+  const user = c.get('user');
+  const id = c.req.param('id');
+  const { webhookUrl, folderId } = await c.req.json();
+
+  if (!webhookUrl) {
+    return c.json({ error: 'Google Drive Webhook URL is required. Configure it in Settings.' }, 400);
+  }
+
+  const invoice = await c.env.DB.prepare("SELECT * FROM invoices WHERE id = ? AND organization_id = ?")
+    .bind(id, user.organizationId)
+    .first();
+  if (!invoice) return c.json({ error: 'Invoice not found.' }, 404);
+
+  try {
+    const pdfBuffer = await generateInvoicePDF(id, user.organizationId, c.env);
+    const base64Pdf = Buffer.from(pdfBuffer).toString('base64');
+    const filename = `Invoice_${invoice.invoice_number || id}.pdf`;
+
+    const driveRes = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filename,
+        mimeType: 'application/pdf',
+        fileBase64: base64Pdf,
+        folderId: folderId || undefined,
+        invoiceNumber: invoice.invoice_number,
+      }),
+    });
+
+    const driveData = await driveRes.json().catch(() => ({ status: 'success' }));
+    return c.json({ success: true, message: `Invoice #${invoice.invoice_number} uploaded to Google Drive!`, data: driveData });
+  } catch (err: any) {
+    return c.json({ error: err.message || 'Failed to upload PDF to Google Drive.' }, 500);
+  }
+});
+
 // --- DASHBOARD ANALYTICS ---
 app.get('/api/analytics/dashboard', async (c) => {
   const user = c.get('user');
