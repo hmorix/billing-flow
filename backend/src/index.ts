@@ -80,98 +80,30 @@ app.onError((err, c) => {
 
 // --- SYSTEM SEED HELPER ---
 async function seedSuperAdmin(db: any) {
-  // Only run migrations once per process — avoids ALTER TABLE overhead on every request
   if (_migrationDone) return;
   _migrationDone = true;
+
   try {
-    await db.prepare("ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0").run().catch(() => {});
-    await db.prepare("ALTER TABLE users ADD COLUMN verification_code TEXT").run().catch(() => {});
-    await db.prepare("ALTER TABLE organizations ADD COLUMN email_template TEXT DEFAULT 'professional'").run().catch(() => {});
-    await db.prepare("ALTER TABLE organizations ADD COLUMN payment_qr_link TEXT").run().catch(() => {});
-    await db.prepare("ALTER TABLE organizations ADD COLUMN terms_conditions TEXT").run().catch(() => {});
-    await db.prepare("ALTER TABLE organizations ADD COLUMN bank_name TEXT").run().catch(() => {});
-    await db.prepare("ALTER TABLE organizations ADD COLUMN bank_account_no TEXT").run().catch(() => {});
-    await db.prepare("ALTER TABLE organizations ADD COLUMN bank_ifsc TEXT").run().catch(() => {});
-    await db.prepare("ALTER TABLE organizations ADD COLUMN bank_upi_id TEXT").run().catch(() => {});
-    await db.prepare("ALTER TABLE organizations ADD COLUMN signatory_name TEXT").run().catch(() => {});
-    await db.prepare("ALTER TABLE organizations ADD COLUMN signatory_designation TEXT").run().catch(() => {});
-    await db.prepare("ALTER TABLE organizations ADD COLUMN thanks_message TEXT").run().catch(() => {});
-    await db.prepare("ALTER TABLE organizations ADD COLUMN contact_email TEXT").run().catch(() => {});
-    await db.prepare("ALTER TABLE organizations ADD COLUMN contact_phone TEXT").run().catch(() => {});
+    const superadminEmail = 'admin@billingflow.com';
+    const existing = await db.prepare("SELECT id FROM users WHERE email = ?")
+      .bind(superadminEmail)
+      .first();
+    
+    if (!existing) {
+      console.log('Seeding default system super-administrator into database...');
+      const orgId = crypto.randomUUID();
+      const userId = crypto.randomUUID();
+      const passwordHash = await bcrypt.hash('adminpassword', 10);
 
-    await db.prepare("ALTER TABLE invoices ADD COLUMN cgst_rate REAL DEFAULT 0").run().catch(() => {});
-    await db.prepare("ALTER TABLE invoices ADD COLUMN sgst_rate REAL DEFAULT 0").run().catch(() => {});
-    await db.prepare("ALTER TABLE invoices ADD COLUMN igst_rate REAL DEFAULT 0").run().catch(() => {});
-    await db.prepare("ALTER TABLE invoices ADD COLUMN terms_conditions TEXT").run().catch(() => {});
-    await db.prepare("ALTER TABLE invoices ADD COLUMN thanks_message TEXT").run().catch(() => {});
-    await db.prepare("ALTER TABLE invoices ADD COLUMN view_token TEXT").run().catch(() => {});
-
-    await db.prepare("ALTER TABLE agreements ADD COLUMN witness1_name TEXT").run().catch(() => {});
-    await db.prepare("ALTER TABLE agreements ADD COLUMN witness1_contact TEXT").run().catch(() => {});
-    await db.prepare("ALTER TABLE agreements ADD COLUMN witness2_name TEXT").run().catch(() => {});
-    await db.prepare("ALTER TABLE agreements ADD COLUMN witness2_contact TEXT").run().catch(() => {});
-    await db.prepare("ALTER TABLE agreements ADD COLUMN signatory_designation TEXT").run().catch(() => {});
-    await db.prepare("ALTER TABLE agreements ADD COLUMN linked_invoice_number TEXT").run().catch(() => {});
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS agreements (
-        id TEXT PRIMARY KEY,
-        organization_id TEXT,
-        agreement_number TEXT UNIQUE NOT NULL,
-        linked_invoice_number TEXT,
-        agreement_type TEXT NOT NULL,
-        title TEXT NOT NULL,
-        first_party_name TEXT NOT NULL,
-        first_party_contact TEXT,
-        first_party_address TEXT,
-        signatory_designation TEXT,
-        second_party_name TEXT NOT NULL,
-        second_party_contact TEXT,
-        second_party_address TEXT,
-        witness1_name TEXT,
-        witness1_contact TEXT,
-        witness2_name TEXT,
-        witness2_contact TEXT,
-        payment_terms TEXT,
-        total_amount REAL,
-        currency TEXT DEFAULT 'INR',
-        validity_period TEXT,
-        terms_content TEXT NOT NULL,
-        language TEXT DEFAULT 'bilingual',
-        stamp_duty_amount REAL DEFAULT 100,
-        state_jurisdiction TEXT DEFAULT 'Delhi, India',
-        signer_photo_url TEXT,
-        document_attachment_url TEXT,
-        geo_lat REAL,
-        geo_lng REAL,
-        geo_address TEXT,
-        digital_hash TEXT UNIQUE NOT NULL,
-        status TEXT DEFAULT 'executed',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `).run().catch((err: any) => {
-      console.error('Error creating agreements table:', err);
-    });
+      await db.batch([
+        db.prepare("INSERT INTO organizations (id, name, slug, subscription_status, subscription_plan) VALUES (?, ?, ?, ?, ?)")
+          .bind(orgId, 'System Admin', 'system-admin', 'active', 'enterprise'),
+        db.prepare("INSERT INTO users (id, organization_id, name, email, password_hash, role, is_verified) VALUES (?, ?, ?, ?, ?, ?, ?)")
+          .bind(userId, orgId, 'System Administrator', superadminEmail, passwordHash, 'superadmin', 1)
+      ]);
+    }
   } catch (e: any) {
-    console.error('Migration error:', e);
-  }
-
-  const superadminEmail = 'admin@billingflow.com';
-  const existing = await db.prepare("SELECT * FROM users WHERE email = ?")
-    .bind(superadminEmail)
-    .first();
-  
-  if (!existing) {
-    console.log('Seeding default system super-administrator into Cloudflare D1...');
-    const orgId = crypto.randomUUID();
-    const userId = crypto.randomUUID();
-    const passwordHash = await bcrypt.hash('adminpassword', 10);
-
-    await db.batch([
-      db.prepare("INSERT INTO organizations (id, name, slug, subscription_status, subscription_plan) VALUES (?, ?, ?, ?, ?)")
-        .bind(orgId, 'System Admin', 'system-admin', 'active', 'enterprise'),
-      db.prepare("INSERT INTO users (id, organization_id, name, email, password_hash, role, is_verified) VALUES (?, ?, ?, ?, ?, ?, ?)")
-        .bind(userId, orgId, 'System Administrator', superadminEmail, passwordHash, 'superadmin', 1)
-    ]);
+    console.error('Superadmin seed notice:', e.message);
   }
 }
 
