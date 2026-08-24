@@ -83,6 +83,87 @@ app.onError((err, c) => {
   return c.json({ error: err.message || 'Internal Server Error' }, 500);
 });
 
+// --- FAST 1-QUERY SCHEMA ENSURE HELPER ---
+let _agreementColumnsEnsured = false;
+async function ensureAgreementColumns(db: any) {
+  if (_agreementColumnsEnsured) return;
+  try {
+    await db.prepare(`
+      ALTER TABLE agreements 
+        ADD COLUMN IF NOT EXISTS first_party_father_name TEXT,
+        ADD COLUMN IF NOT EXISTS first_party_aadhaar TEXT,
+        ADD COLUMN IF NOT EXISTS first_party_mobile TEXT,
+        ADD COLUMN IF NOT EXISTS signatory_designation TEXT,
+        ADD COLUMN IF NOT EXISTS second_party_father_name TEXT,
+        ADD COLUMN IF NOT EXISTS second_party_aadhaar TEXT,
+        ADD COLUMN IF NOT EXISTS second_party_mobile TEXT,
+        ADD COLUMN IF NOT EXISTS second_party_photo_url TEXT,
+        ADD COLUMN IF NOT EXISTS refund_policy TEXT,
+        ADD COLUMN IF NOT EXISTS late_payment_terms TEXT,
+        ADD COLUMN IF NOT EXISTS cancellation_policy TEXT,
+        ADD COLUMN IF NOT EXISTS attach_legal_appendix INTEGER DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS witness1_name TEXT,
+        ADD COLUMN IF NOT EXISTS witness1_contact TEXT,
+        ADD COLUMN IF NOT EXISTS witness2_name TEXT,
+        ADD COLUMN IF NOT EXISTS witness2_contact TEXT;
+    `).run();
+    _agreementColumnsEnsured = true;
+  } catch (e: any) {
+    if (e.message && e.message.includes('does not exist')) {
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS agreements (
+          id TEXT PRIMARY KEY,
+          organization_id TEXT,
+          agreement_number TEXT UNIQUE NOT NULL,
+          linked_invoice_number TEXT,
+          agreement_type TEXT NOT NULL,
+          title TEXT NOT NULL,
+          first_party_name TEXT NOT NULL,
+          first_party_father_name TEXT,
+          first_party_aadhaar TEXT,
+          first_party_mobile TEXT,
+          first_party_contact TEXT,
+          first_party_address TEXT,
+          signatory_designation TEXT,
+          second_party_name TEXT NOT NULL,
+          second_party_father_name TEXT,
+          second_party_aadhaar TEXT,
+          second_party_mobile TEXT,
+          second_party_contact TEXT,
+          second_party_address TEXT,
+          second_party_photo_url TEXT,
+          witness1_name TEXT,
+          witness1_contact TEXT,
+          witness2_name TEXT,
+          witness2_contact TEXT,
+          payment_terms TEXT,
+          total_amount REAL,
+          currency TEXT DEFAULT 'INR',
+          validity_period TEXT,
+          refund_policy TEXT,
+          late_payment_terms TEXT,
+          cancellation_policy TEXT,
+          terms_content TEXT NOT NULL,
+          language TEXT DEFAULT 'en',
+          stamp_duty_amount REAL DEFAULT 100,
+          state_jurisdiction TEXT DEFAULT 'Delhi, India',
+          signer_photo_url TEXT,
+          document_attachment_url TEXT,
+          geo_lat REAL,
+          geo_lng REAL,
+          geo_address TEXT,
+          digital_hash TEXT UNIQUE NOT NULL,
+          status TEXT DEFAULT 'executed',
+          attach_legal_appendix INTEGER DEFAULT 1,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+      `).run().catch(() => {});
+      _agreementColumnsEnsured = true;
+    }
+  }
+}
+
 // --- SYSTEM SEED HELPER ---
 async function seedSuperAdmin(db: any) {
   if (_migrationDone) return;
@@ -1659,6 +1740,7 @@ app.get('/api/agreements', authenticateToken, async (c) => {
 
 // 2. Create organization agreement (Authenticated)
 app.post('/api/agreements', authenticateToken, async (c) => {
+  await ensureAgreementColumns(c.env.DB);
   const user = c.get('user');
   const body = await c.req.json();
   
@@ -1698,7 +1780,7 @@ app.post('/api/agreements', authenticateToken, async (c) => {
 
 // 3. Create Public / Guest agreement (Without Registration)
 app.post('/api/agreements/public', async (c) => {
-  await seedSuperAdmin(c.env.DB);
+  await ensureAgreementColumns(c.env.DB);
   const body = await c.req.json();
   
   const id = crypto.randomUUID();
