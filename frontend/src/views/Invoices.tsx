@@ -444,6 +444,25 @@ export const Invoices: React.FC = () => {
         notes: fullData.notes || fullData.terms_conditions
       });
 
+      // Try Direct PDF File Sharing via Native Web Share API (WhatsApp/Apps)
+      try {
+        const pdfBlob = await apiFetch(`/api/invoices/${inv.id}/pdf`);
+        if (pdfBlob && typeof File !== 'undefined' && navigator.canShare) {
+          const pdfFile = new File([pdfBlob], `Invoice_${fullData.invoice_number || inv.id}.pdf`, { type: 'application/pdf' });
+          if (navigator.canShare({ files: [pdfFile] })) {
+            await navigator.share({
+              title: `Tax Invoice #${fullData.invoice_number}`,
+              text: text,
+              files: [pdfFile]
+            });
+            return;
+          }
+        }
+      } catch (shareErr) {
+        // Fallback to WhatsApp URL below
+      }
+
+      // Fallback: Open WhatsApp link with pre-filled message
       shareViaWhatsApp(text, fullData.client_phone);
     } catch (err: any) {
       alert(`Failed to prepare WhatsApp message: ${err.message || err}`);

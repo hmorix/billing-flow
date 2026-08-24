@@ -133,6 +133,8 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: contain;
+  overscroll-behavior-x: none;
 }
 
 body {
@@ -141,6 +143,8 @@ body {
   font-family: var(--font-sans);
   min-height: 100vh;
   overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color var(--transition-normal), color var(--transition-normal);

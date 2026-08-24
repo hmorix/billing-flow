@@ -32,10 +32,25 @@ const Admin = lazy(() => import('./views/Admin').then(m => ({ default: m.Admin }
 const EmailDesign = lazy(() => import('./views/EmailDesign').then(m => ({ default: m.EmailDesign })));
 const LegalTerms = lazy(() => import('./views/LegalTerms').then(m => ({ default: m.LegalTerms })));
 const InvoiceView = lazy(() => import('./views/InvoiceView').then(m => ({ default: m.InvoiceView })));
+const NotFound = lazy(() => import('./views/NotFound').then(m => ({ default: m.NotFound })));
+const Maintenance = lazy(() => import('./views/Maintenance').then(m => ({ default: m.Maintenance })));
 
 export const App: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+
+  // Smooth F5 / Keyboard refresh interceptor to prevent browser 404s
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r')) {
+        // Soft refresh without dropping SPA history
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('app:refresh'));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   if (isLoading) {
     return (
@@ -411,7 +426,23 @@ export const App: React.FC = () => {
                       </Suspense>
                     }
                   />
-                  <Route path="*" element={<Navigate to="/" replace />} />
+                  <Route
+                    path="/maintenance"
+                    element={
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Maintenance />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/404"
+                    element={
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <NotFound />
+                      </Suspense>
+                    }
+                  />
+                  <Route path="*" element={<NotFound />} />
                 </Routes>
               </main>
             </div>

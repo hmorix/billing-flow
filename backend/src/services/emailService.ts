@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import { renderEmailTemplate } from '../templates/email';
 import { calculateTaxBreakdown } from '../templates/pdf/types';
+import { generateInvoicePDF } from './pdfService';
 
 export async function sendReminderEmail(invoiceId: string, organizationId: string, env: any) {
   const invoice = await env.DB.prepare("SELECT * FROM invoices WHERE id = ? AND organization_id = ?")
@@ -86,12 +87,27 @@ export async function sendReminderEmail(invoiceId: string, organizationId: strin
         tls: { rejectUnauthorized: false }
       });
 
+      let attachments: any[] = [];
+      try {
+        const pdfBuffer = await generateInvoicePDF(invoiceId, organizationId, env);
+        if (pdfBuffer) {
+          attachments.push({
+            filename: `Invoice_${invoice.invoice_number || invoiceId}.pdf`,
+            content: Buffer.from(pdfBuffer),
+            contentType: 'application/pdf',
+          });
+        }
+      } catch (pdfErr) {
+        console.warn('Could not generate PDF attachment for email:', pdfErr);
+      }
+
       await transporter.sendMail({
         from: `"${org.name}" <${org.smtp_from}>`,
         to: client.email,
         subject,
         text: body,
         html: htmlBody,
+        attachments,
       });
 
       sentReal = true;
