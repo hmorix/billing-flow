@@ -11,50 +11,21 @@
   },
   "rewrites": [
     {
-      "source": "/api/(.*)",
+      "source": "/api/:path*",
       "destination": {
         "type": "service",
         "service": "backend"
       }
     },
     {
-      "source": "/uploads/(.*)",
+      "source": "/uploads/:path*",
       "destination": {
         "type": "service",
         "service": "backend"
       }
     },
     {
-      "source": "/assets/(.*)",
-      "destination": {
-        "type": "service",
-        "service": "frontend"
-      }
-    },
-    {
-      "source": "/favicon(.*)",
-      "destination": {
-        "type": "service",
-        "service": "frontend"
-      }
-    },
-    {
-      "source": "/icons(.*)",
-      "destination": {
-        "type": "service",
-        "service": "frontend"
-      }
-    },
-    {
-      "source": "/((?!api/|uploads/|assets/|favicon|icons|.*\\.[a-zA-Z0-9]+$).*)",
-      "destination": {
-        "type": "service",
-        "service": "frontend",
-        "path": "/index.html"
-      }
-    },
-    {
-      "source": "/(.*)",
+      "source": "/:path*",
       "destination": {
         "type": "service",
         "service": "frontend"
