@@ -79,9 +79,16 @@ export const App: React.FC = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/view/invoice/:id" element={<InvoiceView />} />
           <Route path="/invoices/view/:id" element={<InvoiceView />} />
+          <Route path="/bill/:id" element={<InvoiceView />} />
+          <Route path="/public/bill/:id" element={<InvoiceView />} />
+          <Route path="/public/invoice/:id" element={<InvoiceView />} />
+          <Route path="/invoice-view/:id" element={<InvoiceView />} />
           <Route path="/agreements/new" element={<AgreementCreate />} />
           <Route path="/agreements/public" element={<AgreementCreate />} />
+          <Route path="/create-agreement" element={<AgreementCreate />} />
           <Route path="/verify/:hash" element={<AgreementVerify />} />
+          <Route path="/verify-agreement/:hash" element={<AgreementVerify />} />
+          <Route path="/check-agreement/:hash" element={<AgreementVerify />} />
           <Route path="/api-docs" element={<ApiDocs />} />
           <Route path="/terms" element={<LegalTerms />} />
           <Route path="/privacy" element={<LegalTerms />} />
@@ -237,7 +244,31 @@ export const App: React.FC = () => {
                     }
                   />
                   <Route
+                    path="/my-invoices"
+                    element={
+                      <Suspense fallback={<TableSkeleton />}>
+                        <Invoices />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/invoices-manager"
+                    element={
+                      <Suspense fallback={<TableSkeleton />}>
+                        <Invoices />
+                      </Suspense>
+                    }
+                  />
+                  <Route
                     path="/invoices/new"
+                    element={
+                      <Suspense fallback={<SettingsSkeleton />}>
+                        <InvoiceEdit />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/create-invoice"
                     element={
                       <Suspense fallback={<SettingsSkeleton />}>
                         <InvoiceEdit />
@@ -253,7 +284,23 @@ export const App: React.FC = () => {
                     }
                   />
                   <Route
+                    path="/edit-invoice/:id"
+                    element={
+                      <Suspense fallback={<SettingsSkeleton />}>
+                        <InvoiceEdit />
+                      </Suspense>
+                    }
+                  />
+                  <Route
                     path="/agreements"
+                    element={
+                      <Suspense fallback={<AgreementSkeleton />}>
+                        <Agreements />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/legal-agreements"
                     element={
                       <Suspense fallback={<AgreementSkeleton />}>
                         <Agreements />
@@ -269,7 +316,31 @@ export const App: React.FC = () => {
                     }
                   />
                   <Route
+                    path="/create-agreement"
+                    element={
+                      <Suspense fallback={<SettingsSkeleton />}>
+                        <AgreementCreate />
+                      </Suspense>
+                    }
+                  />
+                  <Route
                     path="/clients"
+                    element={
+                      <Suspense fallback={<TableSkeleton />}>
+                        <Clients />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/my-clients"
+                    element={
+                      <Suspense fallback={<TableSkeleton />}>
+                        <Clients />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/client-directory"
                     element={
                       <Suspense fallback={<TableSkeleton />}>
                         <Clients />
@@ -285,7 +356,31 @@ export const App: React.FC = () => {
                     }
                   />
                   <Route
+                    path="/subscriptions"
+                    element={
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Billing />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/my-plan"
+                    element={
+                      <Suspense fallback={<DashboardSkeleton />}>
+                        <Billing />
+                      </Suspense>
+                    }
+                  />
+                  <Route
                     path="/settings"
+                    element={
+                      <Suspense fallback={<SettingsSkeleton />}>
+                        <Settings />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/org-settings"
                     element={
                       <Suspense fallback={<SettingsSkeleton />}>
                         <Settings />
