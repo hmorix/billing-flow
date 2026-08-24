@@ -154,6 +154,151 @@ app.get('/uploads/:key', async (c) => {
 });
 
 // --- PUBLIC ROUTES ---
+app.get('/api/debug/db-info', async (c) => {
+  const dbUrl = process.env.DATABASE_URL || '';
+  let dbTestResult: { success: boolean; data?: any; error?: string } = { success: false };
+
+  if (dbUrl && c.env?.DB) {
+    try {
+      const res = await c.env.DB.prepare("SELECT NOW() as current_time, version() as version").first();
+      dbTestResult = { success: true, data: res };
+    } catch (err: any) {
+      dbTestResult = { success: false, error: err?.message || String(err) };
+    }
+  } else {
+    dbTestResult = { success: false, error: 'DATABASE_URL is empty or DB adapter is uninitialized.' };
+  }
+
+  if (c.req.query('json') === 'true' || c.req.header('accept')?.includes('application/json')) {
+    return c.json({
+      database_url: dbUrl,
+      test_result: dbTestResult,
+      supabase_url: process.env.SUPABASE_URL || null,
+      node_version: process.version,
+    });
+  }
+
+  let parsedHost = 'N/A';
+  let parsedPort = 'N/A';
+  let parsedUser = 'N/A';
+  let parsedDb = 'N/A';
+  let projectRef = 'N/A';
+  try {
+    if (dbUrl) {
+      const u = new URL(dbUrl);
+      parsedHost = u.hostname;
+      parsedPort = u.port || '5432';
+      parsedUser = u.username;
+      parsedDb = u.pathname.replace(/^\//, '');
+      if (u.username.includes('.')) {
+        projectRef = u.username.split('.')[1] || 'N/A';
+      }
+    }
+  } catch (e) {}
+
+  const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BillingFlow — Database URL & Diagnostics</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0f172a; color: #f8fafc; padding: 24px; line-height: 1.5; }
+    .container { max-width: 800px; margin: 0 auto; }
+    .card { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 24px; margin-bottom: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+    h1 { font-size: 1.5rem; font-weight: 700; color: #a855f7; margin-bottom: 8px; }
+    p.subtitle { color: #94a3b8; font-size: 0.9rem; margin-bottom: 20px; }
+    .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 9999px; font-weight: 600; font-size: 0.85rem; }
+    .status-success { background: #064e3b; color: #34d399; border: 1px solid #059669; }
+    .status-error { background: #450a0a; color: #f87171; border: 1px solid #dc2626; }
+    .box { background: #090d16; border: 1px solid #334155; border-radius: 8px; padding: 16px; font-family: monospace; font-size: 0.85rem; word-break: break-all; color: #38bdf8; margin: 12px 0; }
+    .btn { background: #7c3aed; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn:hover { background: #6d28d9; }
+    .btn-success { background: #059669 !important; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #334155; font-size: 0.875rem; }
+    th { color: #94a3b8; font-weight: 600; width: 35%; }
+    td { color: #e2e8f0; font-family: monospace; }
+    .error-box { background: #2a1215; border-left: 4px solid #ef4444; padding: 14px; border-radius: 4px; color: #fca5a5; font-family: monospace; font-size: 0.85rem; margin-top: 12px; word-break: break-word; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>⚡ BillingFlow Database URL & Diagnostics</h1>
+      <p class="subtitle">Live database configuration and connection status from Vercel runtime.</p>
+      
+      <div>
+        <strong>Connection Status:</strong>
+        ${dbTestResult.success 
+          ? '<span class="status-badge status-success">● Connected Successfully</span>'
+          : '<span class="status-badge status-error">● Connection Failed</span>'}
+      </div>
+
+      ${!dbTestResult.success ? `
+        <div class="error-box">
+          <strong>PostgreSQL Error:</strong><br>
+          ${dbTestResult.error || 'Unknown error'}
+        </div>
+      ` : `
+        <div style="margin-top:12px; color: #94a3b8; font-size: 0.85rem;">
+          <strong>Server Time:</strong> ${(dbTestResult.data as any)?.current_time || 'N/A'}<br>
+          <strong>PostgreSQL Version:</strong> ${(dbTestResult.data as any)?.version || 'N/A'}
+        </div>
+      `}
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="color:#f8fafc;">🔑 Active DATABASE_URL</h3>
+        <button id="copyBtn" class="btn" onclick="copyUrl()">📋 Copy DATABASE_URL</button>
+      </div>
+      
+      <div class="box" id="urlBox">${dbUrl || 'DATABASE_URL is not defined in environment variables'}</div>
+
+      <h4 style="margin-top: 20px; font-size: 0.95rem; color: #cbd5e1;">Parsed Connection Parameters:</h4>
+      <table>
+        <tr><th>Host</th><td>${parsedHost}</td></tr>
+        <tr><th>Port</th><td>${parsedPort}</td></tr>
+        <tr><th>Username</th><td>${parsedUser}</td></tr>
+        <tr><th>Database</th><td>${parsedDb}</td></tr>
+        <tr><th>Project Ref</th><td>${projectRef}</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom: 12px; color:#f8fafc;">🌐 Related Environment Variables</h3>
+      <table>
+        <tr><th>SUPABASE_URL</th><td>${process.env.SUPABASE_URL || 'Not set'}</td></tr>
+        <tr><th>JWT_SECRET</th><td>${process.env.JWT_SECRET ? '•••••••• (Configured)' : 'Not set'}</td></tr>
+        <tr><th>STRIPE_MOCK</th><td>${process.env.STRIPE_MOCK || 'Not set'}</td></tr>
+        <tr><th>Node Version</th><td>${process.version}</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    function copyUrl() {
+      const text = document.getElementById('urlBox').innerText;
+      if (!text || text.includes('not defined')) return;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('copyBtn');
+        btn.innerText = '✅ Copied!';
+        btn.classList.add('btn-success');
+        setTimeout(() => {
+          btn.innerText = '📋 Copy DATABASE_URL';
+          btn.classList.remove('btn-success');
+        }, 2500);
+      });
+    }
+  </script>
+</body>
+</html>`;
+
+  return c.html(htmlContent);
+});
+
 app.get('/api/health', async (c) => {
   // Trigger seed check on health-check ping
   await seedSuperAdmin(c.env.DB);
