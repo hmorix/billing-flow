@@ -55,7 +55,9 @@ interface AuthContextType {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
-// In-memory API cache: key -> { data, ts }
+import { browserCache } from '../utils/browserCache';
+
+// In-memory API cache backup
 const _apiCache = new Map<string, { data: any; ts: number }>();
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -92,7 +94,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     setUser(null);
     setOrganization(null);
-    _apiCache.clear(); // Clear cached data on logout
+    _apiCache.clear();
+    browserCache.clearAll(); // Wipe all tenant cache from local browser storage on logout
   };
 
 
@@ -101,6 +104,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const updated = { ...organization, ...updatedFields };
       setOrganization(updated);
       localStorage.setItem('auth_org', JSON.stringify(updated));
+      // Invalidate org settings cache so views fetch new values
+      browserCache.invalidate('/api/organization', updated.id);
+      browserCache.invalidate('/api/auth/me', updated.id);
     }
   };
 
@@ -124,16 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
     const method = (options.method || 'GET').toUpperCase();
-    const cacheKey = `${method}:${endpoint}`;
-
-    // Return cached result for GET requests if still fresh (30 seconds TTL)
-    if (method === 'GET' && _apiCache.has(cacheKey)) {
-      const cached = _apiCache.get(cacheKey)!;
-      if (Date.now() - cached.ts < 30_000) {
-        return cached.data;
-      }
-      _apiCache.delete(cacheKey);
-    }
+    const orgId = organization?.id || _storedOrg?.id || 'global';
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -141,6 +138,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...(options.headers as Record<string, string> || {}),
     };
 
+    // --- GET REQUESTS: BROWSER DATABASE CACHE-FIRST / SWR ---
+    if (method === 'GET') {
+      const cached = browserCache.get(endpoint, orgId);
+
+      // If we have cached local data:
+      if (cached) {
+        // If fresh (under 2 minutes), return instantly (0ms)
+        if (cached.isFresh) {
+          return cached.data;
+        }
+
+        // Stale-While-Revalidate: Return cached data immediately so UI never waits,
+        // and trigger a silent background sync to update local browser storage
+        fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers })
+          .then(async (res) => {
+            if (res.ok) {
+              const contentType = res.headers.get('Content-Type');
+              if (contentType && !contentType.includes('application/pdf')) {
+                const freshData = await res.json();
+                browserCache.set(endpoint, freshData, orgId);
+              }
+            }
+          })
+          .catch(() => {}); // Suppress background fetch errors
+
+        return cached.data;
+      }
+    }
+
+    // --- NETWORK FETCH (Cache Miss or Mutations: POST/PUT/DELETE) ---
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers,
@@ -163,11 +190,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const data = await response.json();
 
-    // Cache successful GET responses
+    // Cache successful GET responses in persistent local browser DB
     if (method === 'GET') {
-      _apiCache.set(cacheKey, { data, ts: Date.now() });
+      browserCache.set(endpoint, data, orgId);
     } else {
-      // Invalidate related GET caches on mutations
+      // Mutations (POST, PUT, DELETE): intelligently invalidate affected local caches
+      // so all tabs/views immediately sync with fresh data on their next visit
+      browserCache.invalidateForMutation(endpoint, orgId);
       _apiCache.clear();
     }
 
