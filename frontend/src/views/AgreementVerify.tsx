@@ -53,7 +53,7 @@ export const AgreementVerify: React.FC = () => {
         <BillingFlowLogo size={36} subtext="HMorix Legal &amp; FinTech Verification Portal" />
       </div>
 
-      <div className="glass-card fade-in" style={{ width: '100%', maxWidth: '640px', padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div className="glass-card fade-in" style={{ width: '100%', maxWidth: '640px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         
         {isLoading ? (
           <div style={{ padding: '60px 20px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
@@ -106,34 +106,34 @@ export const AgreementVerify: React.FC = () => {
             </div>
 
             {/* Document Details Grid */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
                 <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Agreement Identifier</span>
-                <strong style={{ fontSize: '0.85rem', color: 'var(--primary)', fontFamily: 'monospace' }}>{data.agreement.agreementNumber}</strong>
+                <strong style={{ fontSize: '0.85rem', color: 'var(--primary)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{data.agreement.agreementNumber}</strong>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
                 <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Document Title</span>
-                <strong style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>{data.agreement.title}</strong>
+                <strong style={{ fontSize: '0.85rem', color: 'var(--text-primary)', textAlign: 'right' }}>{data.agreement.title}</strong>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
                 <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Contract Type</span>
                 <span className="badge badge-info" style={{ fontSize: '0.72rem' }}>{data.agreement.agreementType}</span>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
                 <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>First Party (Provider)</span>
-                <strong style={{ fontSize: '0.85rem' }}>{data.agreement.firstParty}</strong>
+                <strong style={{ fontSize: '0.85rem', textAlign: 'right' }}>{data.agreement.firstParty}</strong>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
                 <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Second Party (Client)</span>
-                <strong style={{ fontSize: '0.85rem' }}>{data.agreement.secondParty}</strong>
+                <strong style={{ fontSize: '0.85rem', textAlign: 'right' }}>{data.agreement.secondParty}</strong>
               </div>
 
               {data.agreement.totalAmount ? (
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
                   <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Commercial Value</span>
                   <strong style={{ fontSize: '0.9rem', color: 'var(--success)' }}>
                     {formatCurrency(data.agreement.totalAmount, (data.agreement.currency || 'INR') as SupportedCurrency)}
@@ -142,17 +142,17 @@ export const AgreementVerify: React.FC = () => {
               ) : null}
 
               {data.agreement.stateJurisdiction && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
                   <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Jurisdiction &amp; e-Stamp Duty</span>
-                  <span style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-primary)', textAlign: 'right' }}>
                     {data.agreement.stateJurisdiction} • ₹{data.agreement.stampDutyAmount || 100}
                   </span>
                 </div>
               )}
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
                 <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Execution Date</span>
-                <span style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-primary)', textAlign: 'right' }}>
                   {new Date(data.agreement.executedAt).toUTCString()}
                 </span>
               </div>

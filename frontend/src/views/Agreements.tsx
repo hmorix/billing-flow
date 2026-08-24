@@ -142,15 +142,15 @@ export const Agreements: React.FC = () => {
       {/* Page Header */}
       <div className="page-header">
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h2 style={{ fontSize: 'clamp(1.3rem, 4vw, 1.75rem)', fontWeight: 700 }} className="text-gradient">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <h2 style={{ fontSize: 'clamp(1.1rem, 4vw, 1.75rem)', fontWeight: 700 }} className="text-gradient">
               Digital Legal Agreements &amp; Affidavits
             </h2>
             <span className="badge badge-info hide-mobile" style={{ fontSize: '0.7rem' }}>
               Powered by HMorix Legal
             </span>
           </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '4px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '4px' }}>
             Bilingual notarized contracts with Indian e-Stamp simulation, live GPS capture &amp; SHA-256 tamper-proof verification.
           </p>
         </div>
@@ -164,28 +164,28 @@ export const Agreements: React.FC = () => {
       <div className="glass-card" style={{
         background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(16,185,129,0.06))',
         border: '1px solid var(--border-color)',
-        padding: '14px 18px',
+        padding: '12px 16px',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: '12px'
+        gap: '10px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <ShieldCheck size={24} color="var(--primary)" />
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', flex: 1, minWidth: 0 }}>
+          <ShieldCheck size={22} color="var(--primary)" style={{ flexShrink: 0, marginTop: '2px' }} />
           <div>
-            <h4 style={{ fontSize: '0.92rem', fontWeight: 600 }}>Tamper-Evident Cryptographic Seal (SHA-256)</h4>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+            <h4 style={{ fontSize: '0.88rem', fontWeight: 600 }}>Tamper-Evident Cryptographic Seal (SHA-256)</h4>
+            <p style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
               All agreements are legally notarized with timestamp, GPS coordinates &amp; QR verification. Valid even after printing.
             </p>
           </div>
         </div>
         <button
           className="btn btn-secondary"
-          style={{ padding: '6px 14px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+          style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}
           onClick={() => navigate('/agreements/new')}
         >
-          <Plus size={14} /> Quick Agreement Creator
+          <Plus size={14} /> New Agreement
         </button>
       </div>
 
@@ -316,26 +316,31 @@ export const Agreements: React.FC = () => {
           {/* Mobile Card List */}
           <div className="mobile-card-list" style={{ gap: '12px' }}>
             {filtered.map((agr) => (
-              <div key={agr.id} className="invoice-mobile-card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '0.88rem', fontFamily: 'monospace' }}>
+              <div key={agr.id} className="invoice-mobile-card" style={{ padding: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '0.82rem', fontFamily: 'monospace', marginBottom: '2px' }}>
                       {agr.agreement_number}
                     </div>
-                    <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', marginTop: '2px' }} className="text-truncate">
+                    <div style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--text-primary)', lineHeight: 1.3 }} className="text-truncate">
                       {agr.title}
                     </div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
                       {agr.first_party_name} ➔ {agr.second_party_name}
                     </div>
                   </div>
-                  <span className="badge badge-success" style={{ fontSize: '0.65rem', flexShrink: 0 }}>
-                    e-Stamp ₹{agr.stamp_duty_amount || 100}
-                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0 }}>
+                    <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>
+                      e-Stamp ₹{agr.stamp_duty_amount || 100}
+                    </span>
+                    <span className="badge badge-info" style={{ fontSize: '0.63rem' }}>
+                      {agr.agreement_type}
+                    </span>
+                  </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', paddingTop: '6px', borderTop: '1px solid var(--border-color)' }}>
-                  <span>{agr.agreement_type}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: 'var(--text-muted)', paddingTop: '8px', borderTop: '1px solid var(--border-color)', marginTop: '2px' }}>
+                  <span>{new Date(agr.created_at).toLocaleDateString('en-IN')}</span>
                   {agr.total_amount && (
                     <strong style={{ color: 'var(--text-primary)' }}>
                       {formatCurrency(agr.total_amount, (agr.currency || 'INR') as SupportedCurrency)}
@@ -343,18 +348,18 @@ export const Agreements: React.FC = () => {
                   )}
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '8px', borderTop: '1px solid var(--border-color)' }}>
-                  <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem' }} onClick={() => handleDownloadPdf(agr.id, agr.agreement_number)}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', paddingTop: '10px', borderTop: '1px solid var(--border-color)' }}>
+                  <button className="btn btn-secondary" style={{ padding: '9px 12px', fontSize: '0.82rem', justifyContent: 'center' }} onClick={() => handleDownloadPdf(agr.id, agr.agreement_number)}>
                     <Download size={14} /> PDF
                   </button>
-                  <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem', color: '#25D366' }} onClick={() => handleWhatsAppShare(agr)}>
+                  <button className="btn btn-secondary" style={{ padding: '9px 12px', fontSize: '0.82rem', color: '#25D366', justifyContent: 'center' }} onClick={() => handleWhatsAppShare(agr)}>
                     <Share2 size={14} /> WhatsApp
                   </button>
-                  <button className="btn btn-secondary" style={{ padding: '8px 12px', fontSize: '0.8rem' }} onClick={() => handleCopyVerifyUrl(agr.digital_hash)}>
+                  <button className="btn btn-secondary" style={{ padding: '9px 12px', fontSize: '0.82rem', justifyContent: 'center' }} onClick={() => handleCopyVerifyUrl(agr.digital_hash)}>
                     <ExternalLink size={14} /> Verify Link
                   </button>
-                  <button className="btn btn-danger" style={{ padding: '8px 12px', fontSize: '0.8rem' }} onClick={() => handleDelete(agr.id, agr.agreement_number)}>
-                    <Trash2 size={14} />
+                  <button className="btn btn-danger" style={{ padding: '9px 12px', fontSize: '0.82rem', justifyContent: 'center' }} onClick={() => handleDelete(agr.id, agr.agreement_number)}>
+                    <Trash2 size={14} /> Delete
                   </button>
                 </div>
               </div>

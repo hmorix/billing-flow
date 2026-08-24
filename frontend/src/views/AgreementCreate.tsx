@@ -594,7 +594,7 @@ export const AgreementCreate: React.FC = () => {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '16px' }}>
             {/* First Party */}
             <div style={{ padding: '14px', background: 'var(--bg-tertiary)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary)' }}>FIRST PARTY (SERVICE PROVIDER / PARTY A)</div>
@@ -693,7 +693,7 @@ export const AgreementCreate: React.FC = () => {
             <span className="badge badge-info" style={{ fontSize: '0.68rem' }}>Attestation Seal</span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '16px' }}>
             <div style={{ padding: '14px', background: 'var(--bg-tertiary)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>WITNESS 1 (साक्षी १)</span>
               <input type="text" placeholder="Witness 1 Full Legal Name" className="form-input" value={witness1Name} onChange={e => setWitness1Name(e.target.value)} />
@@ -745,7 +745,7 @@ export const AgreementCreate: React.FC = () => {
         </div>
 
         {/* Submit & Generate button */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
           <button type="button" className="btn btn-secondary" onClick={() => navigate(isAuthenticated ? '/agreements' : '/')}>
             Cancel
           </button>

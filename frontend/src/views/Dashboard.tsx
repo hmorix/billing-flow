@@ -123,64 +123,64 @@ export const Dashboard: React.FC = () => {
     : 0;
 
   return (
-    <div className="page-container" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="page-container" style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(14px, 3vw, 24px)' }}>
 
       {/* Title */}
       <div className="page-header">
         <div>
-          <h2 style={{ fontSize: 'clamp(1.25rem, 4vw, 1.75rem)', fontWeight: 700 }} className="text-gradient">
+          <h2 style={{ fontSize: 'clamp(1.2rem, 4vw, 1.75rem)', fontWeight: 700 }} className="text-gradient">
             Financial Dashboard
           </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '4px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '4px' }}>
             Real-time multi-tenant metrics and analytics feed.
           </p>
         </div>
-        <button className="btn btn-secondary" onClick={() => fetchDashboardData()}>
+        <button className="btn btn-secondary" style={{ flexShrink: 0 }} onClick={() => fetchDashboardData()}>
           <RefreshCw size={16} />
-          <span>Refresh</span>
+          <span className="hide-mobile">Refresh</span>
         </button>
       </div>
 
       {/* Metrics Row */}
       {metrics && (
         <div className="stats-grid">
-          <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', padding: '12px', borderRadius: '12px', flexShrink: 0 }}>
-              <DollarSign size={22} />
+          <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', padding: '10px', borderRadius: '10px', flexShrink: 0 }}>
+              <DollarSign size={20} />
             </div>
             <div style={{ minWidth: 0 }}>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Revenue</p>
-              <h3 style={{ fontSize: 'clamp(1.1rem, 3vw, 1.5rem)', fontWeight: 700, marginTop: '2px' }}>${metrics.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Revenue</p>
+              <h3 style={{ fontSize: 'clamp(1rem, 3vw, 1.4rem)', fontWeight: 700, marginTop: '2px' }}>${metrics.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
             </div>
           </div>
 
-          <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ background: 'var(--primary-glow)', color: 'var(--primary)', padding: '12px', borderRadius: '12px', flexShrink: 0 }}>
-              <Calendar size={22} />
+          <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ background: 'var(--primary-glow)', color: 'var(--primary)', padding: '10px', borderRadius: '10px', flexShrink: 0 }}>
+              <Calendar size={20} />
             </div>
             <div style={{ minWidth: 0 }}>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Month Collections</p>
-              <h3 style={{ fontSize: 'clamp(1.1rem, 3vw, 1.5rem)', fontWeight: 700, marginTop: '2px' }}>${metrics.businessMonthlyRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Month Collections</p>
+              <h3 style={{ fontSize: 'clamp(1rem, 3vw, 1.4rem)', fontWeight: 700, marginTop: '2px' }}>${metrics.businessMonthlyRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
             </div>
           </div>
 
-          <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ background: 'rgba(244, 63, 94, 0.1)', color: 'var(--danger)', padding: '12px', borderRadius: '12px', flexShrink: 0 }}>
-              <AlertCircle size={22} />
+          <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ background: 'rgba(244, 63, 94, 0.1)', color: 'var(--danger)', padding: '10px', borderRadius: '10px', flexShrink: 0 }}>
+              <AlertCircle size={20} />
             </div>
             <div style={{ minWidth: 0 }}>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Outstanding</p>
-              <h3 style={{ fontSize: 'clamp(1.1rem, 3vw, 1.5rem)', fontWeight: 700, marginTop: '2px' }}>${metrics.outstandingAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Outstanding</p>
+              <h3 style={{ fontSize: 'clamp(1rem, 3vw, 1.4rem)', fontWeight: 700, marginTop: '2px' }}>${metrics.outstandingAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
             </div>
           </div>
 
-          <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ background: 'rgba(6, 182, 212, 0.1)', color: 'var(--accent)', padding: '12px', borderRadius: '12px', flexShrink: 0 }}>
-              <RefreshCw size={22} />
+          <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ background: 'rgba(6, 182, 212, 0.1)', color: 'var(--accent)', padding: '10px', borderRadius: '10px', flexShrink: 0 }}>
+              <RefreshCw size={20} />
             </div>
             <div style={{ minWidth: 0 }}>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>SaaS MRR</p>
-              <h3 style={{ fontSize: 'clamp(1.1rem, 3vw, 1.5rem)', fontWeight: 700, marginTop: '2px' }}>${metrics.saasSubscriptionMrr}/mo</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>SaaS MRR</p>
+              <h3 style={{ fontSize: 'clamp(1rem, 3vw, 1.4rem)', fontWeight: 700, marginTop: '2px' }}>${metrics.saasSubscriptionMrr}/mo</h3>
             </div>
           </div>
         </div>
