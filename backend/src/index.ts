@@ -1637,9 +1637,18 @@ app.get('/api/agreements', authenticateToken, async (c) => {
   const limit = Math.min(Number(c.req.query('limit') || 50), 50);
   const offset = Number(c.req.query('offset') || 0);
 
-  const { results } = await c.env.DB.prepare(
-    "SELECT * FROM agreements WHERE organization_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?"
-  ).bind(user.organizationId, limit, offset).all();
+  // Select only lightweight list fields (excluding huge photo base64 strings to prevent HTTP 413 payload limit on Vercel)
+  const { results } = await c.env.DB.prepare(`
+    SELECT id, organization_id, agreement_number, linked_invoice_number, agreement_type, title,
+           first_party_name, second_party_name, second_party_contact,
+           total_amount, currency, validity_period,
+           state_jurisdiction, stamp_duty_amount, digital_hash,
+           geo_address, status, created_at
+    FROM agreements
+    WHERE organization_id = ?
+    ORDER BY created_at DESC
+    LIMIT ? OFFSET ?
+  `).bind(user.organizationId, limit, offset).all();
 
   const countRes = await c.env.DB.prepare(
     "SELECT COUNT(*) as total FROM agreements WHERE organization_id = ?"
