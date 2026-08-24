@@ -1654,6 +1654,6 @@ app.delete('/api/agreements/:id', authenticateToken, async (c) => {
 });
 
 export { app };
-export default handle(app);
+export default app;
 
 
