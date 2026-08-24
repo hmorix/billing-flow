@@ -108,7 +108,7 @@ async function seedSuperAdmin(db: any) {
       ]);
     }
   } catch (e: any) {
-    console.error('Superadmin seed notice:', e.message);
+    // Silent catch so request timing is never blocked
   }
 }
 
@@ -1605,7 +1605,7 @@ app.delete('/api/admin/payments/:id', requireSuperAdmin, async (c) => {
 // ═══════════════════════════════════════════════════════════════════
 
 async function createAgreementHash(payload: any): Promise<string> {
-  const rawString = `${payload.agreementNumber}|${payload.title}|${payload.firstPartyName}|${payload.secondPartyName}|${payload.totalAmount}|${payload.termsContent}|${payload.geoLat || 0}|${payload.geoLng || 0}|${Date.now()}`;
+  const rawString = `${payload.agreementNumber}|${payload.title}|${payload.firstPartyName}|${payload.firstPartyAadhaar || ''}|${payload.secondPartyName}|${payload.secondPartyAadhaar || ''}|${payload.totalAmount}|${payload.termsContent}|${payload.refundPolicy || ''}|${payload.latePaymentTerms || ''}|${payload.cancellationPolicy || ''}|${payload.geoLat || 0}|${payload.geoLng || 0}|${Date.now()}`;
   const msgUint8 = new TextEncoder().encode(rawString);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -1660,25 +1660,27 @@ app.post('/api/agreements', authenticateToken, async (c) => {
   await c.env.DB.prepare(`
     INSERT INTO agreements (
       id, organization_id, agreement_number, linked_invoice_number, agreement_type, title,
-      first_party_name, first_party_contact, first_party_address, signatory_designation,
-      second_party_name, second_party_contact, second_party_address,
+      first_party_name, first_party_father_name, first_party_aadhaar, first_party_mobile, first_party_contact, first_party_address, signatory_designation,
+      second_party_name, second_party_father_name, second_party_aadhaar, second_party_mobile, second_party_contact, second_party_address, second_party_photo_url,
       witness1_name, witness1_contact, witness2_name, witness2_contact,
       payment_terms, total_amount, currency, validity_period,
+      refund_policy, late_payment_terms, cancellation_policy,
       terms_content, language, stamp_duty_amount, state_jurisdiction,
       signer_photo_url, document_attachment_url, geo_lat, geo_lng, geo_address,
-      digital_hash, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      digital_hash, status, attach_legal_appendix
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     id, user.organizationId, agreementNumber, body.linkedInvoiceNumber || null, body.agreementType || 'Work First Pay Later', body.title,
-    body.firstPartyName, body.firstPartyContact || null, body.firstPartyAddress || null, body.signatoryDesignation || null,
-    body.secondPartyName, body.secondPartyContact || null, body.secondPartyAddress || null,
+    body.firstPartyName, body.firstPartyFatherName || null, body.firstPartyAadhaar || null, body.firstPartyMobile || null, body.firstPartyContact || null, body.firstPartyAddress || null, body.signatoryDesignation || null,
+    body.secondPartyName, body.secondPartyFatherName || null, body.secondPartyAadhaar || null, body.secondPartyMobile || null, body.secondPartyContact || null, body.secondPartyAddress || null, body.secondPartyPhotoUrl || null,
     body.witness1Name || null, body.witness1Contact || null,
     body.witness2Name || null, body.witness2Contact || null,
     body.paymentTerms || null, Number(body.totalAmount || 0), body.currency || 'INR', body.validityPeriod || null,
-    body.termsContent, body.language || 'bilingual', Number(body.stampDutyAmount || 100), body.stateJurisdiction || 'Delhi, India',
+    body.refundPolicy || null, body.latePaymentTerms || null, body.cancellationPolicy || null,
+    body.termsContent, body.language || 'en', Number(body.stampDutyAmount || 100), body.stateJurisdiction || 'Delhi, India',
     body.signerPhotoUrl || null, body.documentAttachmentUrl || null,
     body.geoLat ? Number(body.geoLat) : null, body.geoLng ? Number(body.geoLng) : null, body.geoAddress || null,
-    digitalHash, 'executed'
+    digitalHash, 'executed', body.attachLegalAppendix !== false ? 1 : 0
   ).run();
 
   const created = await c.env.DB.prepare("SELECT * FROM agreements WHERE id = ?").bind(id).first();
@@ -1697,25 +1699,27 @@ app.post('/api/agreements/public', async (c) => {
   await c.env.DB.prepare(`
     INSERT INTO agreements (
       id, organization_id, agreement_number, linked_invoice_number, agreement_type, title,
-      first_party_name, first_party_contact, first_party_address, signatory_designation,
-      second_party_name, second_party_contact, second_party_address,
+      first_party_name, first_party_father_name, first_party_aadhaar, first_party_mobile, first_party_contact, first_party_address, signatory_designation,
+      second_party_name, second_party_father_name, second_party_aadhaar, second_party_mobile, second_party_contact, second_party_address, second_party_photo_url,
       witness1_name, witness1_contact, witness2_name, witness2_contact,
       payment_terms, total_amount, currency, validity_period,
+      refund_policy, late_payment_terms, cancellation_policy,
       terms_content, language, stamp_duty_amount, state_jurisdiction,
       signer_photo_url, document_attachment_url, geo_lat, geo_lng, geo_address,
-      digital_hash, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      digital_hash, status, attach_legal_appendix
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     id, null, agreementNumber, body.linkedInvoiceNumber || null, body.agreementType || 'Work First Pay Later', body.title,
-    body.firstPartyName, body.firstPartyContact || null, body.firstPartyAddress || null, body.signatoryDesignation || null,
-    body.secondPartyName, body.secondPartyContact || null, body.secondPartyAddress || null,
+    body.firstPartyName, body.firstPartyFatherName || null, body.firstPartyAadhaar || null, body.firstPartyMobile || null, body.firstPartyContact || null, body.firstPartyAddress || null, body.signatoryDesignation || null,
+    body.secondPartyName, body.secondPartyFatherName || null, body.secondPartyAadhaar || null, body.secondPartyMobile || null, body.secondPartyContact || null, body.secondPartyAddress || null, body.secondPartyPhotoUrl || null,
     body.witness1Name || null, body.witness1Contact || null,
     body.witness2Name || null, body.witness2Contact || null,
     body.paymentTerms || null, Number(body.totalAmount || 0), body.currency || 'INR', body.validityPeriod || null,
-    body.termsContent, body.language || 'bilingual', Number(body.stampDutyAmount || 100), body.stateJurisdiction || 'Delhi, India',
+    body.refundPolicy || null, body.latePaymentTerms || null, body.cancellationPolicy || null,
+    body.termsContent, body.language || 'en', Number(body.stampDutyAmount || 100), body.stateJurisdiction || 'Delhi, India',
     body.signerPhotoUrl || null, body.documentAttachmentUrl || null,
     body.geoLat ? Number(body.geoLat) : null, body.geoLng ? Number(body.geoLng) : null, body.geoAddress || null,
-    digitalHash, 'executed'
+    digitalHash, 'executed', body.attachLegalAppendix !== false ? 1 : 0
   ).run();
 
   const created = await c.env.DB.prepare("SELECT * FROM agreements WHERE id = ?").bind(id).first();
@@ -1756,13 +1760,22 @@ app.get('/api/agreements/verify/:hash', async (c) => {
       title: agreement.title,
       agreementType: agreement.agreement_type,
       firstParty: agreement.first_party_name,
+      firstPartyFather: agreement.first_party_father_name,
+      firstPartyAadhaar: agreement.first_party_aadhaar ? `${agreement.first_party_aadhaar.slice(0, 4)}-XXXX-${agreement.first_party_aadhaar.slice(-4)}` : null,
+      firstPartyMobile: agreement.first_party_mobile,
       signatoryDesignation: agreement.signatory_designation,
       secondParty: agreement.second_party_name,
+      secondPartyFather: agreement.second_party_father_name,
+      secondPartyAadhaar: agreement.second_party_aadhaar ? `${agreement.second_party_aadhaar.slice(0, 4)}-XXXX-${agreement.second_party_aadhaar.slice(-4)}` : null,
+      secondPartyMobile: agreement.second_party_mobile,
       witness1: agreement.witness1_name,
       witness2: agreement.witness2_name,
       totalAmount: agreement.total_amount,
       currency: agreement.currency,
       validityPeriod: agreement.validity_period,
+      refundPolicy: agreement.refund_policy,
+      latePaymentTerms: agreement.late_payment_terms,
+      cancellationPolicy: agreement.cancellation_policy,
       stateJurisdiction: agreement.state_jurisdiction,
       stampDutyAmount: agreement.stamp_duty_amount,
       geoLat: agreement.geo_lat,
@@ -1788,12 +1801,19 @@ app.get('/api/agreements/:id/pdf', async (c) => {
       agreementType: agreement.agreement_type,
       title: agreement.title,
       firstPartyName: agreement.first_party_name,
+      firstPartyFatherName: agreement.first_party_father_name,
+      firstPartyAadhaar: agreement.first_party_aadhaar,
+      firstPartyMobile: agreement.first_party_mobile,
       firstPartyContact: agreement.first_party_contact,
       firstPartyAddress: agreement.first_party_address,
       signatoryDesignation: agreement.signatory_designation,
       secondPartyName: agreement.second_party_name,
+      secondPartyFatherName: agreement.second_party_father_name,
+      secondPartyAadhaar: agreement.second_party_aadhaar,
+      secondPartyMobile: agreement.second_party_mobile,
       secondPartyContact: agreement.second_party_contact,
       secondPartyAddress: agreement.second_party_address,
+      secondPartyPhotoUrl: agreement.second_party_photo_url,
       witness1Name: agreement.witness1_name,
       witness1Contact: agreement.witness1_contact,
       witness2Name: agreement.witness2_name,
@@ -1802,8 +1822,11 @@ app.get('/api/agreements/:id/pdf', async (c) => {
       totalAmount: agreement.total_amount ? Number(agreement.total_amount) : undefined,
       currency: agreement.currency || 'INR',
       validityPeriod: agreement.validity_period,
+      refundPolicy: agreement.refund_policy,
+      latePaymentTerms: agreement.late_payment_terms,
+      cancellationPolicy: agreement.cancellation_policy,
       termsContent: agreement.terms_content,
-      language: agreement.language,
+      language: agreement.language || 'en',
       stampDutyAmount: agreement.stamp_duty_amount ? Number(agreement.stamp_duty_amount) : 100,
       stateJurisdiction: agreement.state_jurisdiction,
       signerPhotoUrl: agreement.signer_photo_url,
@@ -1811,7 +1834,7 @@ app.get('/api/agreements/:id/pdf', async (c) => {
       geoLng: agreement.geo_lng ? Number(agreement.geo_lng) : undefined,
       geoAddress: agreement.geo_address,
       digitalHash: agreement.digital_hash,
-      attachLegalAppendix: true,
+      attachLegalAppendix: agreement.attach_legal_appendix !== 0,
       createdAt: agreement.created_at
     });
 

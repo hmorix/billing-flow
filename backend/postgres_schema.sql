@@ -132,3 +132,56 @@ CREATE TABLE IF NOT EXISTS custom_templates (
   FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_custom_templates_org ON custom_templates(organization_id);
+
+-- 9. Legal Agreements & e-Stamp Documents
+CREATE TABLE IF NOT EXISTS agreements (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT,
+  agreement_number TEXT UNIQUE NOT NULL,
+  linked_invoice_number TEXT,
+  agreement_type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  first_party_name TEXT NOT NULL,
+  first_party_father_name TEXT,
+  first_party_aadhaar TEXT,
+  first_party_mobile TEXT,
+  first_party_contact TEXT,
+  first_party_address TEXT,
+  signatory_designation TEXT,
+  second_party_name TEXT NOT NULL,
+  second_party_father_name TEXT,
+  second_party_aadhaar TEXT,
+  second_party_mobile TEXT,
+  second_party_contact TEXT,
+  second_party_address TEXT,
+  second_party_photo_url TEXT,
+  witness1_name TEXT,
+  witness1_contact TEXT,
+  witness2_name TEXT,
+  witness2_contact TEXT,
+  payment_terms TEXT,
+  total_amount REAL,
+  currency TEXT DEFAULT 'INR',
+  validity_period TEXT,
+  refund_policy TEXT,
+  late_payment_terms TEXT,
+  cancellation_policy TEXT,
+  terms_content TEXT NOT NULL,
+  language TEXT DEFAULT 'en',
+  stamp_duty_amount REAL DEFAULT 100,
+  state_jurisdiction TEXT DEFAULT 'Delhi, India',
+  signer_photo_url TEXT,
+  document_attachment_url TEXT,
+  geo_lat REAL,
+  geo_lng REAL,
+  geo_address TEXT,
+  digital_hash TEXT UNIQUE NOT NULL,
+  status TEXT DEFAULT 'executed',
+  attach_legal_appendix INTEGER DEFAULT 1,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_agreements_org ON agreements(organization_id);
+CREATE INDEX IF NOT EXISTS idx_agreements_hash ON agreements(digital_hash);
+

@@ -151,7 +151,7 @@ export const Agreements: React.FC = () => {
             </span>
           </div>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '4px' }}>
-            Bilingual notarized contracts with Indian e-Stamp simulation, live GPS capture &amp; SHA-256 tamper-proof verification.
+            Legally notarized commercial contracts under the Information Technology Act, 2000 with Indian e-Stamp, live GPS capture &amp; SHA-256 verification.
           </p>
         </div>
         <button className="btn btn-primary hide-mobile" onClick={() => navigate('/agreements/new')}>

@@ -1,16 +1,17 @@
 {
   "id": "work_first_pay_later",
-  "titleEn": "Work First, Pay Later Agreement",
-  "titleHi": "कार्य पश्चात भुगतान अनुबंध",
+  "titleEn": "Work First, Pay Later Commercial Agreement",
   "agreementType": "Work First Pay Later",
   "category": "Deferred Commercial",
   "defaultAmount": 25000,
   "currency": "INR",
   "validityPeriod": "30 Days post deliverable submission",
   "paymentTerms": "100% Payment due within 7 days of milestone deliverable approval",
+  "refundPolicy": "No refund on advance mobilization fees once project kickoff has commenced. In cases where no deliverables have been produced and cancellation is requested within 7 days of execution, a partial refund may be processed minus a 20% administrative handling charge, complying with the Consumer Protection Act, 2019.",
+  "latePaymentTerms": "In the event of overdue payment beyond 7 business days, a late penalty of 1.5% per month (18% per annum) shall be levied on outstanding balances pursuant to the Interest Act, 1978 and Section 73 of the Indian Contract Act, 1872.",
+  "cancellationPolicy": "Either party may terminate this agreement with 15 days prior written notice. Early termination by the Client results in forfeiture of advance deposits and requires pro-rata settlement for completed milestones under Section 74 of the Indian Contract Act, 1872.",
   "stampDutyDefault": 100,
   "stateJurisdiction": "Delhi, India",
   "requiresWitnesses": true,
-  "termsEn": "1. SCOPE OF ENGAGEMENT: The First Party (Service Provider) agrees to render professional services and deliverables as specified in the agreed project scope.\n2. DEFERRED PAYMENT TERMS: The Second Party (Client) shall disburse the full agreed contract sum within 7 business days following delivery, review, and formal acceptance of the agreed deliverables.\n3. DELIVERABLE ACCEPTANCE & REVIEW: The Second Party is entitled to 5 business days from handover to review deliverables. Absence of written objection or feedback within this period constitutes deemed acceptance.\n4. REMEDIES ON DEFAULT: Failure to disburse full payment within the stipulated period renders all intellectual property licenses immediately revoked, and unpaid balances shall incur 1.5% monthly late interest.\n5. GOVERNING LAW & JURISDICTION: This digital legal agreement is executed under the HMorix Digital Legal Infrastructure and shall be governed by the laws of India.",
-  "termsHi": "१. कार्य का दायरा: प्रथम पक्ष (सेवा प्रदाता) निर्धारित परियोजना के अनुसार पेशेवर सेवाएं एवं कार्य प्रदान करने के लिए सहमत है।\n२. कार्योपरांत भुगतान शर्तें: द्वितीय पक्ष (ग्राहक) कार्य पूरा होने, समीक्षा व औपचारिक स्वीकृति के ७ कार्य दिवसों के भीतर निर्धारित कुल अनुबंध राशि का पूर्ण भुगतान करेगा।\n३. कार्य समीक्षा अवधि: द्वितीय पक्ष को कार्य की गुणवत्ता समीक्षा हेतु ५ कार्य दिवसों का समय मिलेगा। निर्धारित समय में लिखित आपत्ति न होने पर कार्य स्वतः स्वीकृत माना जाएगा।\n४. विलंब व ब्याज: निर्धारित अवधि में भुगतान न करने पर बौद्धिक संपदा का अधिकार तत्काल निरस्त होगा तथा बकाया राशि पर १.५% मासिक ब्याज देय होगा।\n५. विधि एवं क्षेत्राधिकार: यह डिजिटल अनुबंध HMorix कानूनी ढांचे के अंतर्गत निष्पादित है एवं भारत के कानूनों द्वारा शासित है।"
+  "termsEn": "1. SCOPE OF ENGAGEMENT: The First Party (Service Provider) agrees to render professional services and deliverables as specified in the agreed project scope.\n2. DEFERRED PAYMENT TERMS: The Second Party (Client) shall disburse the full agreed contract sum within 7 business days following delivery, review, and formal acceptance of the agreed deliverables.\n3. DELIVERABLE ACCEPTANCE & REVIEW: The Second Party is entitled to 5 business days from handover to review deliverables. Absence of written objection or feedback within this period constitutes deemed acceptance.\n4. REMEDIES ON DEFAULT: Failure to disburse full payment within the stipulated period renders all intellectual property licenses immediately revoked, and unpaid balances shall incur 1.5% monthly late interest.\n5. GOVERNING LAW & JURISDICTION: This digital legal agreement is executed under the Information Technology Act, 2000 and shall be governed by the laws of India."
 }

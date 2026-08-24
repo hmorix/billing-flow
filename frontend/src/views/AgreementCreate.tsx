@@ -3,25 +3,26 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   FileText, ShieldCheck, MapPin, Camera, Upload, ArrowLeft,
-  Sparkles, Save, CheckCircle2, AlertCircle, Globe, RefreshCw,
-  Layers, Users, Award, Receipt, CheckSquare, Square
+  Sparkles, CheckCircle2, AlertCircle, RefreshCw,
+  Users, Receipt, CheckSquare, Square, Lock, Scale, AlertTriangle
 } from 'lucide-react';
 import { CURRENCIES, type SupportedCurrency } from '../utils/i18n';
 
 interface AgreementTemplate {
   id: string;
   titleEn: string;
-  titleHi: string;
   agreementType: string;
   defaultAmount: number;
   currency: string;
   validityPeriod: string;
   paymentTerms: string;
+  refundPolicy: string;
+  latePaymentTerms: string;
+  cancellationPolicy: string;
   stampDutyDefault?: number;
   stateJurisdiction?: string;
   requiresWitnesses?: boolean;
   termsEn: string;
-  termsHi: string;
 }
 
 interface ClientOption {
@@ -51,47 +52,61 @@ interface InvoiceOption {
 const FALLBACK_TEMPLATES: AgreementTemplate[] = [
   {
     id: 'work_first_pay_later',
-    titleEn: 'Work First, Pay Later Agreement',
-    titleHi: 'कार्य पश्चात भुगतान अनुबंध',
+    titleEn: 'Work First, Pay Later Commercial Agreement',
     agreementType: 'Work First Pay Later',
     defaultAmount: 25000,
     currency: 'INR',
     validityPeriod: '30 Days post deliverable submission',
     paymentTerms: '100% Payment due within 7 days of milestone deliverable approval',
+    refundPolicy: 'No refund on advance mobilization fees once project kickoff has commenced. In cases where no deliverables have been produced and cancellation is requested within 7 days of execution, a partial refund may be processed minus a 20% administrative handling charge, complying with the Consumer Protection Act, 2019.',
+    latePaymentTerms: 'In the event of overdue payment beyond 7 business days, a late penalty of 1.5% per month (18% per annum) shall be levied on outstanding balances pursuant to the Interest Act, 1978 and Section 73 of the Indian Contract Act, 1872.',
+    cancellationPolicy: 'Either party may terminate this agreement with 15 days prior written notice. Early termination by the Client results in forfeiture of advance deposits and requires pro-rata settlement for completed milestones under Section 74 of the Indian Contract Act, 1872.',
     stampDutyDefault: 100,
     stateJurisdiction: 'Delhi, India',
     requiresWitnesses: true,
-    termsEn: `1. SCOPE OF ENGAGEMENT: The First Party (Service Provider) agrees to render professional services as specified.
-2. DEFERRED PAYMENT TERMS: The Second Party shall pay the agreed total contract amount within 7 business days following delivery and acceptance of work.
-3. DELIVERABLE ACCEPTANCE: Second Party has 5 business days to review deliverables. Lack of written feedback constitutes formal acceptance.
-4. REMEDIES ON DEFAULT: Failure to disburse full payment within the stipulated period renders the intellectual property license revoked and attracts 1.5% monthly late interest.
-5. GOVERNING LAW & JURISDICTION: This legal contract is executed under HMorix Digital Legal Framework and shall be governed by the laws of India.`,
-    termsHi: `१. कार्य का दायरा: प्रथम पक्ष (सेवा प्रदाता) निर्धारित पेशेवर सेवाएं प्रदान करने के लिए सहमत है।
-२. कार्योपरांत भुगतान शर्तें: द्वितीय पक्ष (ग्राहक) कार्य पूरा होने व स्वीकृति के ७ कार्य दिवसों के भीतर पूर्ण भुगतान करेगा।
-३. कार्य समीक्षा: द्वितीय पक्ष को कार्य की समीक्षा हेतु ५ दिनों का समय प्राप्त होगा।
-४. विलंब व ब्याज: निर्धारित अवधि में भुगतान न करने पर बौद्धिक संपदा का अधिकार निलंबित होगा तथा १.५% मासिक ब्याज देय होगा।
-५. विधि एवं क्षेत्राधिकार: यह डिजिटल अनुबंध HMorix कानूनी ढांचे के अंतर्गत निष्पादित एवं भारत के कानूनों द्वारा शासित है।`
+    termsEn: `1. SCOPE OF ENGAGEMENT: The First Party (Service Provider) agrees to render professional services and deliverables as specified in the agreed project scope.
+2. DEFERRED PAYMENT TERMS: The Second Party (Client) shall pay the agreed total contract sum within 7 business days following delivery, review, and formal acceptance of deliverables.
+3. DELIVERABLE ACCEPTANCE: Second Party has 5 business days to review deliverables. Absence of written objection within this window constitutes formal deemed acceptance.
+4. REMEDIES ON DEFAULT: Failure to disburse full payment within the stipulated period renders all intellectual property licenses immediately revoked, and unpaid balances incur 1.5% monthly statutory late interest.
+5. GOVERNING LAW & JURISDICTION: This digital legal contract is executed under the Information Technology Act, 2000 and shall be governed exclusively by the laws of India.`
   },
   {
     id: 'milestone_50_50',
-    titleEn: '50-50 Milestone Split Payment Agreement',
-    titleHi: '50-50 चरणबद्ध भुगतान अनुबंध',
+    titleEn: '50-50 Milestone Split Payment Contract',
     agreementType: '50-50 Milestone Payment',
     defaultAmount: 50000,
     currency: 'INR',
     validityPeriod: '45 Calendar Days',
-    paymentTerms: '50% Advance on project kickoff, 50% upon final deliverable handover',
+    paymentTerms: '50% Non-refundable advance upon kickoff, 50% balance upon final deliverable handover',
+    refundPolicy: 'The 50% advance mobilization deposit is non-refundable upon project initiation. Balance payments are released only upon milestone satisfaction.',
+    latePaymentTerms: 'Late milestone release attracts 1.5% per month interest. Delivery timelines extend automatically during payment delays.',
+    cancellationPolicy: 'Cancellation prior to final delivery forfeits the 50% advance payment. Ownership rights remain exclusively with the Service Provider until 100% settlement.',
     stampDutyDefault: 100,
     stateJurisdiction: 'Delhi, India',
     requiresWitnesses: true,
-    termsEn: `1. PAYMENT SPLIT STRUCTURE: 50% non-refundable advance mobilization fee prior to commencement; balance 50% upon delivery of the final deliverable.
+    termsEn: `1. PAYMENT SPLIT STRUCTURE: 50% non-refundable advance mobilization fee prior to commencement; balance 50% upon delivery and testing of final deliverables.
 2. REVISIONS & AMENDMENTS: Up to two rounds of minor revisions are included. Additional scope adjustments will be billed pro-rata.
-3. IP OWNERSHIP: Full ownership rights transfer to the Second Party solely upon 100% clearance of the balance amount.
-4. CANCELLATION: In event of premature termination by Second Party, advance mobilization fee is forfeited.`,
-    termsHi: `१. भुगतान संरचना: ५०% अग्रिम राशि कार्य प्रारंभ होने से पूर्व देय होगी; शेष ५०% राशि कार्य पूर्ण होने पर देय होगी।
-२. संशोधन: दो दौर के संशोधन सम्मिलित हैं। अतिरिक्त कार्य के लिए अलग से शुल्क लिया जाएगा।
-३. स्वामित्व: पूर्ण भुगतान प्राप्त होने के उपरांत ही स्वामित्व अधिकार द्वितीय पक्ष को हस्तांतरित होंगे।
-४. रद्दीकरण: ग्राहक द्वारा कार्य रद्द करने पर अग्रिम राशि वापस नहीं होगी।`
+3. IP OWNERSHIP: Full ownership rights and copyright transfer to the Second Party solely upon 100% clearance of the balance amount.
+4. CANCELLATION: In event of premature termination by Second Party, the advance mobilization fee is forfeited as liquidated damages.`
+  },
+  {
+    id: 'freelance_retainer',
+    titleEn: 'Monthly Professional Services Retainer Agreement',
+    agreementType: 'Monthly Retainer',
+    defaultAmount: 35000,
+    currency: 'INR',
+    validityPeriod: 'Monthly Recurring (Renewable)',
+    paymentTerms: 'Advance payment due on the 1st day of each billing cycle month',
+    refundPolicy: 'Monthly retainer fees are non-refundable once the billing cycle commences as developer hours are dedicated and reserved.',
+    latePaymentTerms: 'Retainer services will be suspended if payment is not received within 5 business days of the invoice date.',
+    cancellationPolicy: 'Notice of cancellation must be provided at least 30 calendar days before the upcoming billing cycle.',
+    stampDutyDefault: 100,
+    stateJurisdiction: 'Delhi, India',
+    requiresWitnesses: true,
+    termsEn: `1. RETAINER SERVICES: First Party agrees to provide up to the agreed monthly hours of dedicated technical/consulting services.
+2. TIMELINE & AVAILABILITY: Support is available during standard Indian business hours (10:00 AM - 7:00 PM IST).
+3. UNUSED HOURS: Unused retainer hours do not rollover to subsequent billing cycles unless agreed in writing.
+4. CONFIDENTIALITY: Both parties agree to strict non-disclosure of proprietary information under the DPDP Act 2023.`
   }
 ];
 
@@ -108,65 +123,92 @@ export const AgreementCreate: React.FC = () => {
   const [linkedInvoiceNumber, setLinkedInvoiceNumber] = useState<string>('');
 
   const [selectedTemplateId, setSelectedTemplateId] = useState('work_first_pay_later');
-  const [languageMode, setLanguageMode] = useState<'bilingual' | 'en' | 'hi'>('bilingual');
   const [attachLegalAppendix, setAttachLegalAppendix] = useState<boolean>(true);
 
-  // Form Fields
-  const [title, setTitle] = useState('Work First, Pay Later Agreement / कार्य पश्चात भुगतान अनुबंध');
+  // Section 1: Basic Agreement Configuration
+  const [title, setTitle] = useState('Work First, Pay Later Commercial Agreement');
   const [agreementType, setAgreementType] = useState('Work First Pay Later');
-  const [firstPartyName, setFirstPartyName] = useState('Acme Solutions / Service Provider');
-  const [firstPartyContact, setFirstPartyContact] = useState('+91 9876543210');
+  const [stateJurisdiction, setStateJurisdiction] = useState('Delhi, India');
+  const [stampDutyAmount, setStampDutyAmount] = useState(100);
+
+  // Section 2: First Party Details (Service Provider)
+  const [firstPartyName, setFirstPartyName] = useState('Acme Solutions Pvt Ltd');
+  const [firstPartyFatherName, setFirstPartyFatherName] = useState('');
+  const [firstPartyAadhaar, setFirstPartyAadhaar] = useState('');
+  const [firstPartyMobile, setFirstPartyMobile] = useState('+91 9876543210');
+  const [firstPartyContact, setFirstPartyContact] = useState('billing@acmesolutions.in');
   const [firstPartyAddress, setFirstPartyAddress] = useState('Connaught Place, New Delhi, DL 110001, India');
-  const [signatoryDesignation, setSignatoryDesignation] = useState('Authorized Signatory');
-  
+  const [signatoryDesignation, setSignatoryDesignation] = useState('Director / Authorized Signatory');
+  const [signerPhoto, setSignerPhoto] = useState<string | null>(null);
+
+  // Section 3: Second Party Details (Client)
   const [secondPartyName, setSecondPartyName] = useState('');
+  const [secondPartyFatherName, setSecondPartyFatherName] = useState('');
+  const [secondPartyAadhaar, setSecondPartyAadhaar] = useState('');
+  const [secondPartyMobile, setSecondPartyMobile] = useState('');
   const [secondPartyContact, setSecondPartyContact] = useState('');
   const [secondPartyAddress, setSecondPartyAddress] = useState('');
-  
+  const [secondPartyPhoto, setSecondPartyPhoto] = useState<string | null>(null);
+
+  // Section 4: Commercials & Policies
+  const [totalAmount, setTotalAmount] = useState<number>(25000);
+  const [currency, setCurrency] = useState('INR');
+  const [validityPeriod, setValidityPeriod] = useState('30 Days post deliverable submission');
+  const [paymentTerms, setPaymentTerms] = useState('100% Payment due within 7 days of milestone deliverable approval');
+  const [refundPolicy, setRefundPolicy] = useState(
+    'No refund on advance mobilization fees once project kickoff has commenced. In cases where no deliverables have been produced and cancellation is requested within 7 days of execution, a partial refund may be processed minus a 20% administrative handling charge, complying with the Consumer Protection Act, 2019.'
+  );
+  const [latePaymentTerms, setLatePaymentTerms] = useState(
+    'In the event of overdue payment beyond 7 business days, a late penalty of 1.5% per month (18% per annum) shall be levied on outstanding balances pursuant to the Interest Act, 1978 and Section 73 of the Indian Contract Act, 1872.'
+  );
+  const [cancellationPolicy, setCancellationPolicy] = useState(
+    'Either party may terminate this agreement with 15 days prior written notice. Early termination by the Client results in forfeiture of advance deposits and requires pro-rata settlement for completed milestones under Section 74 of the Indian Contract Act, 1872.'
+  );
+  const [termsContent, setTermsContent] = useState('');
+
+  // Section 5: Witnesses
   const [witness1Name, setWitness1Name] = useState('');
   const [witness1Contact, setWitness1Contact] = useState('');
   const [witness2Name, setWitness2Name] = useState('');
   const [witness2Contact, setWitness2Contact] = useState('');
 
-  const [totalAmount, setTotalAmount] = useState<number>(25000);
-  const [currency, setCurrency] = useState('INR');
-  const [validityPeriod, setValidityPeriod] = useState('30 Days post deliverable submission');
-  const [paymentTerms, setPaymentTerms] = useState('100% Payment due within 7 days of milestone deliverable approval');
-  const [stateJurisdiction, setStateJurisdiction] = useState('Delhi, India');
-  const [stampDutyAmount, setStampDutyAmount] = useState(100);
-  const [termsContent, setTermsContent] = useState('');
-
-  // Geolocation and Media states
+  // Section 6: Geolocation & Verification
   const [geoLat, setGeoLat] = useState<number | null>(null);
   const [geoLng, setGeoLng] = useState<number | null>(null);
   const [geoAddress, setGeoAddress] = useState<string>('Detecting location...');
   const [geoLoading, setGeoLoading] = useState(false);
-  const [signerPhoto, setSignerPhoto] = useState<string | null>(null);
+
+  // Section 7: Mandatory Declaration
+  const [declarationAccepted, setDeclarationAccepted] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdAgreement, setCreatedAgreement] = useState<any | null>(null);
 
-  // Fast Concurrent Data Loading
+  // Helper: Format Aadhaar input with dashes (XXXX-XXXX-XXXX)
+  const handleAadhaarChange = (val: string, setter: (v: string) => void) => {
+    const raw = val.replace(/\D/g, '').slice(0, 12);
+    const parts = raw.match(/.{1,4}/g);
+    setter(parts ? parts.join('-') : raw);
+  };
+
+  // Load initial templates & data
   useEffect(() => {
     const loadAllInitialData = async () => {
       const apiUrl = import.meta.env.VITE_API_URL || '';
-      
-      // Load templates
       try {
         const res = await fetch(`${apiUrl}/api/agreements/templates`);
         if (res.ok) {
           const list = await res.json();
           if (Array.isArray(list) && list.length > 0) {
             setTemplates(list);
-            applyTemplate(list[0], languageMode);
+            applyTemplate(list[0]);
           }
         }
       } catch (e) {
-        applyTemplate(FALLBACK_TEMPLATES[0], languageMode);
+        applyTemplate(FALLBACK_TEMPLATES[0]);
       }
 
-      // Load clients & invoices if authenticated
       if (isAuthenticated) {
         try {
           const [clientsData, invoicesData] = await Promise.allSettled([
@@ -206,41 +248,31 @@ export const AgreementCreate: React.FC = () => {
         setGeoLoading(false);
       },
       () => {
-        setGeoAddress('Location capture permission denied / unavailable');
+        setGeoAddress('Location permission denied / unavailable');
         setGeoLoading(false);
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 
-  const applyTemplate = (tpl: AgreementTemplate, lang: 'bilingual' | 'en' | 'hi') => {
+  const applyTemplate = (tpl: AgreementTemplate) => {
     setSelectedTemplateId(tpl.id);
-    setTitle(lang === 'hi' ? tpl.titleHi : lang === 'en' ? tpl.titleEn : `${tpl.titleEn} / ${tpl.titleHi}`);
+    setTitle(tpl.titleEn || 'Commercial Agreement');
     setAgreementType(tpl.agreementType);
     setTotalAmount(tpl.defaultAmount || 0);
     setValidityPeriod(tpl.validityPeriod || '');
     setPaymentTerms(tpl.paymentTerms || '');
+    if (tpl.refundPolicy) setRefundPolicy(tpl.refundPolicy);
+    if (tpl.latePaymentTerms) setLatePaymentTerms(tpl.latePaymentTerms);
+    if (tpl.cancellationPolicy) setCancellationPolicy(tpl.cancellationPolicy);
     if (tpl.stampDutyDefault) setStampDutyAmount(tpl.stampDutyDefault);
     if (tpl.stateJurisdiction) setStateJurisdiction(tpl.stateJurisdiction);
-    
-    if (lang === 'bilingual') {
-      setTermsContent(`${tpl.termsEn}\n\n────────────────────────\n\n${tpl.termsHi}`);
-    } else if (lang === 'en') {
-      setTermsContent(tpl.termsEn);
-    } else {
-      setTermsContent(tpl.termsHi);
-    }
+    setTermsContent(tpl.termsEn || '');
   };
 
   const handleTemplateChange = (tplId: string) => {
     const tpl = templates.find(t => t.id === tplId);
-    if (tpl) applyTemplate(tpl, languageMode);
-  };
-
-  const handleLanguageChange = (lang: 'bilingual' | 'en' | 'hi') => {
-    setLanguageMode(lang);
-    const tpl = templates.find(t => t.id === selectedTemplateId) || templates[0];
-    if (tpl) applyTemplate(tpl, lang);
+    if (tpl) applyTemplate(tpl);
   };
 
   // Auto-Fetch & Auto-Fill Client when Selected
@@ -282,16 +314,16 @@ export const AgreementCreate: React.FC = () => {
       if (found.due_date) {
         setPaymentTerms(`Payment due by ${new Date(found.due_date).toLocaleDateString('en-IN')} as per Invoice #${found.invoice_number}`);
       }
-      setTitle(`Agreement for Invoice #${found.invoice_number} / ${found.client_name}`);
+      setTitle(`Commercial Agreement for Invoice #${found.invoice_number} - ${found.client_name}`);
     }
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (v: string | null) => void) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setSignerPhoto(reader.result as string);
+        setter(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
@@ -299,6 +331,11 @@ export const AgreementCreate: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!declarationAccepted) {
+      setError('You must accept the Mandatory Legal Declaration before generating and signing this agreement.');
+      return;
+    }
+
     setError(null);
     setIsSubmitting(true);
 
@@ -307,26 +344,40 @@ export const AgreementCreate: React.FC = () => {
       agreementType,
       linkedInvoiceNumber: linkedInvoiceNumber || null,
       firstPartyName,
-      firstPartyContact,
-      firstPartyAddress,
-      signatoryDesignation,
+      firstPartyFatherName: firstPartyFatherName || null,
+      firstPartyAadhaar: firstPartyAadhaar.replace(/\D/g, '') || null,
+      firstPartyMobile: firstPartyMobile || null,
+      firstPartyContact: firstPartyContact || null,
+      firstPartyAddress: firstPartyAddress || null,
+      signatoryDesignation: signatoryDesignation || null,
+      signerPhotoUrl: signerPhoto,
+
       secondPartyName,
-      secondPartyContact,
-      secondPartyAddress,
-      witness1Name,
-      witness1Contact,
-      witness2Name,
-      witness2Contact,
+      secondPartyFatherName: secondPartyFatherName || null,
+      secondPartyAadhaar: secondPartyAadhaar.replace(/\D/g, '') || null,
+      secondPartyMobile: secondPartyMobile || null,
+      secondPartyContact: secondPartyContact || null,
+      secondPartyAddress: secondPartyAddress || null,
+      secondPartyPhotoUrl: secondPartyPhoto,
+
+      witness1Name: witness1Name || null,
+      witness1Contact: witness1Contact || null,
+      witness2Name: witness2Name || null,
+      witness2Contact: witness2Contact || null,
+
       totalAmount: Number(totalAmount || 0),
       currency,
       validityPeriod,
       paymentTerms,
+      refundPolicy,
+      latePaymentTerms,
+      cancellationPolicy,
+      termsContent,
+      language: 'en',
       stateJurisdiction,
       stampDutyAmount: Number(stampDutyAmount || 100),
-      termsContent,
-      language: languageMode,
       attachLegalAppendix,
-      signerPhotoUrl: signerPhoto,
+
       geoLat,
       geoLng,
       geoAddress
@@ -401,17 +452,17 @@ export const AgreementCreate: React.FC = () => {
             </span>
             <h3 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Agreement Successfully Generated!</h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginTop: '6px' }}>
-              Ref: <strong style={{ color: 'var(--primary)' }}>{createdAgreement.agreement_number}</strong> • Powered by HMorix Legal Infrastructure
+              Ref: <strong style={{ color: 'var(--primary)' }}>{createdAgreement.agreement_number}</strong> • Governed under Information Technology Act, 2000
             </p>
           </div>
 
           <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px', width: '100%', maxWidth: '520px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>SHA-256 Digital Footprint:</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>SHA-256 Cryptographic Digital Footprint:</div>
             <code style={{ fontSize: '0.75rem', wordBreak: 'break-all', color: 'var(--primary)', background: 'var(--bg-primary)', padding: '6px 10px', borderRadius: '6px' }}>
               {createdAgreement.digital_hash}
             </code>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              📍 Location Geo-Stamp: {createdAgreement.geo_address || 'GPS Coordinates Recorded'}
+              📍 GPS Geolocation Audit: {createdAgreement.geo_address || 'Recorded in Certificate'}
             </div>
           </div>
 
@@ -422,22 +473,22 @@ export const AgreementCreate: React.FC = () => {
               onClick={() => handleDownloadPdf(createdAgreement.id, createdAgreement.agreement_number)}
             >
               <FileText size={16} />
-              <span>Download e-Stamp PDF (with Hindi Font, Signatures &amp; Appendix)</span>
+              <span>Download Official e-Stamp Legal PDF</span>
             </button>
             <button
               className="btn btn-secondary"
               style={{ padding: '10px 20px' }}
               onClick={() => window.open(verifyUrl, '_blank')}
             >
-              <span>View Verification Seal</span>
+              <span>View Verification Portal</span>
             </button>
             {isAuthenticated ? (
               <button className="btn btn-secondary" onClick={() => navigate('/agreements')}>
-                Back to Agreements
+                Back to Agreements List
               </button>
             ) : (
               <button className="btn btn-secondary" onClick={() => navigate('/login')}>
-                Create Account to Save All
+                Create Free Account to Manage Contracts
               </button>
             )}
           </div>
@@ -457,18 +508,19 @@ export const AgreementCreate: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <h2 style={{ fontSize: 'clamp(1.2rem, 3.5vw, 1.6rem)', fontWeight: 700 }} className="text-gradient">
-              Digital Legal Agreement &amp; Contract Studio
+              Professional Legal Agreement &amp; Contract Studio
             </h2>
           </div>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-            Under HMorix Legal Infrastructure • Unicode Devanagari Hindi Engine • 4-Party Signatures on Every Page
+            Under Indian Legal Framework (IT Act 2000 &amp; Indian Contract Act 1872) • Mandatory Certificate No., SHA-256 &amp; Geolocation on Every Page
           </p>
         </div>
       </div>
 
       {error && (
-        <div style={{ background: 'rgba(225, 29, 72, 0.08)', border: '1px solid rgba(225, 29, 72, 0.15)', color: 'var(--danger)', padding: '12px 16px', borderRadius: 'var(--radius-md)', fontSize: '0.85rem' }}>
-          {error}
+        <div style={{ background: 'rgba(225, 29, 72, 0.08)', border: '1px solid rgba(225, 29, 72, 0.15)', color: 'var(--danger)', padding: '12px 16px', borderRadius: 'var(--radius-md)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <AlertCircle size={16} />
+          <span>{error}</span>
         </div>
       )}
 
@@ -477,7 +529,7 @@ export const AgreementCreate: React.FC = () => {
         <div className="glass-card" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(6,182,212,0.08))', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Sparkles size={16} color="var(--primary)" />
-            <strong style={{ fontSize: '0.85rem' }}>Auto-Fill from Existing Client or Invoice (No Re-entry Needed)</strong>
+            <strong style={{ fontSize: '0.85rem' }}>Auto-Fill from Existing Client or Invoice</strong>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
@@ -485,7 +537,7 @@ export const AgreementCreate: React.FC = () => {
             {clients.length > 0 && (
               <div>
                 <label className="form-label" style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Users size={12} color="var(--primary)" /> ⚡ Select Saved Client
+                  <Users size={12} color="var(--primary)" /> Select Saved Client
                 </label>
                 <select
                   className="form-input"
@@ -507,7 +559,7 @@ export const AgreementCreate: React.FC = () => {
             {invoices.length > 0 && (
               <div>
                 <label className="form-label" style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Receipt size={12} color="var(--accent)" /> 📄 Link Existing Invoice / Contract
+                  <Receipt size={12} color="var(--accent)" /> Link Existing Invoice
                 </label>
                 <select
                   className="form-input"
@@ -532,21 +584,11 @@ export const AgreementCreate: React.FC = () => {
       <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
           <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Agreement Archetype ({templates.length} Modular Templates Loaded)
+            Agreement Archetypes ({templates.length} Standard Contract Frameworks)
           </span>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            {(['bilingual', 'en', 'hi'] as const).map(l => (
-              <button
-                key={l}
-                type="button"
-                className={`btn ${languageMode === l ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ padding: '4px 10px', fontSize: '0.72rem' }}
-                onClick={() => handleLanguageChange(l)}
-              >
-                {l === 'bilingual' ? '🌐 Bilingual (EN + हिन्दी)' : l === 'en' ? 'English' : 'हिन्दी (Hindi)'}
-              </button>
-            ))}
-          </div>
+          <span className="badge badge-info" style={{ fontSize: '0.7rem' }}>
+            Language: English Only
+          </span>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
@@ -577,10 +619,10 @@ export const AgreementCreate: React.FC = () => {
       {/* Main Form */}
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         
-        {/* Parties Card */}
+        {/* SECTION 1: Agreement Configuration */}
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h4 style={{ fontSize: '0.95rem', fontWeight: 700, borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-            1. Contract Parties &amp; Jurisdiction
+          <h4 style={{ fontSize: '0.95rem', fontWeight: 700, borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Scale size={18} color="var(--primary)" /> 1. Agreement Configuration &amp; Jurisdiction
           </h4>
 
           <div className="form-grid-2">
@@ -593,31 +635,125 @@ export const AgreementCreate: React.FC = () => {
               <input type="text" required className="form-input" value={stateJurisdiction} onChange={e => setStateJurisdiction(e.target.value)} />
             </div>
           </div>
+        </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '16px' }}>
-            {/* First Party */}
-            <div style={{ padding: '14px', background: 'var(--bg-tertiary)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary)' }}>FIRST PARTY (SERVICE PROVIDER / PARTY A)</div>
-              <input type="text" required placeholder="Full Legal Name / Business Name" className="form-input" value={firstPartyName} onChange={e => setFirstPartyName(e.target.value)} />
-              <input type="text" placeholder="Signatory Designation (e.g. Managing Director)" className="form-input" value={signatoryDesignation} onChange={e => setSignatoryDesignation(e.target.value)} />
-              <input type="text" placeholder="Phone / Email" className="form-input" value={firstPartyContact} onChange={e => setFirstPartyContact(e.target.value)} />
-              <input type="text" placeholder="Official Registered Address" className="form-input" value={firstPartyAddress} onChange={e => setFirstPartyAddress(e.target.value)} />
+        {/* SECTION 2: First Party Details (Service Provider) */}
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <h4 style={{ fontSize: '0.95rem', fontWeight: 700, borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ShieldCheck size={18} /> 2. First Party Details (Service Provider / Party A)
+          </h4>
+
+          <div className="form-grid-2">
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Full Legal Name / Business Entity *</label>
+              <input type="text" required placeholder="Full Name or Registered Company" className="form-input" value={firstPartyName} onChange={e => setFirstPartyName(e.target.value)} />
             </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Father's / Spouse Name</label>
+              <input type="text" placeholder="e.g. S/o Late Shri Rajesh Sharma" className="form-input" value={firstPartyFatherName} onChange={e => setFirstPartyFatherName(e.target.value)} />
+            </div>
+          </div>
 
-            {/* Second Party */}
-            <div style={{ padding: '14px', background: 'var(--bg-tertiary)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent)' }}>SECOND PARTY (CLIENT / PARTY B)</div>
-              <input type="text" required placeholder="Client Full Name / Company Name" className="form-input" value={secondPartyName} onChange={e => setSecondPartyName(e.target.value)} />
-              <input type="text" placeholder="Client Phone / Email" className="form-input" value={secondPartyContact} onChange={e => setSecondPartyContact(e.target.value)} />
-              <input type="text" placeholder="Client Billing / Physical Address" className="form-input" value={secondPartyAddress} onChange={e => setSecondPartyAddress(e.target.value)} />
+          <div className="grid-3-col">
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Aadhaar Card No. (12 Digits)</label>
+              <input
+                type="text"
+                placeholder="XXXX-XXXX-XXXX"
+                className="form-input"
+                value={firstPartyAadhaar}
+                onChange={e => handleAadhaarChange(e.target.value, setFirstPartyAadhaar)}
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Mobile Number *</label>
+              <input type="text" required placeholder="+91 98765 43210" className="form-input" value={firstPartyMobile} onChange={e => setFirstPartyMobile(e.target.value)} />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Email / Contact</label>
+              <input type="text" placeholder="contact@domain.com" className="form-input" value={firstPartyContact} onChange={e => setFirstPartyContact(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="form-grid-2">
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Signatory Designation / Capacity</label>
+              <input type="text" placeholder="e.g. Managing Director / Proprietor" className="form-input" value={signatoryDesignation} onChange={e => setSignatoryDesignation(e.target.value)} />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">First Party Signer Live Photo / ID Attachment</label>
+              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: 'var(--text-secondary)', background: 'var(--bg-secondary)', padding: '9px 12px', borderRadius: '8px', border: '1px dashed var(--border-color)' }}>
+                <Camera size={15} color="var(--primary)" />
+                <span>{signerPhoto ? 'Party A Photo Attached ✓' : 'Upload ID or Take Live Camera Photo'}</span>
+                <input type="file" accept="image/*" capture="user" style={{ display: 'none' }} onChange={e => handlePhotoUpload(e, setSignerPhoto)} />
+              </label>
+            </div>
+          </div>
+
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Official Registered Address *</label>
+            <input type="text" required placeholder="Complete physical address with PIN Code" className="form-input" value={firstPartyAddress} onChange={e => setFirstPartyAddress(e.target.value)} />
+          </div>
+        </div>
+
+        {/* SECTION 3: Second Party Details (Client) */}
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <h4 style={{ fontSize: '0.95rem', fontWeight: 700, borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Users size={18} /> 3. Second Party Details (Client / Customer / Party B)
+          </h4>
+
+          <div className="form-grid-2">
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Client Full Legal Name / Business Name *</label>
+              <input type="text" required placeholder="Client Legal Name / Entity" className="form-input" value={secondPartyName} onChange={e => setSecondPartyName(e.target.value)} />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Father's / Spouse Name</label>
+              <input type="text" placeholder="e.g. S/o Shri Rameshwar Prasad" className="form-input" value={secondPartyFatherName} onChange={e => setSecondPartyFatherName(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid-3-col">
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Aadhaar Card No. (12 Digits)</label>
+              <input
+                type="text"
+                placeholder="XXXX-XXXX-XXXX"
+                className="form-input"
+                value={secondPartyAadhaar}
+                onChange={e => handleAadhaarChange(e.target.value, setSecondPartyAadhaar)}
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Mobile Number *</label>
+              <input type="text" required placeholder="+91 91234 56789" className="form-input" value={secondPartyMobile} onChange={e => setSecondPartyMobile(e.target.value)} />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Email / Contact</label>
+              <input type="text" placeholder="client@domain.com" className="form-input" value={secondPartyContact} onChange={e => setSecondPartyContact(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="form-grid-2">
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Client Billing / Registered Address *</label>
+              <input type="text" required placeholder="Complete Billing Address with State & PIN Code" className="form-input" value={secondPartyAddress} onChange={e => setSecondPartyAddress(e.target.value)} />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Second Party Signer Live Photo / ID Attachment</label>
+              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', color: 'var(--text-secondary)', background: 'var(--bg-secondary)', padding: '9px 12px', borderRadius: '8px', border: '1px dashed var(--border-color)' }}>
+                <Camera size={15} color="var(--accent)" />
+                <span>{secondPartyPhoto ? 'Party B Photo Attached ✓' : 'Upload ID or Take Live Camera Photo'}</span>
+                <input type="file" accept="image/*" capture="user" style={{ display: 'none' }} onChange={e => handlePhotoUpload(e, setSecondPartyPhoto)} />
+              </label>
             </div>
           </div>
         </div>
 
-        {/* Commercials & Terms */}
+        {/* SECTION 4: Commercials, Refund & Late Payment Policies */}
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h4 style={{ fontSize: '0.95rem', fontWeight: 700, borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-            2. Commercial Value, SLA &amp; Payment Schedule
+          <h4 style={{ fontSize: '0.95rem', fontWeight: 700, borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Receipt size={18} color="var(--success)" /> 4. Commercial Terms, Refund &amp; Late Payment Policies
           </h4>
 
           <div className="grid-3-col">
@@ -641,20 +777,60 @@ export const AgreementCreate: React.FC = () => {
 
           <div className="form-grid-2">
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Payment Terms Structure</label>
-              <input type="text" className="form-input" value={paymentTerms} onChange={e => setPaymentTerms(e.target.value)} />
+              <label className="form-label">Payment Terms Structure *</label>
+              <input type="text" required className="form-input" value={paymentTerms} onChange={e => setPaymentTerms(e.target.value)} />
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Service Validity / Timeline</label>
-              <input type="text" className="form-input" value={validityPeriod} onChange={e => setValidityPeriod(e.target.value)} />
+              <label className="form-label">Service Validity / Delivery Timeline *</label>
+              <input type="text" required className="form-input" value={validityPeriod} onChange={e => setValidityPeriod(e.target.value)} />
             </div>
           </div>
 
+          {/* Refund Policy */}
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Binding Terms &amp; Legal Clauses (Hindi / English)</label>
+            <label className="form-label">Refund Policy &amp; Resolution Rules (Consumer Protection Act, 2019) *</label>
             <textarea
               required
-              rows={8}
+              rows={3}
+              className="form-input"
+              style={{ fontSize: '0.83rem', resize: 'vertical' }}
+              value={refundPolicy}
+              onChange={e => setRefundPolicy(e.target.value)}
+            />
+          </div>
+
+          {/* Late Payment Terms */}
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Late Payment Penalties &amp; Interest (Sec. 73 Indian Contract Act, 1872) *</label>
+            <textarea
+              required
+              rows={3}
+              className="form-input"
+              style={{ fontSize: '0.83rem', resize: 'vertical' }}
+              value={latePaymentTerms}
+              onChange={e => setLatePaymentTerms(e.target.value)}
+            />
+          </div>
+
+          {/* Cancellation Policy */}
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Cancellation, Breach &amp; Early Termination Terms *</label>
+            <textarea
+              required
+              rows={3}
+              className="form-input"
+              style={{ fontSize: '0.83rem', resize: 'vertical' }}
+              value={cancellationPolicy}
+              onChange={e => setCancellationPolicy(e.target.value)}
+            />
+          </div>
+
+          {/* Binding Clauses */}
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Scope of Engagement &amp; Custom Legal Clauses (English Only) *</label>
+            <textarea
+              required
+              rows={7}
               className="form-input"
               style={{ fontFamily: 'var(--font-sans)', fontSize: '0.85rem', resize: 'vertical' }}
               value={termsContent}
@@ -675,81 +851,110 @@ export const AgreementCreate: React.FC = () => {
             {attachLegalAppendix ? <CheckSquare size={18} color="var(--success)" /> : <Square size={18} color="var(--text-muted)" />}
             <div>
               <strong style={{ fontSize: '0.85rem', color: attachLegalAppendix ? 'var(--success)' : 'var(--text-primary)' }}>
-                Attach Full Master Terms of Service &amp; Privacy Policy Appendix to PDF
+                Attach Full Master Terms of Service &amp; Statutory Compliance Addendum
               </strong>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>
-                Appends comprehensive IT Act 2000 legal terms, DPDP data protection clauses &amp; dispute arbitration rules.
+                Includes comprehensive IT Act 2000 digital signature validity, DPDP Act 2023 privacy terms, GST compliance, and dispute arbitration rules.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Multi-Party Witnesses Block */}
+        {/* SECTION 5: Independent Witnesses Attestation */}
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
             <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0 }}>
-              3. Independent Witnesses Attestation (Printed on Every Page)
+              5. Independent Witnesses Attestation (Printed on Every Page)
             </h4>
-            <span className="badge badge-info" style={{ fontSize: '0.68rem' }}>Attestation Seal</span>
+            <span className="badge badge-info" style={{ fontSize: '0.68rem' }}>4-Party Signature Block</span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '16px' }}>
             <div style={{ padding: '14px', background: 'var(--bg-tertiary)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>WITNESS 1 (साक्षी १)</span>
+              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>WITNESS 1 (ATTESTOR)</span>
               <input type="text" placeholder="Witness 1 Full Legal Name" className="form-input" value={witness1Name} onChange={e => setWitness1Name(e.target.value)} />
-              <input type="text" placeholder="Witness 1 Contact / Aadhaar / Govt ID" className="form-input" value={witness1Contact} onChange={e => setWitness1Contact(e.target.value)} />
+              <input type="text" placeholder="Witness 1 Phone / Govt ID / Aadhaar" className="form-input" value={witness1Contact} onChange={e => setWitness1Contact(e.target.value)} />
             </div>
 
             <div style={{ padding: '14px', background: 'var(--bg-tertiary)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>WITNESS 2 (साक्षी २)</span>
+              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>WITNESS 2 (ATTESTOR)</span>
               <input type="text" placeholder="Witness 2 Full Legal Name" className="form-input" value={witness2Name} onChange={e => setWitness2Name(e.target.value)} />
-              <input type="text" placeholder="Witness 2 Contact / Aadhaar / Govt ID" className="form-input" value={witness2Contact} onChange={e => setWitness2Contact(e.target.value)} />
+              <input type="text" placeholder="Witness 2 Phone / Govt ID / Aadhaar" className="form-input" value={witness2Contact} onChange={e => setWitness2Contact(e.target.value)} />
             </div>
           </div>
         </div>
 
-        {/* Live Location & Verification Security Capture */}
+        {/* SECTION 6: Geolocation & Security Capture */}
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h4 style={{ fontSize: '0.95rem', fontWeight: 700, borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-            4. Digital Footprint, GPS Location &amp; Photo ID Capture
+          <h4 style={{ fontSize: '0.95rem', fontWeight: 700, borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <MapPin size={18} color="var(--primary)" /> 6. Real-Time Geolocation Audit &amp; Cryptographic Fingerprint
           </h4>
 
-          <div className="form-grid-2">
-            {/* Geolocation */}
-            <div style={{ padding: '14px', background: 'var(--bg-tertiary)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <MapPin size={14} color="var(--primary)" /> Real-Time Geolocation Geo-Tagging
-                </span>
-                <button type="button" className="btn btn-secondary" style={{ padding: '2px 8px', fontSize: '0.7rem' }} onClick={captureLocation}>
-                  <RefreshCw size={10} /> Refresh GPS
-                </button>
-              </div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>
-                {geoLoading ? 'Acquiring high-accuracy GPS coordinates...' : geoAddress}
-              </p>
-            </div>
-
-            {/* Photo / Camera capture */}
-            <div style={{ padding: '14px', background: 'var(--bg-tertiary)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ padding: '14px', background: 'var(--bg-tertiary)', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               <span style={{ fontSize: '0.78rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Camera size={14} color="var(--accent)" /> Signer Photo / Document Attachment
+                <MapPin size={14} color="var(--primary)" /> High-Accuracy GPS Geolocation Stamp
               </span>
-              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: 'var(--text-secondary)', background: 'var(--bg-secondary)', padding: '8px 12px', borderRadius: '8px', border: '1px dashed var(--border-color)' }}>
-                <Upload size={14} />
-                <span>{signerPhoto ? 'Photo Attached ✓' : 'Upload ID or Take Live Camera Photo'}</span>
-                <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handlePhotoUpload} />
-              </label>
+              <button type="button" className="btn btn-secondary" style={{ padding: '2px 8px', fontSize: '0.7rem' }} onClick={captureLocation}>
+                <RefreshCw size={10} /> Refresh GPS Location
+              </button>
+            </div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>
+              {geoLoading ? 'Acquiring high-accuracy GPS coordinates...' : geoAddress}
+            </p>
+          </div>
+        </div>
+
+        {/* SECTION 7: Mandatory Legal Declaration & Execution */}
+        <div className="glass-card" style={{ background: declarationAccepted ? 'rgba(16,185,129,0.06)' : 'rgba(99,102,241,0.05)', border: declarationAccepted ? '1px solid rgba(16,185,129,0.4)' : '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Lock size={18} color="var(--primary)" />
+            <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0 }}>
+              7. Mandatory Signatory Declaration &amp; Non-Repudiation Acknowledgment
+            </h4>
+          </div>
+
+          <div
+            onClick={() => setDeclarationAccepted(!declarationAccepted)}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '12px',
+              padding: '12px 14px',
+              background: 'var(--bg-secondary)',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              border: declarationAccepted ? '1px solid var(--success)' : '1px solid var(--border-color)'
+            }}
+          >
+            <div style={{ marginTop: '2px' }}>
+              {declarationAccepted ? <CheckSquare size={20} color="var(--success)" /> : <Square size={20} color="var(--text-muted)" />}
+            </div>
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-primary)', lineHeight: 1.5 }}>
+              <strong>Solemn Declaration under the Information Technology Act, 2000 &amp; Indian Contract Act, 1872:</strong>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                "I/We hereby solemnly declare and affirm that I have read, understood, and agreed to all terms, conditions, refund policies, late payment penalties, and cancellation terms stated in this agreement. All personal identifiers, Aadhaar numbers, and addresses provided herein are true and accurate. I am fully aware of the legal obligations of executing this digital contract and intend to be bound by its terms."
+              </p>
             </div>
           </div>
         </div>
 
         {/* Submit & Generate button */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
           <button type="button" className="btn btn-secondary" onClick={() => navigate(isAuthenticated ? '/agreements' : '/')}>
             Cancel
           </button>
-          <button type="submit" disabled={isSubmitting} className="btn btn-primary" style={{ padding: '12px 28px', fontSize: '0.95rem' }}>
+          <button
+            type="submit"
+            disabled={isSubmitting || !declarationAccepted}
+            className="btn btn-primary"
+            style={{
+              padding: '12px 28px',
+              fontSize: '0.95rem',
+              opacity: declarationAccepted ? 1 : 0.6,
+              cursor: declarationAccepted ? 'pointer' : 'not-allowed'
+            }}
+          >
             {isSubmitting ? 'Notarizing & Generating e-Stamp...' : 'Generate & Sign Digital Agreement'}
           </button>
         </div>
