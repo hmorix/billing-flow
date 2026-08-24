@@ -61,14 +61,25 @@ const _apiCache = new Map<string, { data: any; ts: number }>();
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 
+// Restore persisted auth state synchronously to avoid the loading spinner flash
+const _storedUser = (() => {
+  try { return JSON.parse(localStorage.getItem('auth_user') || 'null'); } catch { return null; }
+})();
+const _storedOrg = (() => {
+  try { return JSON.parse(localStorage.getItem('auth_org') || 'null'); } catch { return null; }
+})();
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
-  const [user, setUser] = useState<User | null>(null);
-  const [organization, setOrganization] = useState<Organization | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(_storedUser);
+  const [organization, setOrganization] = useState<Organization | null>(_storedOrg);
+  // If we have cached auth data, skip the loading spinner entirely
+  const [isLoading, setIsLoading] = useState(!(_storedUser && _storedOrg && localStorage.getItem('token')));
 
   const login = (newToken: string, newUser: User, newOrg: Organization) => {
     localStorage.setItem('token', newToken);
+    localStorage.setItem('auth_user', JSON.stringify(newUser));
+    localStorage.setItem('auth_org', JSON.stringify(newOrg));
     setToken(newToken);
     setUser(newUser);
     setOrganization(newOrg);
@@ -76,6 +87,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('auth_user');
+    localStorage.removeItem('auth_org');
     setToken(null);
     setUser(null);
     setOrganization(null);
@@ -85,7 +98,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateOrganization = (updatedFields: Partial<Organization>) => {
     if (organization) {
-      setOrganization({ ...organization, ...updatedFields });
+      const updated = { ...organization, ...updatedFields };
+      setOrganization(updated);
+      localStorage.setItem('auth_org', JSON.stringify(updated));
     }
   };
 
@@ -99,7 +114,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       body: JSON.stringify({ code })
     });
     if (res.isVerified && user) {
-      setUser({ ...user, isVerified: true });
+      const updated = { ...user, isVerified: true };
+      setUser(updated);
+      localStorage.setItem('auth_user', JSON.stringify(updated));
       return true;
     }
     return false;
@@ -174,12 +191,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const data = await response.json();
           setUser(data.user);
           setOrganization(data.organization);
+          // Keep localStorage in sync with fresh server data
+          localStorage.setItem('auth_user', JSON.stringify(data.user));
+          localStorage.setItem('auth_org', JSON.stringify(data.organization));
         } else {
           logout();
         }
       } catch (err) {
         console.error('Failed to restore authentication session:', err);
-        logout();
+        // Don't logout on network error — keep showing cached data
       } finally {
         setIsLoading(false);
       }

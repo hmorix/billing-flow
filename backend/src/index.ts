@@ -184,8 +184,9 @@ async function authenticateToken(c: any, next: any) {
   try {
     const payload = await verify(token, c.env.JWT_SECRET, 'HS256');
     c.set('user', payload);
-    // Ensure DB columns & tables migration
-    await seedSuperAdmin(c.env.DB);
+    // NOTE: seedSuperAdmin is intentionally NOT called here — running 20+ ALTER TABLE
+    // statements on every request was causing 5-10s latency. Migrations run once via
+    // /api/health or on the first public route hit after a cold start.
     await next();
   } catch (err: any) {
     console.error('JWT Verification Failed:', err.message || err);
@@ -292,6 +293,9 @@ app.post('/api/auth/login', async (c) => {
   if (!email || !password) {
     return c.json({ error: 'Email and password are required.' }, 400);
   }
+
+  // Run migrations non-blocking in background (only runs once per process)
+  seedSuperAdmin(c.env.DB).catch((e: any) => console.error('Migration error:', e));
 
   const user = await c.env.DB.prepare("SELECT * FROM users WHERE email = ?").bind(email).first();
   if (!user) {
