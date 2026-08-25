@@ -22,6 +22,10 @@ interface InvoiceItem {
   description: string;
   quantity: number;
   unit_price: number;
+  item_type?: string;
+  sku_hsn?: string;
+  tax_rate?: number;
+  discount_rate?: number;
 }
 
 interface InvoiceData {
@@ -31,6 +35,7 @@ interface InvoiceData {
   issue_date: string;
   due_date: string;
   currency: string;
+  tax_calculation_type?: string;
   tax_rate?: number;
   cgst_rate?: number;
   sgst_rate?: number;
@@ -159,19 +164,50 @@ export const InvoiceView: React.FC = () => {
   const igstRate = Number(invoice.igst_rate || 0);
   const flatTaxRate = Number(invoice.tax_rate || 0);
 
-  const hasCgstSgst = cgstRate > 0 || sgstRate > 0;
-  const hasIgst = !hasCgstSgst && igstRate > 0;
-  const hasFlatTax = !hasCgstSgst && !hasIgst && flatTaxRate > 0;
+  const isItemLevelTax = invoice.tax_calculation_type === 'item_level' || (items.some(it => Number(it.tax_rate || 0) > 0) && cgstRate === 0 && sgstRate === 0 && igstRate === 0 && flatTaxRate === 0);
 
-  const cgstAmount = taxableBase * (cgstRate / 100);
-  const sgstAmount = taxableBase * (sgstRate / 100);
-  const igstAmount = taxableBase * (igstRate / 100);
-  const flatTaxAmount = taxableBase * (flatTaxRate / 100);
+  // Per-slab GST computation
+  interface SlabSummary {
+    rate: number;
+    taxable: number;
+    taxAmount: number;
+  }
+  const slabMap = new Map<number, number>();
+  items.forEach(it => {
+    const lineTotal = (Number(it.quantity) || 0) * (Number(it.unit_price) || 0);
+    const lineRate = Number(it.tax_rate || 0);
+    const curr = slabMap.get(lineRate) || 0;
+    slabMap.set(lineRate, curr + lineTotal);
+  });
+  const slabs: SlabSummary[] = Array.from(slabMap.entries()).map(([rate, amt]) => ({
+    rate,
+    taxable: amt,
+    taxAmount: (amt * rate) / 100
+  })).sort((a, b) => a.rate - b.rate);
 
+  const hasCgstSgst = !isItemLevelTax && (cgstRate > 0 || sgstRate > 0);
+  const hasIgst = !isItemLevelTax && !hasCgstSgst && igstRate > 0;
+  const hasFlatTax = !isItemLevelTax && !hasCgstSgst && !hasIgst && flatTaxRate > 0;
+
+  let cgstAmount = 0;
+  let sgstAmount = 0;
+  let igstAmount = 0;
+  let flatTaxAmount = 0;
   let totalTax = 0;
-  if (hasCgstSgst) totalTax = cgstAmount + sgstAmount;
-  else if (hasIgst) totalTax = igstAmount;
-  else if (hasFlatTax) totalTax = flatTaxAmount;
+
+  if (isItemLevelTax) {
+    totalTax = slabs.reduce((acc, s) => acc + s.taxAmount, 0);
+  } else if (hasCgstSgst) {
+    cgstAmount = taxableBase * (cgstRate / 100);
+    sgstAmount = taxableBase * (sgstRate / 100);
+    totalTax = cgstAmount + sgstAmount;
+  } else if (hasIgst) {
+    igstAmount = taxableBase * (igstRate / 100);
+    totalTax = igstAmount;
+  } else if (hasFlatTax) {
+    flatTaxAmount = taxableBase * (flatTaxRate / 100);
+    totalTax = flatTaxAmount;
+  }
 
   const grandTotal = taxableBase + totalTax;
   const currency = invoice.currency || 'INR';
@@ -293,8 +329,10 @@ export const InvoiceView: React.FC = () => {
                     <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#f1f5f9' }}>{currency}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Payment Mode</div>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#38bdf8' }}>Online / Bank Transfer</div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Tax Mode</div>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#38bdf8' }}>
+                      {isItemLevelTax ? 'Item Differential GST' : 'Standard GST'}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -306,10 +344,12 @@ export const InvoiceView: React.FC = () => {
                 <thead>
                   <tr style={{ background: '#090d16', borderBottom: '1px solid #1e293b' }}>
                     <th style={{ padding: '12px 14px', fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', width: '40px' }}>#</th>
-                    <th style={{ padding: '12px 14px', fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8' }}>ITEM & DESCRIPTION</th>
+                    <th style={{ padding: '12px 14px', fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8' }}>ITEM &amp; DESCRIPTION</th>
+                    <th style={{ padding: '12px 14px', fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', width: '100px' }}>HSN/SAC</th>
                     <th style={{ padding: '12px 14px', fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textAlign: 'right', width: '110px' }}>UNIT PRICE</th>
-                    <th style={{ padding: '12px 14px', fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textAlign: 'center', width: '70px' }}>QTY</th>
-                    <th style={{ padding: '12px 14px', fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textAlign: 'right', width: '130px' }}>TOTAL</th>
+                    <th style={{ padding: '12px 14px', fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textAlign: 'center', width: '60px' }}>QTY</th>
+                    {isItemLevelTax && <th style={{ padding: '12px 14px', fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textAlign: 'center', width: '80px' }}>GST %</th>}
+                    <th style={{ padding: '12px 14px', fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textAlign: 'right', width: '120px' }}>TOTAL</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -318,13 +358,30 @@ export const InvoiceView: React.FC = () => {
                     return (
                       <tr key={item.id || idx} style={{ borderBottom: '1px solid #1e293b' }}>
                         <td style={{ padding: '14px', fontSize: '0.8rem', color: '#64748b' }}>{idx + 1}</td>
-                        <td style={{ padding: '14px', fontSize: '0.88rem', fontWeight: 600, color: '#f1f5f9' }}>{item.description}</td>
+                        <td style={{ padding: '14px' }}>
+                          <div style={{ fontSize: '0.88rem', fontWeight: 600, color: '#f1f5f9', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {item.item_type && item.item_type !== 'custom' && (
+                              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: item.item_type === 'product' ? '#818cf8' : item.item_type === 'package' ? '#ec4899' : '#34d399' }}>
+                                [{item.item_type.toUpperCase()}]
+                              </span>
+                            )}
+                            <span>{item.description}</span>
+                          </div>
+                        </td>
+                        <td style={{ padding: '14px', fontSize: '0.8rem', color: '#94a3b8' }}>
+                          {item.sku_hsn || '-'}
+                        </td>
                         <td style={{ padding: '14px', fontSize: '0.85rem', color: '#cbd5e1', textAlign: 'right' }}>
                           {currency} {Number(item.unit_price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </td>
                         <td style={{ padding: '14px', fontSize: '0.85rem', color: '#f1f5f9', textAlign: 'center', fontWeight: 600 }}>
                           {Number(item.quantity)}
                         </td>
+                        {isItemLevelTax && (
+                          <td style={{ padding: '14px', fontSize: '0.82rem', color: '#818cf8', textAlign: 'center', fontWeight: 600 }}>
+                            {Number(item.tax_rate || 0)}%
+                          </td>
+                        )}
                         <td style={{ padding: '14px', fontSize: '0.9rem', color: '#818cf8', fontWeight: 700, textAlign: 'right' }}>
                           {currency} {rowTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </td>
@@ -350,31 +407,45 @@ export const InvoiceView: React.FC = () => {
                   </div>
                 )}
 
-                {hasCgstSgst && (
+                {isItemLevelTax ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid #1e293b', borderBottom: '1px solid #1e293b', padding: '8px 0', margin: '4px 0' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Item Differential GST Slabs</span>
+                    {slabs.map(s => (
+                      <div key={s.rate} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#cbd5e1' }}>
+                        <span>{s.rate}% GST (on {currency} {s.taxable.toFixed(2)})</span>
+                        <span style={{ color: '#f1f5f9', fontWeight: 600 }}>+{currency} {s.taxAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
                   <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '0.85rem', color: '#94a3b8' }}>
-                      <span>CGST ({cgstRate}%)</span>
-                      <span style={{ color: '#f1f5f9', fontWeight: 600 }}>{currency} {cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '0.85rem', color: '#94a3b8' }}>
-                      <span>SGST ({sgstRate}%)</span>
-                      <span style={{ color: '#f1f5f9', fontWeight: 600 }}>{currency} {sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                    </div>
+                    {hasCgstSgst && (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '0.85rem', color: '#94a3b8' }}>
+                          <span>CGST ({cgstRate}%)</span>
+                          <span style={{ color: '#f1f5f9', fontWeight: 600 }}>{currency} {cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '0.85rem', color: '#94a3b8' }}>
+                          <span>SGST ({sgstRate}%)</span>
+                          <span style={{ color: '#f1f5f9', fontWeight: 600 }}>{currency} {sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      </>
+                    )}
+
+                    {hasIgst && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '0.85rem', color: '#94a3b8' }}>
+                        <span>IGST ({igstRate}%)</span>
+                        <span style={{ color: '#f1f5f9', fontWeight: 600 }}>{currency} {igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
+
+                    {hasFlatTax && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '0.85rem', color: '#94a3b8' }}>
+                        <span>Tax ({flatTaxRate}%)</span>
+                        <span style={{ color: '#f1f5f9', fontWeight: 600 }}>{currency} {flatTaxAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
                   </>
-                )}
-
-                {hasIgst && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '0.85rem', color: '#94a3b8' }}>
-                    <span>IGST ({igstRate}%)</span>
-                    <span style={{ color: '#f1f5f9', fontWeight: 600 }}>{currency} {igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                )}
-
-                {hasFlatTax && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '0.85rem', color: '#94a3b8' }}>
-                    <span>Tax ({flatTaxRate}%)</span>
-                    <span style={{ color: '#f1f5f9', fontWeight: 600 }}>{currency} {flatTaxAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                  </div>
                 )}
 
                 <div style={{ borderTop: '1px solid #1e293b', marginTop: '8px', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

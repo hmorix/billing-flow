@@ -164,12 +164,122 @@ async function ensureAgreementColumns(db: any) {
   }
 }
 
+// --- FAST 1-QUERY CATALOG & INVENTORY SCHEMA ENSURE HELPER ---
+let _catalogSchemaEnsured = false;
+async function ensureCatalogSchema(db: any) {
+  if (_catalogSchemaEnsured) return;
+  try {
+    // 1. Create tables if they don't exist
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS catalog_items (
+        id TEXT PRIMARY KEY,
+        organization_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL DEFAULT 'product',
+        sku TEXT,
+        hsn_sac TEXT,
+        description TEXT,
+        unit_price REAL NOT NULL DEFAULT 0.00,
+        cost_price REAL DEFAULT 0.00,
+        tax_rate REAL DEFAULT 0.00,
+        unit TEXT DEFAULT 'unit',
+        track_inventory INTEGER DEFAULT 0,
+        stock_quantity REAL DEFAULT 0,
+        low_stock_threshold REAL DEFAULT 5,
+        category TEXT,
+        status TEXT DEFAULT 'active',
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS packages (
+        id TEXT PRIMARY KEY,
+        organization_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        code TEXT,
+        description TEXT,
+        package_type TEXT DEFAULT 'hybrid',
+        original_price REAL DEFAULT 0.00,
+        package_price REAL NOT NULL DEFAULT 0.00,
+        discount_rate REAL DEFAULT 0.00,
+        discount_type TEXT DEFAULT 'percentage',
+        tax_mode TEXT DEFAULT 'item_wise',
+        custom_tax_rate REAL DEFAULT 0.00,
+        status TEXT DEFAULT 'active',
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS package_items (
+        id TEXT PRIMARY KEY,
+        package_id TEXT NOT NULL,
+        catalog_item_id TEXT,
+        item_type TEXT NOT NULL DEFAULT 'service',
+        name TEXT NOT NULL,
+        description TEXT,
+        quantity REAL NOT NULL DEFAULT 1,
+        unit_price REAL NOT NULL DEFAULT 0.00,
+        tax_rate REAL DEFAULT 0.00,
+        discount_rate REAL DEFAULT 0.00,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS inventory_logs (
+        id TEXT PRIMARY KEY,
+        organization_id TEXT NOT NULL,
+        catalog_item_id TEXT NOT NULL,
+        change_type TEXT NOT NULL,
+        quantity_change REAL NOT NULL,
+        quantity_after REAL NOT NULL,
+        reference_id TEXT,
+        notes TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `).run().catch(() => {});
+
+    // 2. Add columns to organizations, invoices, and invoice_items if not present
+    await db.prepare(`
+      ALTER TABLE organizations 
+        ADD COLUMN IF NOT EXISTS business_type TEXT DEFAULT 'hybrid',
+        ADD COLUMN IF NOT EXISTS auto_deduct_inventory INTEGER DEFAULT 1;
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      ALTER TABLE invoices 
+        ADD COLUMN IF NOT EXISTS tax_calculation_type TEXT DEFAULT 'invoice_level';
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      ALTER TABLE invoice_items 
+        ADD COLUMN IF NOT EXISTS item_type TEXT DEFAULT 'custom',
+        ADD COLUMN IF NOT EXISTS sku_hsn TEXT,
+        ADD COLUMN IF NOT EXISTS tax_rate REAL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS discount_rate REAL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS catalog_item_id TEXT;
+    `).run().catch(() => {});
+
+    _catalogSchemaEnsured = true;
+  } catch (e) {
+    _catalogSchemaEnsured = true;
+  }
+}
+
 // --- SYSTEM SEED HELPER ---
 async function seedSuperAdmin(db: any) {
   if (_migrationDone) return;
   _migrationDone = true;
 
   try {
+    await ensureAgreementColumns(db);
+    await ensureCatalogSchema(db);
+
     const superadminEmail = 'admin@billingflow.com';
     const existing = await db.prepare("SELECT id FROM users WHERE email = ?")
       .bind(superadminEmail)
@@ -613,7 +723,9 @@ app.get('/api/auth/me', async (c) => {
       signatoryDesignation: org.signatory_designation || null,
       thanksMessage: org.thanks_message || null,
       contactEmail: org.contact_email || null,
-      contactPhone: org.contact_phone || null
+      contactPhone: org.contact_phone || null,
+      businessType: org.business_type || 'hybrid',
+      autoDeductInventory: org.auto_deduct_inventory === undefined || org.auto_deduct_inventory === null ? true : Boolean(org.auto_deduct_inventory)
     }
   });
 });
@@ -749,7 +861,7 @@ app.get('/api/invoices/:id', async (c) => {
 
   if (!invoice) return c.json({ error: 'Invoice not found.' }, 404);
 
-  const { results: items } = await c.env.DB.prepare("SELECT * FROM invoice_items WHERE invoice_id = ?").bind(id).all();
+  const { results: items } = await c.env.DB.prepare("SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY created_at ASC").bind(id).all();
   return c.json({ ...invoice, items });
 });
 
@@ -769,6 +881,7 @@ app.post('/api/invoices', async (c) => {
     notes,
     termsConditions,
     thanksMessage,
+    taxCalculationType,
     items
   } = await c.req.json();
 
@@ -794,7 +907,7 @@ app.post('/api/invoices', async (c) => {
   const viewToken = crypto.randomUUID();
 
   const statements = [
-    c.env.DB.prepare("INSERT INTO invoices (id, organization_id, client_id, invoice_number, status, issue_date, due_date, tax_rate, cgst_rate, sgst_rate, igst_rate, discount, currency, notes, terms_conditions, thanks_message, view_token) VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    c.env.DB.prepare("INSERT INTO invoices (id, organization_id, client_id, invoice_number, status, issue_date, due_date, tax_rate, cgst_rate, sgst_rate, igst_rate, discount, currency, notes, terms_conditions, thanks_message, view_token, tax_calculation_type) VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
       .bind(
         invoiceId,
         user.organizationId,
@@ -811,18 +924,55 @@ app.post('/api/invoices', async (c) => {
         notes || null,
         termsConditions || null,
         thanksMessage || null,
-        viewToken
+        viewToken,
+        taxCalculationType || 'invoice_level'
       )
   ];
 
   items.forEach((item: any) => {
     statements.push(
-      c.env.DB.prepare("INSERT INTO invoice_items (id, invoice_id, description, quantity, unit_price) VALUES (?, ?, ?, ?, ?)")
-        .bind(crypto.randomUUID(), invoiceId, item.description, item.quantity, item.unit_price)
+      c.env.DB.prepare("INSERT INTO invoice_items (id, invoice_id, description, quantity, unit_price, item_type, sku_hsn, tax_rate, discount_rate, catalog_item_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(
+          crypto.randomUUID(),
+          invoiceId,
+          item.description,
+          Number(item.quantity) || 1,
+          Number(item.unit_price) || 0,
+          item.item_type || 'custom',
+          item.sku_hsn || null,
+          Number(item.tax_rate) || 0,
+          Number(item.discount_rate) || 0,
+          item.catalog_item_id || null
+        )
     );
   });
 
   await c.env.DB.batch(statements);
+
+  // Auto-deduct inventory if enabled & item is linked to catalog
+  try {
+    const org = await c.env.DB.prepare("SELECT auto_deduct_inventory FROM organizations WHERE id = ?").bind(user.organizationId).first();
+    const shouldDeduct = org ? (org.auto_deduct_inventory === null || org.auto_deduct_inventory === undefined ? true : Boolean(org.auto_deduct_inventory)) : true;
+    
+    if (shouldDeduct) {
+      for (const item of items) {
+        if (item.catalog_item_id) {
+          const catItem = await c.env.DB.prepare("SELECT * FROM catalog_items WHERE id = ? AND organization_id = ?").bind(item.catalog_item_id, user.organizationId).first();
+          if (catItem && catItem.track_inventory === 1) {
+            const qty = Number(item.quantity) || 1;
+            const newStock = (Number(catItem.stock_quantity) || 0) - qty;
+            await c.env.DB.batch([
+              c.env.DB.prepare("UPDATE catalog_items SET stock_quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(newStock, catItem.id),
+              c.env.DB.prepare("INSERT INTO inventory_logs (id, organization_id, catalog_item_id, change_type, quantity_change, quantity_after, reference_id, notes) VALUES (?, ?, ?, 'sale', ?, ?, ?, ?)")
+                .bind(crypto.randomUUID(), user.organizationId, catItem.id, -qty, newStock, finalInvoiceNumber, `Sold via invoice ${finalInvoiceNumber}`)
+            ]);
+          }
+        }
+      }
+    }
+  } catch (invErr) {
+    console.warn('Inventory deduction error on invoice create:', invErr);
+  }
 
   return c.json({ id: invoiceId, invoice_number: finalInvoiceNumber, view_token: viewToken }, 201);
 });
@@ -845,6 +995,7 @@ app.put('/api/invoices/:id', async (c) => {
     notes,
     termsConditions,
     thanksMessage,
+    taxCalculationType,
     items
   } = await c.req.json();
 
@@ -859,7 +1010,7 @@ app.put('/api/invoices/:id', async (c) => {
   const viewToken = invoice.view_token || crypto.randomUUID();
 
   const statements = [
-    c.env.DB.prepare("UPDATE invoices SET client_id = ?, invoice_number = ?, status = ?, issue_date = ?, due_date = ?, tax_rate = ?, cgst_rate = ?, sgst_rate = ?, igst_rate = ?, discount = ?, currency = ?, notes = ?, terms_conditions = ?, thanks_message = ?, view_token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ?")
+    c.env.DB.prepare("UPDATE invoices SET client_id = ?, invoice_number = ?, status = ?, issue_date = ?, due_date = ?, tax_rate = ?, cgst_rate = ?, sgst_rate = ?, igst_rate = ?, discount = ?, currency = ?, notes = ?, terms_conditions = ?, thanks_message = ?, view_token = ?, tax_calculation_type = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ?")
       .bind(
         clientId || invoice.client_id,
         invoiceNumber || invoice.invoice_number,
@@ -876,6 +1027,7 @@ app.put('/api/invoices/:id', async (c) => {
         termsConditions !== undefined ? termsConditions : invoice.terms_conditions,
         thanksMessage !== undefined ? thanksMessage : invoice.thanks_message,
         viewToken,
+        taxCalculationType || invoice.tax_calculation_type || 'invoice_level',
         id,
         user.organizationId
       )
@@ -885,8 +1037,19 @@ app.put('/api/invoices/:id', async (c) => {
     statements.push(c.env.DB.prepare("DELETE FROM invoice_items WHERE invoice_id = ?").bind(id));
     items.forEach((item: any) => {
       statements.push(
-        c.env.DB.prepare("INSERT INTO invoice_items (id, invoice_id, description, quantity, unit_price) VALUES (?, ?, ?, ?, ?)")
-          .bind(crypto.randomUUID(), id, item.description, item.quantity, item.unit_price)
+        c.env.DB.prepare("INSERT INTO invoice_items (id, invoice_id, description, quantity, unit_price, item_type, sku_hsn, tax_rate, discount_rate, catalog_item_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+          .bind(
+            crypto.randomUUID(),
+            id,
+            item.description,
+            Number(item.quantity) || 1,
+            Number(item.unit_price) || 0,
+            item.item_type || 'custom',
+            item.sku_hsn || null,
+            Number(item.tax_rate) || 0,
+            Number(item.discount_rate) || 0,
+            item.catalog_item_id || null
+          )
       );
     });
   }
@@ -904,6 +1067,597 @@ app.delete('/api/invoices/:id', async (c) => {
 
   await c.env.DB.prepare("DELETE FROM invoices WHERE id = ? AND organization_id = ?").bind(id, user.organizationId).run();
   return c.json({ message: 'Invoice deleted successfully.' });
+});
+
+// ============================================================================
+// --- CATALOG, PACKAGES & INVENTORY API ROUTES ---
+// ============================================================================
+
+// 1. Get Catalog Items (Products & Services)
+app.get('/api/catalog/items', async (c) => {
+  const user = c.get('user');
+  const type = c.req.query('type'); // 'product' | 'service' | undefined
+  const search = c.req.query('search')?.trim()?.toLowerCase();
+  const lowStock = c.req.query('low_stock');
+  const category = c.req.query('category');
+
+  let query = "SELECT * FROM catalog_items WHERE organization_id = ? AND status != 'archived'";
+  const params: any[] = [user.organizationId];
+
+  if (type) {
+    query += " AND type = ?";
+    params.push(type);
+  }
+
+  if (category) {
+    query += " AND category = ?";
+    params.push(category);
+  }
+
+  if (lowStock === 'true') {
+    query += " AND track_inventory = 1 AND stock_quantity <= low_stock_threshold";
+  }
+
+  if (search) {
+    query += " AND (LOWER(name) LIKE ? OR LOWER(sku) LIKE ? OR LOWER(hsn_sac) LIKE ? OR LOWER(description) LIKE ?)";
+    const sTerm = `%${search}%`;
+    params.push(sTerm, sTerm, sTerm, sTerm);
+  }
+
+  query += " ORDER BY name ASC";
+
+  const stmt = c.env.DB.prepare(query);
+  stmt.bind(...params);
+  const { results } = await stmt.all();
+  return c.json(results || []);
+});
+
+// 2. Get Single Catalog Item with Movement History
+app.get('/api/catalog/items/:id', async (c) => {
+  const user = c.get('user');
+  const id = c.req.param('id');
+
+  const item = await c.env.DB.prepare("SELECT * FROM catalog_items WHERE id = ? AND organization_id = ?")
+    .bind(id, user.organizationId)
+    .first();
+
+  if (!item) return c.json({ error: 'Item not found in catalog.' }, 404);
+
+  const { results: logs } = await c.env.DB.prepare("SELECT * FROM inventory_logs WHERE catalog_item_id = ? AND organization_id = ? ORDER BY created_at DESC LIMIT 20")
+    .bind(id, user.organizationId)
+    .all();
+
+  return c.json({ item, logs: logs || [] });
+});
+
+// 3. Create Catalog Item (Product or Service)
+app.post('/api/catalog/items', async (c) => {
+  const user = c.get('user');
+  const {
+    name,
+    type,
+    sku,
+    hsnSac,
+    description,
+    unitPrice,
+    costPrice,
+    taxRate,
+    unit,
+    trackInventory,
+    stockQuantity,
+    lowStockThreshold,
+    category
+  } = await c.req.json();
+
+  if (!name || !type) {
+    return c.json({ error: 'Item name and type (product/service) are required.' }, 400);
+  }
+
+  const id = crypto.randomUUID();
+  const isProd = type === 'product';
+  const trackInv = isProd ? (trackInventory ? 1 : 0) : 0;
+  const initialStock = trackInv ? (Number(stockQuantity) || 0) : 0;
+
+  const statements = [
+    c.env.DB.prepare(`
+      INSERT INTO catalog_items (
+        id, organization_id, name, type, sku, hsn_sac, description,
+        unit_price, cost_price, tax_rate, unit, track_inventory,
+        stock_quantity, low_stock_threshold, category, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+    `).bind(
+      id,
+      user.organizationId,
+      name.trim(),
+      type,
+      sku?.trim() || null,
+      hsnSac?.trim() || null,
+      description?.trim() || null,
+      Number(unitPrice) || 0,
+      Number(costPrice) || 0,
+      Number(taxRate) || 0,
+      unit?.trim() || (isProd ? 'pcs' : 'hr'),
+      trackInv,
+      initialStock,
+      Number(lowStockThreshold) || 5,
+      category?.trim() || null
+    )
+  ];
+
+  if (trackInv && initialStock > 0) {
+    statements.push(
+      c.env.DB.prepare(`
+        INSERT INTO inventory_logs (
+          id, organization_id, catalog_item_id, change_type,
+          quantity_change, quantity_after, reference_id, notes
+        ) VALUES (?, ?, ?, 'restock', ?, ?, 'INITIAL', 'Initial Stock upon Item Creation')
+      `).bind(
+        crypto.randomUUID(),
+        user.organizationId,
+        id,
+        initialStock,
+        initialStock
+      )
+    );
+  }
+
+  await c.env.DB.batch(statements);
+
+  const created = await c.env.DB.prepare("SELECT * FROM catalog_items WHERE id = ?").bind(id).first();
+  return c.json(created, 201);
+});
+
+// 4. Update Catalog Item
+app.put('/api/catalog/items/:id', async (c) => {
+  const user = c.get('user');
+  const id = c.req.param('id');
+  const {
+    name,
+    type,
+    sku,
+    hsnSac,
+    description,
+    unitPrice,
+    costPrice,
+    taxRate,
+    unit,
+    trackInventory,
+    stockQuantity,
+    lowStockThreshold,
+    category,
+    status
+  } = await c.req.json();
+
+  const existing = await c.env.DB.prepare("SELECT * FROM catalog_items WHERE id = ? AND organization_id = ?")
+    .bind(id, user.organizationId)
+    .first();
+
+  if (!existing) return c.json({ error: 'Item not found.' }, 404);
+
+  const isProd = type ? type === 'product' : existing.type === 'product';
+  const trackInv = isProd ? (trackInventory !== undefined ? (trackInventory ? 1 : 0) : existing.track_inventory) : 0;
+  const newStock = trackInv ? (stockQuantity !== undefined ? Number(stockQuantity) : Number(existing.stock_quantity)) : 0;
+  const prevStock = Number(existing.stock_quantity) || 0;
+
+  const statements = [
+    c.env.DB.prepare(`
+      UPDATE catalog_items SET
+        name = ?,
+        type = ?,
+        sku = ?,
+        hsn_sac = ?,
+        description = ?,
+        unit_price = ?,
+        cost_price = ?,
+        tax_rate = ?,
+        unit = ?,
+        track_inventory = ?,
+        stock_quantity = ?,
+        low_stock_threshold = ?,
+        category = ?,
+        status = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND organization_id = ?
+    `).bind(
+      name ? name.trim() : existing.name,
+      type || existing.type,
+      sku !== undefined ? (sku ? sku.trim() : null) : existing.sku,
+      hsnSac !== undefined ? (hsnSac ? hsnSac.trim() : null) : existing.hsn_sac,
+      description !== undefined ? (description ? description.trim() : null) : existing.description,
+      unitPrice !== undefined ? Number(unitPrice) : existing.unit_price,
+      costPrice !== undefined ? Number(costPrice) : existing.cost_price,
+      taxRate !== undefined ? Number(taxRate) : existing.tax_rate,
+      unit !== undefined ? unit.trim() : existing.unit,
+      trackInv,
+      newStock,
+      lowStockThreshold !== undefined ? Number(lowStockThreshold) : existing.low_stock_threshold,
+      category !== undefined ? (category ? category.trim() : null) : existing.category,
+      status || existing.status,
+      id,
+      user.organizationId
+    )
+  ];
+
+  if (trackInv && stockQuantity !== undefined && newStock !== prevStock) {
+    const diff = newStock - prevStock;
+    statements.push(
+      c.env.DB.prepare(`
+        INSERT INTO inventory_logs (
+          id, organization_id, catalog_item_id, change_type,
+          quantity_change, quantity_after, reference_id, notes
+        ) VALUES (?, ?, ?, 'adjustment', ?, ?, 'EDIT', 'Manual stock adjustment in item settings')
+      `).bind(
+        crypto.randomUUID(),
+        user.organizationId,
+        id,
+        diff,
+        newStock
+      )
+    );
+  }
+
+  await c.env.DB.batch(statements);
+  const updated = await c.env.DB.prepare("SELECT * FROM catalog_items WHERE id = ?").bind(id).first();
+  return c.json(updated);
+});
+
+// 5. Delete or Archive Catalog Item
+app.delete('/api/catalog/items/:id', async (c) => {
+  const user = c.get('user');
+  const id = c.req.param('id');
+
+  const existing = await c.env.DB.prepare("SELECT * FROM catalog_items WHERE id = ? AND organization_id = ?")
+    .bind(id, user.organizationId)
+    .first();
+
+  if (!existing) return c.json({ error: 'Item not found.' }, 404);
+
+  // Soft delete / archive to preserve past invoice integrity
+  await c.env.DB.prepare("UPDATE catalog_items SET status = 'archived', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ?")
+    .bind(id, user.organizationId)
+    .run();
+
+  return c.json({ message: 'Catalog item archived successfully.' });
+});
+
+// 6. Quick Restock or Manual Stock Adjustment
+app.post('/api/catalog/items/:id/stock', async (c) => {
+  const user = c.get('user');
+  const id = c.req.param('id');
+  const { changeType, quantityChange, newQuantity, costPrice, notes, referenceId } = await c.req.json();
+
+  const item = await c.env.DB.prepare("SELECT * FROM catalog_items WHERE id = ? AND organization_id = ?")
+    .bind(id, user.organizationId)
+    .first();
+
+  if (!item) return c.json({ error: 'Item not found.' }, 404);
+
+  const currentStock = Number(item.stock_quantity) || 0;
+  let finalStock = currentStock;
+  let delta = 0;
+
+  if (changeType === 'restock') {
+    delta = Number(quantityChange) || 0;
+    finalStock = currentStock + delta;
+  } else if (changeType === 'adjustment') {
+    finalStock = Number(newQuantity !== undefined ? newQuantity : quantityChange) || 0;
+    delta = finalStock - currentStock;
+  } else {
+    delta = Number(quantityChange) || 0;
+    finalStock = currentStock + delta;
+  }
+
+  const statements = [
+    c.env.DB.prepare("UPDATE catalog_items SET stock_quantity = ?, track_inventory = 1, cost_price = COALESCE(?, cost_price), updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+      .bind(finalStock, costPrice !== undefined ? Number(costPrice) : null, id),
+    c.env.DB.prepare(`
+      INSERT INTO inventory_logs (
+        id, organization_id, catalog_item_id, change_type,
+        quantity_change, quantity_after, reference_id, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      crypto.randomUUID(),
+      user.organizationId,
+      id,
+      changeType || 'restock',
+      delta,
+      finalStock,
+      referenceId || null,
+      notes || (changeType === 'restock' ? 'Restocked inventory' : 'Stock count adjustment')
+    )
+  ];
+
+  await c.env.DB.batch(statements);
+
+  return c.json({
+    message: 'Stock updated successfully.',
+    previous_stock: currentStock,
+    current_stock: finalStock,
+    delta
+  });
+});
+
+// 7. Inventory Logs (All recent logs for organization)
+app.get('/api/catalog/inventory-logs', async (c) => {
+  const user = c.get('user');
+  const { results } = await c.env.DB.prepare(`
+    SELECT 
+      inventory_logs.*,
+      catalog_items.name as item_name,
+      catalog_items.sku as item_sku,
+      catalog_items.type as item_type,
+      catalog_items.unit as item_unit
+    FROM inventory_logs
+    JOIN catalog_items ON inventory_logs.catalog_item_id = catalog_items.id
+    WHERE inventory_logs.organization_id = ?
+    ORDER BY inventory_logs.created_at DESC
+    LIMIT 50
+  `).bind(user.organizationId).all();
+
+  return c.json(results || []);
+});
+
+// 8. Get Packages with Bundled Items
+app.get('/api/catalog/packages', async (c) => {
+  const user = c.get('user');
+  const { results: pkgs } = await c.env.DB.prepare("SELECT * FROM packages WHERE organization_id = ? AND status != 'archived' ORDER BY created_at DESC")
+    .bind(user.organizationId)
+    .all();
+
+  if (!pkgs || pkgs.length === 0) return c.json([]);
+
+  const pkgIds = pkgs.map((p: any) => p.id);
+  const placeholders = pkgIds.map(() => '?').join(',');
+  const { results: items } = await c.env.DB.prepare(`SELECT * FROM package_items WHERE package_id IN (${placeholders}) ORDER BY created_at ASC`)
+    .bind(...pkgIds)
+    .all();
+
+  const itemsByPkg = (items || []).reduce((acc: any, it: any) => {
+    acc[it.package_id] = acc[it.package_id] || [];
+    acc[it.package_id].push(it);
+    return acc;
+  }, {});
+
+  const fullPackages = pkgs.map((p: any) => ({
+    ...p,
+    items: itemsByPkg[p.id] || []
+  }));
+
+  return c.json(fullPackages);
+});
+
+// 9. Get Single Package
+app.get('/api/catalog/packages/:id', async (c) => {
+  const user = c.get('user');
+  const id = c.req.param('id');
+
+  const pkg = await c.env.DB.prepare("SELECT * FROM packages WHERE id = ? AND organization_id = ?")
+    .bind(id, user.organizationId)
+    .first();
+
+  if (!pkg) return c.json({ error: 'Package not found.' }, 404);
+
+  const { results: items } = await c.env.DB.prepare("SELECT * FROM package_items WHERE package_id = ? ORDER BY created_at ASC")
+    .bind(id)
+    .all();
+
+  return c.json({ ...pkg, items: items || [] });
+});
+
+// 10. Create Package with Bundled Products & Services
+app.post('/api/catalog/packages', async (c) => {
+  const user = c.get('user');
+  const {
+    name,
+    code,
+    description,
+    packageType,
+    originalPrice,
+    packagePrice,
+    discountRate,
+    discountType,
+    taxMode,
+    customTaxRate,
+    items
+  } = await c.req.json();
+
+  if (!name || !items || !Array.isArray(items) || items.length === 0) {
+    return c.json({ error: 'Package name and at least one bundled product/service are required.' }, 400);
+  }
+
+  const packageId = crypto.randomUUID();
+
+  // Auto-generate code if empty
+  let finalCode = code?.trim();
+  if (!finalCode) {
+    const count = await c.env.DB.prepare("SELECT COUNT(*) as cnt FROM packages WHERE organization_id = ?").bind(user.organizationId).first();
+    finalCode = `PKG-${String((count?.cnt || 0) + 1).padStart(3, '0')}`;
+  }
+
+  // Calculate sum from items if not provided
+  let computedOrigPrice = Number(originalPrice) || 0;
+  if (!computedOrigPrice) {
+    computedOrigPrice = items.reduce((acc: number, it: any) => acc + (Number(it.quantity || 1) * Number(it.unitPrice || it.unit_price || 0)), 0);
+  }
+
+  const statements = [
+    c.env.DB.prepare(`
+      INSERT INTO packages (
+        id, organization_id, name, code, description,
+        package_type, original_price, package_price, discount_rate,
+        discount_type, tax_mode, custom_tax_rate, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+    `).bind(
+      packageId,
+      user.organizationId,
+      name.trim(),
+      finalCode,
+      description?.trim() || null,
+      packageType || 'hybrid',
+      computedOrigPrice,
+      Number(packagePrice) || 0,
+      Number(discountRate) || 0,
+      discountType || 'percentage',
+      taxMode || 'item_wise',
+      Number(customTaxRate) || 0
+    )
+  ];
+
+  items.forEach((it: any) => {
+    statements.push(
+      c.env.DB.prepare(`
+        INSERT INTO package_items (
+          id, package_id, catalog_item_id, item_type, name,
+          description, quantity, unit_price, tax_rate, discount_rate
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        crypto.randomUUID(),
+        packageId,
+        it.catalogItemId || it.catalog_item_id || null,
+        it.itemType || it.item_type || 'service',
+        (it.name || it.description || 'Bundled Item').trim(),
+        it.description?.trim() || null,
+        Number(it.quantity) || 1,
+        Number(it.unitPrice || it.unit_price) || 0,
+        Number(it.taxRate || it.tax_rate) || 0,
+        Number(it.discountRate || it.discount_rate) || 0
+      )
+    );
+  });
+
+  await c.env.DB.batch(statements);
+
+  const created = await c.env.DB.prepare("SELECT * FROM packages WHERE id = ?").bind(packageId).first();
+  const { results: createdItems } = await c.env.DB.prepare("SELECT * FROM package_items WHERE package_id = ?").bind(packageId).all();
+
+  return c.json({ ...created, items: createdItems || [] }, 201);
+});
+
+// 11. Update Package
+app.put('/api/catalog/packages/:id', async (c) => {
+  const user = c.get('user');
+  const id = c.req.param('id');
+  const {
+    name,
+    code,
+    description,
+    packageType,
+    originalPrice,
+    packagePrice,
+    discountRate,
+    discountType,
+    taxMode,
+    customTaxRate,
+    status,
+    items
+  } = await c.req.json();
+
+  const existing = await c.env.DB.prepare("SELECT * FROM packages WHERE id = ? AND organization_id = ?")
+    .bind(id, user.organizationId)
+    .first();
+
+  if (!existing) return c.json({ error: 'Package not found.' }, 404);
+
+  let computedOrigPrice = Number(originalPrice) || 0;
+  if (!computedOrigPrice && items && Array.isArray(items)) {
+    computedOrigPrice = items.reduce((acc: number, it: any) => acc + (Number(it.quantity || 1) * Number(it.unitPrice || it.unit_price || 0)), 0);
+  }
+
+  const statements = [
+    c.env.DB.prepare(`
+      UPDATE packages SET
+        name = ?,
+        code = ?,
+        description = ?,
+        package_type = ?,
+        original_price = ?,
+        package_price = ?,
+        discount_rate = ?,
+        discount_type = ?,
+        tax_mode = ?,
+        custom_tax_rate = ?,
+        status = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND organization_id = ?
+    `).bind(
+      name ? name.trim() : existing.name,
+      code !== undefined ? (code ? code.trim() : null) : existing.code,
+      description !== undefined ? (description ? description.trim() : null) : existing.description,
+      packageType || existing.package_type,
+      computedOrigPrice || existing.original_price,
+      packagePrice !== undefined ? Number(packagePrice) : existing.package_price,
+      discountRate !== undefined ? Number(discountRate) : existing.discount_rate,
+      discountType || existing.discount_type,
+      taxMode || existing.tax_mode,
+      customTaxRate !== undefined ? Number(customTaxRate) : existing.custom_tax_rate,
+      status || existing.status,
+      id,
+      user.organizationId
+    )
+  ];
+
+  if (items && Array.isArray(items)) {
+    statements.push(c.env.DB.prepare("DELETE FROM package_items WHERE package_id = ?").bind(id));
+    items.forEach((it: any) => {
+      statements.push(
+        c.env.DB.prepare(`
+          INSERT INTO package_items (
+            id, package_id, catalog_item_id, item_type, name,
+            description, quantity, unit_price, tax_rate, discount_rate
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          crypto.randomUUID(),
+          id,
+          it.catalogItemId || it.catalog_item_id || null,
+          it.itemType || it.item_type || 'service',
+          (it.name || it.description || 'Bundled Item').trim(),
+          it.description?.trim() || null,
+          Number(it.quantity) || 1,
+          Number(it.unitPrice || it.unit_price) || 0,
+          Number(it.taxRate || it.tax_rate) || 0,
+          Number(it.discountRate || it.discount_rate) || 0
+        )
+      );
+    });
+  }
+
+  await c.env.DB.batch(statements);
+  return c.json({ message: 'Package updated successfully.' });
+});
+
+// 12. Delete Package
+app.delete('/api/catalog/packages/:id', async (c) => {
+  const user = c.get('user');
+  const id = c.req.param('id');
+
+  await c.env.DB.prepare("UPDATE packages SET status = 'archived', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ?")
+    .bind(id, user.organizationId)
+    .run();
+
+  return c.json({ message: 'Package archived successfully.' });
+});
+
+// 13. Catalog & Inventory Metrics / Stats
+app.get('/api/catalog/stats', async (c) => {
+  const user = c.get('user');
+
+  const [productsRes, servicesRes, packagesRes, lowStockRes, inventoryValRes] = await Promise.all([
+    c.env.DB.prepare("SELECT COUNT(*) as count FROM catalog_items WHERE organization_id = ? AND type = 'product' AND status != 'archived'").bind(user.organizationId).first(),
+    c.env.DB.prepare("SELECT COUNT(*) as count FROM catalog_items WHERE organization_id = ? AND type = 'service' AND status != 'archived'").bind(user.organizationId).first(),
+    c.env.DB.prepare("SELECT COUNT(*) as count FROM packages WHERE organization_id = ? AND status != 'archived'").bind(user.organizationId).first(),
+    c.env.DB.prepare("SELECT COUNT(*) as count FROM catalog_items WHERE organization_id = ? AND type = 'product' AND track_inventory = 1 AND stock_quantity <= low_stock_threshold AND status != 'archived'").bind(user.organizationId).first(),
+    c.env.DB.prepare("SELECT SUM(stock_quantity) as total_units, SUM(stock_quantity * unit_price) as total_val, SUM(stock_quantity * cost_price) as cost_val FROM catalog_items WHERE organization_id = ? AND type = 'product' AND track_inventory = 1 AND status != 'archived'").bind(user.organizationId).first()
+  ]);
+
+  return c.json({
+    totalProducts: Number(productsRes?.count || 0),
+    totalServices: Number(servicesRes?.count || 0),
+    totalPackages: Number(packagesRes?.count || 0),
+    lowStockCount: Number(lowStockRes?.count || 0),
+    totalStockUnits: Number(inventoryValRes?.total_units || 0),
+    totalInventoryValue: Number(inventoryValRes?.total_val || 0),
+    totalCostValue: Number(inventoryValRes?.cost_val || 0)
+  });
 });
 
 app.get('/api/invoices/:id/pdf', async (c) => {
@@ -1291,9 +2045,13 @@ app.put('/api/organization/profile', async (c) => {
     signatoryDesignation,
     thanksMessage,
     contactEmail,
-    contactPhone
+    contactPhone,
+    businessType,
+    autoDeductInventory
   } = await c.req.json();
   if (!name) return c.json({ error: 'Organization name is required.' }, 400);
+
+  const autoDeductVal = autoDeductInventory !== undefined ? (autoDeductInventory ? 1 : 0) : 1;
 
   await c.env.DB.prepare(`
     UPDATE organizations SET
@@ -1312,6 +2070,8 @@ app.put('/api/organization/profile', async (c) => {
       thanks_message = ?,
       contact_email = ?,
       contact_phone = ?,
+      business_type = ?,
+      auto_deduct_inventory = ?,
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `)
@@ -1331,6 +2091,8 @@ app.put('/api/organization/profile', async (c) => {
       thanksMessage || null,
       contactEmail || null,
       contactPhone || null,
+      businessType || 'hybrid',
+      autoDeductVal,
       user.organizationId
     )
     .run();

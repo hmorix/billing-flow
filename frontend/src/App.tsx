@@ -30,6 +30,7 @@ const BillDesign = lazy(() => import('./views/BillDesign').then(m => ({ default:
 const TemplateBuilder = lazy(() => import('./views/TemplateBuilder').then(m => ({ default: m.TemplateBuilder })));
 const Admin = lazy(() => import('./views/Admin').then(m => ({ default: m.Admin })));
 const EmailDesign = lazy(() => import('./views/EmailDesign').then(m => ({ default: m.EmailDesign })));
+const Catalog = lazy(() => import('./views/Catalog').then(m => ({ default: m.Catalog })));
 const LegalTerms = lazy(() => import('./views/LegalTerms').then(m => ({ default: m.LegalTerms })));
 const InvoiceView = lazy(() => import('./views/InvoiceView').then(m => ({ default: m.InvoiceView })));
 const NotFound = lazy(() => import('./views/NotFound').then(m => ({ default: m.NotFound })));
@@ -359,6 +360,46 @@ export const App: React.FC = () => {
                     element={
                       <Suspense fallback={<TableSkeleton />}>
                         <Clients />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/catalog"
+                    element={
+                      <Suspense fallback={<TableSkeleton />}>
+                        <Catalog />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/inventory"
+                    element={
+                      <Suspense fallback={<TableSkeleton />}>
+                        <Catalog />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/products"
+                    element={
+                      <Suspense fallback={<TableSkeleton />}>
+                        <Catalog />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/services"
+                    element={
+                      <Suspense fallback={<TableSkeleton />}>
+                        <Catalog />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/packages"
+                    element={
+                      <Suspense fallback={<TableSkeleton />}>
+                        <Catalog />
                       </Suspense>
                     }
                   />

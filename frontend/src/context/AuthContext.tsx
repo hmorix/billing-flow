@@ -36,6 +36,8 @@ export interface Organization {
   thanksMessage?: string | null;
   contactEmail?: string | null;
   contactPhone?: string | null;
+  businessType?: 'hybrid' | 'service' | 'product';
+  autoDeductInventory?: boolean;
 }
 
 

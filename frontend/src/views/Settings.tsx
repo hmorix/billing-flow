@@ -106,6 +106,10 @@ export const Settings: React.FC = () => {
   const [termsConditions, setTermsConditions] = useState(organization?.termsConditions || '');
   const [thanksMessage, setThanksMessage] = useState(organization?.thanksMessage || '');
 
+  // Business Model & Inventory Settings
+  const [businessType, setBusinessType] = useState<'hybrid' | 'service' | 'product'>(organization?.businessType || 'hybrid');
+  const [autoDeductInventory, setAutoDeductInventory] = useState<boolean>(organization?.autoDeductInventory !== undefined ? Boolean(organization.autoDeductInventory) : true);
+
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
 
@@ -191,7 +195,9 @@ export const Settings: React.FC = () => {
           signatoryName,
           signatoryDesignation,
           termsConditions,
-          thanksMessage
+          thanksMessage,
+          businessType,
+          autoDeductInventory
         })
       });
 
@@ -210,7 +216,9 @@ export const Settings: React.FC = () => {
         signatoryName,
         signatoryDesignation,
         termsConditions,
-        thanksMessage
+        thanksMessage,
+        businessType,
+        autoDeductInventory
       });
       setProfileSuccess(true);
       setTimeout(() => setProfileSuccess(false), 3000);
@@ -494,10 +502,10 @@ export const Settings: React.FC = () => {
 
               <div className="form-grid-2">
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">VAT / Tax ID</label>
+                  <label className="form-label">VAT / GSTIN / Tax ID</label>
                   <input
                     type="text"
-                    placeholder="US87654321"
+                    placeholder="e.g. 27AABCU9603R1ZM"
                     className="form-input"
                     value={taxId}
                     onChange={(e) => setTaxId(e.target.value)}
@@ -508,11 +516,50 @@ export const Settings: React.FC = () => {
                   <label className="form-label">Phone Contact</label>
                   <input
                     type="text"
-                    placeholder="+1 (555) 012-3456"
+                    placeholder="+91 98765 43210"
                     className="form-input"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                   />
+                </div>
+              </div>
+
+              {/* Business Model & Inventory Automation */}
+              <div style={{ background: 'rgba(99, 102, 241, 0.05)', border: '1px solid rgba(99, 102, 241, 0.2)', borderRadius: '10px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--primary)' }}>
+                    🏢 Business Model &amp; Inventory Operations
+                  </span>
+                </div>
+
+                <div className="form-grid-2">
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Primary Business Model</label>
+                    <select
+                      className="form-input"
+                      value={businessType}
+                      onChange={(e) => setBusinessType(e.target.value as any)}
+                      style={{ background: 'var(--bg-tertiary)' }}
+                    >
+                      <option value="hybrid">⚡ Hybrid (Products &amp; Billable Services)</option>
+                      <option value="service">🛠️ Service-Based Company (Agencies, Freelancers, Consultants)</option>
+                      <option value="product">📦 Product-Based Company (E-commerce, Retail, Hardware, Stock)</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}>
+                      <input
+                        type="checkbox"
+                        checked={autoDeductInventory}
+                        onChange={(e) => setAutoDeductInventory(e.target.checked)}
+                      />
+                      <span>Auto-Deduct Inventory on Invoice Creation</span>
+                    </label>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', paddingLeft: '24px' }}>
+                      Automatically decreases product stock counts and creates an audit movement log when invoices are created or saved.
+                    </span>
+                  </div>
                 </div>
               </div>
 

@@ -57,7 +57,7 @@ export interface TaxBreakdown {
   grandTotal: number;
 }
 
-export function calculateTaxBreakdown(invoice: any, subtotal: number): TaxBreakdown {
+export function calculateTaxBreakdown(invoice: any, subtotal: number, items: any[] = []): TaxBreakdown {
   const discount = Number(invoice.discount || 0);
   const taxableAmount = Math.max(0, subtotal - discount);
 
@@ -70,13 +70,26 @@ export function calculateTaxBreakdown(invoice: any, subtotal: number): TaxBreakd
   const hasIgst = !hasCgstSgst && igstRate > 0;
   const hasFlatTax = !hasCgstSgst && !hasIgst && taxRate > 0;
 
+  // Check if items have item-level differential tax rates
+  const hasItemLevelTax = items && items.length > 0 && items.some((it: any) => Number(it.tax_rate) > 0);
+
   let cgstAmount = 0;
   let sgstAmount = 0;
   let igstAmount = 0;
   let taxAmount = 0;
   let totalTax = 0;
 
-  if (hasCgstSgst) {
+  if (hasItemLevelTax && invoice.tax_calculation_type === 'item_level') {
+    items.forEach((it: any) => {
+      const lineTotal = Number(it.quantity || 1) * Number(it.unit_price || 0);
+      const lineDiscount = Number(it.discount_rate || 0);
+      const lineTaxable = Math.max(0, lineTotal - lineDiscount);
+      const lineTaxRate = Number(it.tax_rate || 0);
+      const lineTax = (lineTaxable * lineTaxRate) / 100;
+      totalTax += lineTax;
+    });
+    taxAmount = totalTax;
+  } else if (hasCgstSgst) {
     cgstAmount = (taxableAmount * cgstRate) / 100;
     sgstAmount = (taxableAmount * sgstRate) / 100;
     totalTax = cgstAmount + sgstAmount;

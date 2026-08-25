@@ -132,3 +132,84 @@ CREATE TABLE IF NOT EXISTS custom_templates (
   FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_custom_templates_org ON custom_templates(organization_id);
+
+-- 9. Catalog Items (Products & Services with inventory and GST support)
+CREATE TABLE IF NOT EXISTS catalog_items (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'product', -- 'product' or 'service'
+  sku TEXT,
+  hsn_sac TEXT,
+  description TEXT,
+  unit_price REAL NOT NULL DEFAULT 0.00,
+  cost_price REAL DEFAULT 0.00,
+  tax_rate REAL DEFAULT 0.00, -- GST rate e.g. 0, 5, 12, 18, 28
+  unit TEXT DEFAULT 'unit', -- 'pcs', 'hrs', 'month', 'kg', 'set', etc.
+  track_inventory INTEGER DEFAULT 0, -- 1 for products with stock tracking, 0 for services
+  stock_quantity REAL DEFAULT 0,
+  low_stock_threshold REAL DEFAULT 5,
+  category TEXT,
+  status TEXT DEFAULT 'active',
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_catalog_items_org ON catalog_items(organization_id);
+CREATE INDEX IF NOT EXISTS idx_catalog_items_type ON catalog_items(organization_id, type);
+
+-- 10. Packages / Bundles
+CREATE TABLE IF NOT EXISTS packages (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  code TEXT,
+  description TEXT,
+  package_type TEXT DEFAULT 'hybrid', -- 'product', 'service', 'hybrid'
+  original_price REAL DEFAULT 0.00,
+  package_price REAL NOT NULL DEFAULT 0.00,
+  discount_rate REAL DEFAULT 0.00,
+  discount_type TEXT DEFAULT 'percentage', -- 'percentage' or 'fixed'
+  tax_mode TEXT DEFAULT 'item_wise', -- 'item_wise' or 'flat'
+  custom_tax_rate REAL DEFAULT 0.00,
+  status TEXT DEFAULT 'active',
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_packages_org ON packages(organization_id);
+
+-- 11. Package Items (Items bundled within a package)
+CREATE TABLE IF NOT EXISTS package_items (
+  id TEXT PRIMARY KEY,
+  package_id TEXT NOT NULL,
+  catalog_item_id TEXT,
+  item_type TEXT NOT NULL DEFAULT 'service',
+  name TEXT NOT NULL,
+  description TEXT,
+  quantity REAL NOT NULL DEFAULT 1,
+  unit_price REAL NOT NULL DEFAULT 0.00,
+  tax_rate REAL DEFAULT 0.00,
+  discount_rate REAL DEFAULT 0.00,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_package_items_pkg ON package_items(package_id);
+
+-- 12. Inventory Logs (Audit trail for stock movement)
+CREATE TABLE IF NOT EXISTS inventory_logs (
+  id TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL,
+  catalog_item_id TEXT NOT NULL,
+  change_type TEXT NOT NULL, -- 'sale', 'restock', 'adjustment', 'return'
+  quantity_change REAL NOT NULL,
+  quantity_after REAL NOT NULL,
+  reference_id TEXT,
+  notes TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
+  FOREIGN KEY (catalog_item_id) REFERENCES catalog_items(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_inventory_logs_org ON inventory_logs(organization_id, catalog_item_id);
+

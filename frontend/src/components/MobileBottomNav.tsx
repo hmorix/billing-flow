@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileSpreadsheet, Users, Settings as SettingsIcon, CreditCard } from 'lucide-react';
+import { LayoutDashboard, FileSpreadsheet, Users, Settings as SettingsIcon, Boxes } from 'lucide-react';
 
 export const MobileBottomNav: React.FC = () => {
   return (
@@ -15,14 +15,14 @@ export const MobileBottomNav: React.FC = () => {
         <span>Invoices</span>
       </NavLink>
 
+      <NavLink to="/catalog" className={({ isActive }) => (isActive ? 'active' : '')}>
+        <Boxes size={20} />
+        <span>Catalog</span>
+      </NavLink>
+
       <NavLink to="/clients" className={({ isActive }) => (isActive ? 'active' : '')}>
         <Users size={20} />
         <span>Clients</span>
-      </NavLink>
-
-      <NavLink to="/billing" className={({ isActive }) => (isActive ? 'active' : '')}>
-        <CreditCard size={20} />
-        <span>Plan</span>
       </NavLink>
 
       <NavLink to="/settings" className={({ isActive }) => (isActive ? 'active' : '')}>
