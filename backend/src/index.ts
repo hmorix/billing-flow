@@ -164,13 +164,22 @@ async function ensureAgreementColumns(db: any) {
   }
 }
 
-// --- FAST 1-QUERY CATALOG & INVENTORY SCHEMA ENSURE HELPER ---
+// --- FAST CATALOG & INVENTORY SCHEMA ENSURE HELPER ---
 let _catalogSchemaEnsured = false;
 async function ensureCatalogSchema(db: any) {
   if (_catalogSchemaEnsured) return;
+  if (!db) return;
+
   try {
+    const executeSql = async (sql: string) => {
+      if (db.pool && typeof db.pool.query === 'function') {
+        return db.pool.query(sql);
+      }
+      return db.prepare(sql).run();
+    };
+
     // 1. Create tables if they don't exist
-    await db.prepare(`
+    await executeSql(`
       CREATE TABLE IF NOT EXISTS catalog_items (
         id TEXT PRIMARY KEY,
         organization_id TEXT NOT NULL,
@@ -191,9 +200,16 @@ async function ensureCatalogSchema(db: any) {
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
-    `).run().catch(() => {});
+    `);
 
-    await db.prepare(`
+    await executeSql(`
+      CREATE INDEX IF NOT EXISTS idx_catalog_items_org ON catalog_items(organization_id);
+    `).catch(() => {});
+    await executeSql(`
+      CREATE INDEX IF NOT EXISTS idx_catalog_items_type ON catalog_items(organization_id, type);
+    `).catch(() => {});
+
+    await executeSql(`
       CREATE TABLE IF NOT EXISTS packages (
         id TEXT PRIMARY KEY,
         organization_id TEXT NOT NULL,
@@ -211,9 +227,13 @@ async function ensureCatalogSchema(db: any) {
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
-    `).run().catch(() => {});
+    `);
 
-    await db.prepare(`
+    await executeSql(`
+      CREATE INDEX IF NOT EXISTS idx_packages_org ON packages(organization_id);
+    `).catch(() => {});
+
+    await executeSql(`
       CREATE TABLE IF NOT EXISTS package_items (
         id TEXT PRIMARY KEY,
         package_id TEXT NOT NULL,
@@ -228,9 +248,13 @@ async function ensureCatalogSchema(db: any) {
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
-    `).run().catch(() => {});
+    `);
 
-    await db.prepare(`
+    await executeSql(`
+      CREATE INDEX IF NOT EXISTS idx_package_items_pkg ON package_items(package_id);
+    `).catch(() => {});
+
+    await executeSql(`
       CREATE TABLE IF NOT EXISTS inventory_logs (
         id TEXT PRIMARY KEY,
         organization_id TEXT NOT NULL,
@@ -242,32 +266,47 @@ async function ensureCatalogSchema(db: any) {
         notes TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
-    `).run().catch(() => {});
+    `);
+
+    await executeSql(`
+      CREATE INDEX IF NOT EXISTS idx_inventory_logs_org ON inventory_logs(organization_id);
+    `).catch(() => {});
+    await executeSql(`
+      CREATE INDEX IF NOT EXISTS idx_inventory_logs_item ON inventory_logs(catalog_item_id);
+    `).catch(() => {});
 
     // 2. Add columns to organizations, invoices, and invoice_items if not present
-    await db.prepare(`
-      ALTER TABLE organizations 
-        ADD COLUMN IF NOT EXISTS business_type TEXT DEFAULT 'hybrid',
-        ADD COLUMN IF NOT EXISTS auto_deduct_inventory INTEGER DEFAULT 1;
-    `).run().catch(() => {});
+    await executeSql(`
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS business_type TEXT DEFAULT 'hybrid';
+    `).catch(() => {});
+    await executeSql(`
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS auto_deduct_inventory INTEGER DEFAULT 1;
+    `).catch(() => {});
 
-    await db.prepare(`
-      ALTER TABLE invoices 
-        ADD COLUMN IF NOT EXISTS tax_calculation_type TEXT DEFAULT 'invoice_level';
-    `).run().catch(() => {});
+    await executeSql(`
+      ALTER TABLE invoices ADD COLUMN IF NOT EXISTS tax_calculation_type TEXT DEFAULT 'invoice_level';
+    `).catch(() => {});
 
-    await db.prepare(`
-      ALTER TABLE invoice_items 
-        ADD COLUMN IF NOT EXISTS item_type TEXT DEFAULT 'custom',
-        ADD COLUMN IF NOT EXISTS sku_hsn TEXT,
-        ADD COLUMN IF NOT EXISTS tax_rate REAL DEFAULT 0,
-        ADD COLUMN IF NOT EXISTS discount_rate REAL DEFAULT 0,
-        ADD COLUMN IF NOT EXISTS catalog_item_id TEXT;
-    `).run().catch(() => {});
+    await executeSql(`
+      ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS item_type TEXT DEFAULT 'custom';
+    `).catch(() => {});
+    await executeSql(`
+      ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS sku_hsn TEXT;
+    `).catch(() => {});
+    await executeSql(`
+      ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS tax_rate REAL DEFAULT 0;
+    `).catch(() => {});
+    await executeSql(`
+      ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS discount_rate REAL DEFAULT 0;
+    `).catch(() => {});
+    await executeSql(`
+      ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS catalog_item_id TEXT;
+    `).catch(() => {});
 
     _catalogSchemaEnsured = true;
-  } catch (e) {
-    _catalogSchemaEnsured = true;
+    console.log('✅ Catalog and inventory database schema ensured successfully.');
+  } catch (e: any) {
+    console.error('⚠️ Error ensuring catalog schema:', e.message || e);
   }
 }
 
@@ -1072,6 +1111,11 @@ app.delete('/api/invoices/:id', async (c) => {
 // ============================================================================
 // --- CATALOG, PACKAGES & INVENTORY API ROUTES ---
 // ============================================================================
+
+app.use('/api/catalog/*', async (c, next) => {
+  await ensureCatalogSchema(c.env.DB);
+  await next();
+});
 
 // 1. Get Catalog Items (Products & Services)
 app.get('/api/catalog/items', async (c) => {
