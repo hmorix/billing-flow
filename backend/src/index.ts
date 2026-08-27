@@ -1681,7 +1681,135 @@ app.delete('/api/catalog/packages/:id', async (c) => {
   return c.json({ message: 'Package archived successfully.' });
 });
 
-// 13. Catalog & Inventory Metrics / Stats
+// 13. Bulk Import Packages
+app.post('/api/catalog/packages/bulk-import', async (c) => {
+  const user = c.get('user');
+  const { packages: incomingPackages } = await c.req.json();
+
+  if (!incomingPackages || !Array.isArray(incomingPackages) || incomingPackages.length === 0) {
+    return c.json({ error: 'No packages provided for import.' }, 400);
+  }
+
+  const statements: any[] = [];
+  const importedCount = incomingPackages.length;
+
+  for (const pkg of incomingPackages) {
+    const packageId = pkg.id || crypto.randomUUID();
+    const finalCode = pkg.code?.trim() || `PKG-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+    let computedOrigPrice = Number(pkg.originalPrice || pkg.original_price) || 0;
+    const items = Array.isArray(pkg.items) ? pkg.items : [];
+    if (!computedOrigPrice && items.length > 0) {
+      computedOrigPrice = items.reduce((acc: number, it: any) => 
+        acc + (Number(it.quantity || 1) * Number(it.unitPrice || it.unit_price || 0)), 0);
+    }
+
+    statements.push(
+      c.env.DB.prepare(`
+        INSERT INTO packages (
+          id, organization_id, name, code, description,
+          package_type, original_price, package_price, discount_rate,
+          discount_type, tax_mode, custom_tax_rate, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+      `).bind(
+        packageId,
+        user.organizationId,
+        (pkg.name || 'Imported Package').trim(),
+        finalCode,
+        pkg.description?.trim() || null,
+        pkg.packageType || pkg.package_type || 'hybrid',
+        computedOrigPrice,
+        Number(pkg.packagePrice || pkg.package_price) || computedOrigPrice,
+        Number(pkg.discountRate || pkg.discount_rate) || 0,
+        pkg.discountType || pkg.discount_type || 'percentage',
+        pkg.taxMode || pkg.tax_mode || 'item_wise',
+        Number(pkg.customTaxRate || pkg.custom_tax_rate) || 0
+      )
+    );
+
+    items.forEach((it: any) => {
+      statements.push(
+        c.env.DB.prepare(`
+          INSERT INTO package_items (
+            id, package_id, catalog_item_id, item_type, name,
+            description, quantity, unit_price, tax_rate, discount_rate
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          crypto.randomUUID(),
+          packageId,
+          it.catalogItemId || it.catalog_item_id || null,
+          it.itemType || it.item_type || 'service',
+          (it.name || it.description || 'Bundled Item').trim(),
+          it.description?.trim() || null,
+          Number(it.quantity) || 1,
+          Number(it.unitPrice || it.unit_price) || 0,
+          Number(it.taxRate || it.tax_rate) || 0,
+          Number(it.discountRate || it.discount_rate) || 0
+        )
+      );
+    });
+  }
+
+  if (statements.length > 0) {
+    await c.env.DB.batch(statements);
+  }
+
+  return c.json({ message: `Successfully imported ${importedCount} package(s) into database.`, count: importedCount }, 201);
+});
+
+// 14. Bulk Import Catalog Items (Products & Services)
+app.post('/api/catalog/items/bulk-import', async (c) => {
+  const user = c.get('user');
+  const { items: incomingItems } = await c.req.json();
+
+  if (!incomingItems || !Array.isArray(incomingItems) || incomingItems.length === 0) {
+    return c.json({ error: 'No catalog items provided for import.' }, 400);
+  }
+
+  const statements: any[] = [];
+  const importedCount = incomingItems.length;
+
+  for (const item of incomingItems) {
+    const id = item.id || crypto.randomUUID();
+    const type = item.type === 'product' ? 'product' : 'service';
+    const isInventoryTracked = type === 'product' && (item.track_inventory || item.trackInventory) ? 1 : 0;
+    const stockQty = isInventoryTracked ? Number(item.stock_quantity || item.stockQuantity || 0) : 0;
+
+    statements.push(
+      c.env.DB.prepare(`
+        INSERT INTO catalog_items (
+          id, organization_id, name, type, sku, hsn_sac, description,
+          unit_price, cost_price, tax_rate, unit, track_inventory,
+          stock_quantity, low_stock_threshold, category, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+      `).bind(
+        id,
+        user.organizationId,
+        (item.name || 'Catalog Item').trim(),
+        type,
+        item.sku?.trim() || null,
+        item.hsn_sac?.trim() || item.hsnSac?.trim() || null,
+        item.description?.trim() || null,
+        Number(item.unit_price || item.unitPrice) || 0,
+        Number(item.cost_price || item.costPrice) || 0,
+        Number(item.tax_rate !== undefined ? item.tax_rate : (item.taxRate !== undefined ? item.taxRate : 18)),
+        item.unit || (type === 'product' ? 'pcs' : 'service'),
+        isInventoryTracked,
+        stockQty,
+        Number(item.low_stock_threshold || item.lowStockThreshold) || 5,
+        item.category?.trim() || null
+      )
+    );
+  }
+
+  if (statements.length > 0) {
+    await c.env.DB.batch(statements);
+  }
+
+  return c.json({ message: `Successfully imported ${importedCount} catalog item(s) into database.`, count: importedCount }, 201);
+});
+
+// 15. Catalog & Inventory Metrics / Stats
 app.get('/api/catalog/stats', async (c) => {
   const user = c.get('user');
 

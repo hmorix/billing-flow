@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { DollarSign, AlertCircle, Calendar, RefreshCw, Mail, Activity } from 'lucide-react';
+import { DollarSign, AlertCircle, Calendar, RefreshCw, Mail, Activity, TrendingUp } from 'lucide-react';
+import { browserCache } from '../utils/browserCache';
 
 interface MetricData {
   totalRevenue: number;
@@ -37,37 +38,72 @@ interface EmailLogItem {
 
 export const Dashboard: React.FC = () => {
   const { apiFetch, organization } = useAuth();
-  const [metrics, setMetrics] = useState<MetricData | null>(null);
-  const [graphData, setGraphData] = useState<GraphItem[]>([]);
-  const [activities, setActivities] = useState<ActivityItem[]>([]);
-  const [emailLogs, setEmailLogs] = useState<EmailLogItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedEmail, setSelectedEmail] = useState<EmailLogItem | null>(null);
+  const orgId = organization?.id || 'global';
+
   const [graphPeriod, setGraphPeriod] = useState<'7d' | '15d' | '1m' | '3m' | '6m'>('6m');
+
+  // Try hydrating synchronously from local browserCache for 0ms initial render
+  const initialCache = browserCache.get(`/api/analytics/dashboard?period=6m`, orgId);
+
+  const [metrics, setMetrics] = useState<MetricData | null>(initialCache?.data?.metrics || null);
+  const [graphData, setGraphData] = useState<GraphItem[]>(initialCache?.data?.graphData || []);
+  const [activities, setActivities] = useState<ActivityItem[]>(initialCache?.data?.activities || []);
+  const [emailLogs, setEmailLogs] = useState<EmailLogItem[]>(initialCache?.data?.emailLogs || []);
+  const [isLoading, setIsLoading] = useState(!initialCache?.data);
+  const [selectedEmail, setSelectedEmail] = useState<EmailLogItem | null>(null);
   const [isGraphLoading, setIsGraphLoading] = useState(false);
+  const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; name: string; revenue: number } | null>(null);
 
+  const fetchDashboardData = async (period = graphPeriod, silent = false) => {
+    // Check if we already have cached data in browser storage for this period
+    const cached = browserCache.get(`/api/analytics/dashboard?period=${period}`, orgId);
+    if (cached?.data) {
+      setMetrics(cached.data.metrics || null);
+      setGraphData(cached.data.graphData || []);
+      setActivities(cached.data.activities || []);
+      setEmailLogs(cached.data.emailLogs || []);
+      setIsLoading(false);
+    } else if (!silent) {
+      setIsLoading(true);
+    }
 
-  const fetchDashboardData = async (period = graphPeriod) => {
-    setIsLoading(true);
+    setIsGraphLoading(true);
     try {
       const data = await apiFetch(`/api/analytics/dashboard?period=${period}`);
-      setMetrics(data.metrics);
-      setGraphData(data.graphData);
-      setActivities(data.activities);
-      setEmailLogs(data.emailLogs);
+      if (data) {
+        setMetrics(data.metrics || null);
+        setGraphData(Array.isArray(data.graphData) ? data.graphData : []);
+        setActivities(Array.isArray(data.activities) ? data.activities : []);
+        setEmailLogs(Array.isArray(data.emailLogs) ? data.emailLogs : []);
+        browserCache.set(`/api/analytics/dashboard?period=${period}`, data, orgId);
+      }
     } catch (err) {
       console.error('Failed to load dashboard statistics:', err);
     } finally {
       setIsLoading(false);
+      setIsGraphLoading(false);
     }
   };
 
   const handlePeriodChange = async (period: '7d' | '15d' | '1m' | '3m' | '6m') => {
     setGraphPeriod(period);
+    setHoveredPoint(null);
+
+    // 0ms instant display from browser cache if available
+    const cached = browserCache.get(`/api/analytics/dashboard?period=${period}`, orgId);
+    if (cached?.data?.graphData) {
+      setGraphData(cached.data.graphData);
+      if (cached.data.metrics) setMetrics(cached.data.metrics);
+    }
+
     setIsGraphLoading(true);
     try {
       const data = await apiFetch(`/api/analytics/dashboard?period=${period}`);
-      setGraphData(data.graphData);
+      if (data?.graphData) {
+        setGraphData(data.graphData);
+        if (data.metrics) setMetrics(data.metrics);
+        browserCache.set(`/api/analytics/dashboard?period=${period}`, data, orgId);
+      }
     } catch (err) {
       console.error('Failed to update graph period:', err);
     } finally {
@@ -76,11 +112,10 @@ export const Dashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchDashboardData(graphPeriod);
-  }, [organization?.subscriptionPlan]);
+    fetchDashboardData(graphPeriod, true);
+  }, [organization?.subscriptionPlan, organization?.id]);
 
-
-  if (isLoading) {
+  if (isLoading && !metrics) {
     return (
       <div className="page-container" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
@@ -100,26 +135,36 @@ export const Dashboard: React.FC = () => {
     );
   }
 
-  const maxRevenue = Math.max(...graphData.map(d => d.revenue), 1000);
-  const chartWidth = 500;
-  const chartHeight = 180;
-  const chartPadding = 25;
+  // Robust Graph Calculations with Safe Fallbacks
+  const maxRevenue = Math.max(...(graphData.length > 0 ? graphData.map(d => Number(d.revenue) || 0) : [0]), 1000);
+  const chartWidth = 560;
+  const chartHeight = 200;
+  const chartPadding = 30;
+  const chartBottomPadding = 35;
+
   const points = graphData.map((d, i) => {
-    const x = chartPadding + (i * (chartWidth - 2 * chartPadding)) / (graphData.length - 1 || 1);
-    const y = chartHeight - chartPadding - (d.revenue * (chartHeight - 2 * chartPadding)) / maxRevenue;
-    return { x, y, name: d.name, revenue: d.revenue };
+    const totalCount = graphData.length;
+    const x = totalCount > 1 
+      ? chartPadding + (i * (chartWidth - 2 * chartPadding)) / (totalCount - 1)
+      : chartWidth / 2;
+    const rev = Number(d.revenue) || 0;
+    const availableHeight = chartHeight - chartPadding - chartBottomPadding;
+    const y = chartHeight - chartBottomPadding - (rev * availableHeight) / maxRevenue;
+    return { x, y: isNaN(y) ? chartHeight - chartBottomPadding : y, name: d.name, revenue: rev };
   });
 
-  const linePath = points.reduce((path, pt, i) => {
-    return i === 0 ? `M ${pt.x} ${pt.y}` : `${path} L ${pt.x} ${pt.y}`;
-  }, '');
-
-  const areaPath = points.length > 0
-    ? `${linePath} L ${points[points.length - 1].x} ${chartHeight - chartPadding} L ${points[0].x} ${chartHeight - chartPadding} Z`
+  const linePath = points.length > 0
+    ? points.reduce((path, pt, i) => (i === 0 ? `M ${pt.x} ${pt.y}` : `${path} L ${pt.x} ${pt.y}`), '')
     : '';
 
-  const totalInvoices = metrics
-    ? metrics.distribution.draft + metrics.distribution.sent + metrics.distribution.paid + metrics.distribution.overdue
+  const areaPath = points.length > 1
+    ? `${linePath} L ${points[points.length - 1].x} ${chartHeight - chartBottomPadding} L ${points[0].x} ${chartHeight - chartBottomPadding} Z`
+    : points.length === 1
+    ? `M ${points[0].x - 20} ${chartHeight - chartBottomPadding} L ${points[0].x} ${points[0].y} L ${points[0].x + 20} ${chartHeight - chartBottomPadding} Z`
+    : '';
+
+  const totalInvoices = metrics && metrics.distribution
+    ? (metrics.distribution.draft || 0) + (metrics.distribution.sent || 0) + (metrics.distribution.paid || 0) + (metrics.distribution.overdue || 0)
     : 0;
 
   return (
@@ -230,47 +275,167 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
 
+          <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '160px' }}>
+            {isGraphLoading && (
+              <div style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.7rem',
+                color: 'var(--primary)',
+                background: 'rgba(99, 102, 241, 0.1)',
+                padding: '3px 8px',
+                borderRadius: '12px'
+              }}>
+                <RefreshCw size={10} className="spin" />
+                <span>Updating feed...</span>
+              </div>
+            )}
 
-          <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '150px' }}>
             {graphData.length > 0 ? (
-              <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
-                <defs>
-                  <linearGradient id="chart-gradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.4" />
-                    <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.0" />
-                  </linearGradient>
-                </defs>
+              <div style={{ width: '100%', position: 'relative' }}>
+                <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
+                  <defs>
+                    <linearGradient id="chart-gradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.45" />
+                      <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.0" />
+                    </linearGradient>
+                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                      <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="var(--primary)" floodOpacity="0.5" />
+                    </filter>
+                  </defs>
 
-                {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => {
-                  const y = chartPadding + ratio * (chartHeight - 2 * chartPadding);
-                  return (
-                    <line key={idx} x1={chartPadding} y1={y} x2={chartWidth - chartPadding} y2={y}
-                      stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-                  );
-                })}
+                  {/* Horizontal Grid lines */}
+                  {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => {
+                    const y = chartPadding + ratio * (chartHeight - chartPadding - chartBottomPadding);
+                    const val = Math.round(maxRevenue * (1 - ratio));
+                    return (
+                      <g key={idx}>
+                        <line
+                          x1={chartPadding}
+                          y1={y}
+                          x2={chartWidth - chartPadding}
+                          y2={y}
+                          stroke="rgba(255,255,255,0.05)"
+                          strokeDasharray={idx === 4 ? undefined : "3 3"}
+                          strokeWidth="1"
+                        />
+                        <text
+                          x={chartPadding - 6}
+                          y={y + 3}
+                          textAnchor="end"
+                          fill="var(--text-muted)"
+                          fontSize="7"
+                          fontWeight="500"
+                        >
+                          ${val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val}
+                        </text>
+                      </g>
+                    );
+                  })}
 
-                {areaPath && <path d={areaPath} fill="url(#chart-gradient)" />}
+                  {/* Area fill */}
+                  {areaPath && <path d={areaPath} fill="url(#chart-gradient)" />}
 
-                {linePath && (
-                  <path d={linePath} fill="none" stroke="var(--primary)" strokeWidth="3"
-                    strokeLinecap="round" strokeLinejoin="round"
-                    style={{ filter: 'drop-shadow(0px 4px 10px rgba(99, 102, 241, 0.5))' }} />
+                  {/* Connecting Line */}
+                  {linePath && (
+                    <path
+                      d={linePath}
+                      fill="none"
+                      stroke="var(--primary)"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      filter="url(#glow)"
+                    />
+                  )}
+
+                  {/* Data Points */}
+                  {points.map((pt, idx) => {
+                    const isHovered = hoveredPoint?.name === pt.name;
+                    return (
+                      <g
+                        key={idx}
+                        style={{ cursor: 'pointer' }}
+                        onMouseEnter={() => setHoveredPoint(pt)}
+                        onMouseLeave={() => setHoveredPoint(null)}
+                      >
+                        {/* Hit target for easier mouse hover */}
+                        <circle cx={pt.x} cy={pt.y} r="14" fill="transparent" />
+                        
+                        {/* Visible circle marker */}
+                        <circle
+                          cx={pt.x}
+                          cy={pt.y}
+                          r={isHovered ? "6" : "4"}
+                          fill={isHovered ? "var(--primary)" : "var(--bg-secondary)"}
+                          stroke={isHovered ? "#fff" : "var(--primary)"}
+                          strokeWidth={isHovered ? "3" : "2"}
+                          style={{ transition: 'all 0.2s ease' }}
+                        />
+
+                        {/* Revenue label on top */}
+                        <text
+                          x={pt.x}
+                          y={pt.y - 10}
+                          textAnchor="middle"
+                          fill={isHovered ? "var(--primary)" : "var(--text-primary)"}
+                          fontSize={isHovered ? "9" : "8"}
+                          fontWeight={isHovered ? "700" : "600"}
+                        >
+                          ${pt.revenue >= 1000 ? `${(pt.revenue / 1000).toFixed(1)}k` : pt.revenue.toFixed(0)}
+                        </text>
+
+                        {/* Period label at bottom */}
+                        <text
+                          x={pt.x}
+                          y={chartHeight - 10}
+                          textAnchor="middle"
+                          fill={isHovered ? "var(--text-primary)" : "var(--text-muted)"}
+                          fontSize="8"
+                          fontWeight={isHovered ? "700" : "500"}
+                        >
+                          {pt.name}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+
+                {/* Floating Tooltip Box when Point is Hovered */}
+                {hoveredPoint && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '0',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--primary)',
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontSize: '0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      pointerEvents: 'none',
+                      zIndex: 10
+                    }}
+                  >
+                    <span style={{ color: 'var(--text-muted)' }}>{hoveredPoint.name}:</span>
+                    <strong style={{ color: 'var(--success)' }}>${hoveredPoint.revenue.toLocaleString()}</strong>
+                  </div>
                 )}
-
-                {points.map((pt, idx) => (
-                  <g key={idx}>
-                    <circle cx={pt.x} cy={pt.y} r="4" fill="var(--bg-secondary)" stroke="var(--primary)" strokeWidth="2.5" />
-                    <text x={pt.x} y={pt.y - 8} textAnchor="middle" fill="var(--text-primary)" fontSize="8" fontWeight="600">
-                      ${pt.revenue.toFixed(0)}
-                    </text>
-                    <text x={pt.x} y={chartHeight - 6} textAnchor="middle" fill="var(--text-muted)" fontSize="8" fontWeight="500">
-                      {pt.name}
-                    </text>
-                  </g>
-                ))}
-              </svg>
+              </div>
             ) : (
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No data points available yet.</p>
+              <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
+                <TrendingUp size={24} style={{ opacity: 0.4, marginBottom: '8px' }} />
+                <p style={{ margin: 0, fontSize: '0.85rem' }}>No payment collection records in this period.</p>
+              </div>
             )}
           </div>
         </div>

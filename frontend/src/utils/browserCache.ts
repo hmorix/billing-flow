@@ -125,10 +125,54 @@ export const browserCache = {
       this.invalidate('/api/analytics', orgId);
     } else if (endpoint.includes('/admin')) {
       this.invalidate('/api/admin', orgId);
+    } else if (endpoint.includes('/catalog')) {
+      this.invalidate('/api/catalog', orgId);
     } else {
       // General fallback: clear related endpoint
       this.invalidate(endpoint.split('?')[0], orgId);
     }
+  },
+
+  /**
+   * Dedicated Local Browser Storage for Packages (Offline / Instant Access)
+   */
+  getLocalPackages<T = any>(orgId: string = 'global'): T[] {
+    try {
+      const key = `bf_local_pkgs_${orgId}`;
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        return JSON.parse(raw) as T[];
+      }
+    } catch {
+      // Ignore storage errors
+    }
+    return [];
+  },
+
+  setLocalPackages<T = any>(packages: T[], orgId: string = 'global'): void {
+    try {
+      const key = `bf_local_pkgs_${orgId}`;
+      localStorage.setItem(key, JSON.stringify(packages));
+    } catch (e) {
+      console.warn('Could not save packages to localStorage:', e);
+    }
+  },
+
+  saveSingleLocalPackage(pkg: any, orgId: string = 'global'): void {
+    const list = this.getLocalPackages(orgId);
+    const index = list.findIndex((p: any) => p.id === pkg.id || (p.code && p.code === pkg.code));
+    if (index >= 0) {
+      list[index] = { ...list[index], ...pkg, updated_at: new Date().toISOString() };
+    } else {
+      list.unshift({ ...pkg, created_at: new Date().toISOString() });
+    }
+    this.setLocalPackages(list, orgId);
+  },
+
+  deleteSingleLocalPackage(id: string, orgId: string = 'global'): void {
+    const list = this.getLocalPackages(orgId);
+    const filtered = list.filter((p: any) => p.id !== id);
+    this.setLocalPackages(filtered, orgId);
   },
 
   /**
