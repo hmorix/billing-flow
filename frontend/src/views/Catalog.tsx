@@ -34,13 +34,13 @@ import {
   searchHsnSacCodes,
   generateSku,
   calculateProfitStats,
-  HsnSacEntry
+  type HsnSacEntry
 } from '../utils/hsnSacData';
 import {
   PRESET_PACKAGES,
   PRESET_CATALOG_ITEMS,
-  PresetPackage,
-  PresetCatalogItem,
+  type PresetPackage,
+  type PresetCatalogItem,
   downloadJsonFile,
   validateAndParsePackageJson
 } from '../utils/packageTemplates';
