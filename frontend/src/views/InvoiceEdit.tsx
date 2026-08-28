@@ -72,6 +72,8 @@ interface PackageData {
     item_type: 'product' | 'service';
     name: string;
     description?: string;
+    sku_hsn?: string;
+    hsn_sac?: string;
     quantity: number;
     unit_price: number;
     tax_rate: number;
