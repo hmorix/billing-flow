@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Check
 } from 'lucide-react';
+import { detectHsnSacCode } from '../utils/hsnSacData';
 
 interface Client {
   id: string;
@@ -224,6 +225,13 @@ export const InvoiceEdit: React.FC = () => {
     const updated = [...items];
     if (field === 'description' || field === 'sku_hsn' || field === 'item_type' || field === 'catalog_item_id') {
       (updated[index] as any)[field] = val;
+      // Auto-detect HSN/SAC code when description changes and sku_hsn is empty
+      if (field === 'description' && !updated[index].sku_hsn && val && val.length > 2) {
+        const detected = detectHsnSacCode(val, updated[index].item_type || 'service');
+        if (detected) {
+          updated[index].sku_hsn = detected.code;
+        }
+      }
     } else {
       (updated[index] as any)[field] = Number(val);
     }
@@ -296,12 +304,19 @@ export const InvoiceEdit: React.FC = () => {
 
     const newRows: InvoiceItemInput[] = pkg.items.map(it => {
       const discountedUnit = Number(it.unit_price) * discountMultiplier;
+      const desc = it.name + (it.description ? ` - ${it.description}` : '');
+      // Preserve sku_hsn from package item, or auto-detect from description
+      let hsnCode = it.sku_hsn || '';
+      if (!hsnCode && desc.length > 2) {
+        const detected = detectHsnSacCode(desc, it.item_type || 'service');
+        if (detected) hsnCode = detected.code;
+      }
       return {
-        description: it.name + (it.description ? ` - ${it.description}` : ''),
+        description: desc,
         quantity: Number(it.quantity) || 1,
         unit_price: Math.round(discountedUnit * 100) / 100,
         item_type: it.item_type,
-        sku_hsn: '',
+        sku_hsn: hsnCode,
         tax_rate: Number(it.tax_rate) || 18,
         discount_rate: 0,
         catalog_item_id: it.catalog_item_id || null

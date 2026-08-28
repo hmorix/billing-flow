@@ -69,7 +69,13 @@ export function drawRetroBoldTemplate(params: PdfTemplateParams) {
   items.forEach((item: any, i: number) => {
     const itemTotal = Number(item.quantity) * Number(item.unit_price);
     subtotal += itemTotal;
-    const rowH = Math.max(18, doc.heightOfString(item.description, { width: 220, fontSize: 8 }) + 6);
+    const itemDesc = item.description || 'Item';
+    const hsnMeta = item.sku_hsn ? `HSN/SAC: ${item.sku_hsn}` : '';
+    const taxMeta = Number(item.tax_rate) > 0 ? `GST: ${item.tax_rate}%` : '';
+    const metaSubtitle = [hsnMeta, taxMeta].filter(Boolean).join(' • ');
+    const descH = doc.heightOfString(itemDesc, { width: 220, fontSize: 8 });
+    const subH = metaSubtitle ? 9 : 0;
+    const rowH = Math.max(24, descH + subH + 8);
 
     if (y + rowH > 620) {
       doc.addPage();
@@ -86,7 +92,8 @@ export function drawRetroBoldTemplate(params: PdfTemplateParams) {
 
     if (i % 2 === 1) doc.rect(margin, y, contentWidth, rowH).fill('#f5ede8');
     doc.fillColor('#9ca3af').font('Courier').fontSize(7.5).text(String(i + 1), margin + 4, y + 4, { width: 20 });
-    doc.fillColor(ink).text(item.description, margin + 28, y + 4, { width: 220 });
+    doc.fillColor(ink).text(itemDesc, margin + 28, y + 4, { width: 220 });
+    if (metaSubtitle) { doc.fillColor(ink).font('Helvetica-Bold').fontSize(6.5).text(metaSubtitle, margin + 28, y + 4 + descH + 1, { width: 220 }); }
     doc.fillColor('#4b5563').text(formatCurrency(item.unit_price, invoice.currency), margin + 255, y + 4, { width: 75, align: 'right' });
     doc.text(Number(item.quantity).toFixed(0), margin + 337, y + 4, { width: 45, align: 'center' });
     doc.fillColor(ink).font('Courier-Bold').text(formatCurrency(itemTotal, invoice.currency), margin + 390, y + 4, { width: 115, align: 'right' });
@@ -98,7 +105,7 @@ export function drawRetroBoldTemplate(params: PdfTemplateParams) {
   doc.rect(margin, y, contentWidth, 1.5).fill(crimson);
   y += 12;
 
-  const taxInfo = calculateTaxBreakdown(invoice, subtotal);
+  const taxInfo = calculateTaxBreakdown(invoice, subtotal, items);
   const words = numberToWords(taxInfo.grandTotal, invoice.currency);
   const calcX = margin + 270;
   const calcW = contentWidth - 270;
@@ -123,7 +130,8 @@ export function drawRetroBoldTemplate(params: PdfTemplateParams) {
     doc.fillColor('#4b5563').text('IGST (' + taxInfo.igstRate + '%) :', calcX, y, { width: calcW - 110, align: 'right' });
     doc.fillColor(ink).text(formatCurrency(taxInfo.igstAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' }); y += 13;
   } else if (taxInfo.hasFlatTax) {
-    doc.fillColor('#4b5563').text('TAX (' + taxInfo.taxRate + '%) :', calcX, y, { width: calcW - 110, align: 'right' });
+    doc.fillColor('#4b5563').text('TAX (' + taxInfo.taxRate + '%) :', calcX, y, { width: calcW - 110, align: 'right' }
+  } else if (taxInfo.hasItemTax) { doc.fillColor('#4b5563').text('GST TAX (ITEM-WISE) :', calcX, y, { width: calcW - 110, align: 'right' }); doc.fillColor('#111827').text(formatCurrency(taxInfo.taxAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' }); y += 14; });
     doc.fillColor(ink).text(formatCurrency(taxInfo.taxAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' }); y += 13;
   }
 

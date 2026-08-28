@@ -90,7 +90,12 @@ export function drawOrangeAccentTemplate(params: PdfTemplateParams) {
     doc.fillColor('#6b7280').font('Helvetica').fontSize(7.5);
     doc.text(String(i + 1), margin + 8, y + 5, { width: 25 });
     doc.fillColor(darkCol).font('Helvetica').fontSize(8);
-    doc.text(item.description, margin + 35, y + 5, { width: 230 });
+    const itemDescOA = item.description || 'Item';
+    const hsnOA = item.sku_hsn ? `HSN/SAC: ${item.sku_hsn}` : '';
+    const taxOA = Number(item.tax_rate) > 0 ? `GST: ${item.tax_rate}%` : '';
+    const metaOA = [hsnOA, taxOA].filter(Boolean).join(' • ');
+    doc.text(itemDescOA, margin + 35, y + 5, { width: 230 });
+    if (metaOA) { doc.fillColor('#ea580c').font('Helvetica-Bold').fontSize(6.5).text(metaOA, margin + 35, y + 5 + descH + 1, { width: 230 }); }
     doc.text(formatCurrency(item.unit_price, invoice.currency), margin + 270, y + 5, { width: 80, align: 'right' });
     doc.text(Number(item.quantity).toFixed(0), margin + 355, y + 5, { width: 40, align: 'center' });
     doc.fillColor(darkCol).font('Helvetica-Bold');
@@ -100,7 +105,7 @@ export function drawOrangeAccentTemplate(params: PdfTemplateParams) {
   });
 
   y += 8;
-  const taxInfo = calculateTaxBreakdown(invoice, subtotal);
+  const taxInfo = calculateTaxBreakdown(invoice, subtotal, items);
   const words = numberToWords(taxInfo.grandTotal, invoice.currency);
 
   const calcX = margin + 270;
@@ -134,7 +139,8 @@ export function drawOrangeAccentTemplate(params: PdfTemplateParams) {
     doc.fillColor(darkCol).text(formatCurrency(taxInfo.igstAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' });
     y += 13;
   } else if (taxInfo.hasFlatTax) {
-    doc.fillColor('#4b5563').text(`TAX (${taxInfo.taxRate}%) :`, calcX, y, { width: calcW - 110, align: 'right' });
+    doc.fillColor('#4b5563').text(`TAX (${taxInfo.taxRate}
+  } else if (taxInfo.hasItemTax) { doc.fillColor('#4b5563').text('GST TAX (ITEM-WISE) :', calcX, y, { width: calcW - 110, align: 'right' }); doc.fillColor('#111827').text(formatCurrency(taxInfo.taxAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' }); y += 14; }%) :`, calcX, y, { width: calcW - 110, align: 'right' });
     doc.fillColor(darkCol).text(formatCurrency(taxInfo.taxAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' });
     y += 13;
   }

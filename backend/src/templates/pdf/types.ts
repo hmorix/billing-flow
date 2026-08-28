@@ -53,18 +53,19 @@ export interface TaxBreakdown {
   hasFlatTax: boolean;
   taxRate: number;
   taxAmount: number;
+  hasItemTax: boolean;
   totalTax: number;
   grandTotal: number;
 }
 
 export function calculateTaxBreakdown(invoice: any, subtotal: number, items: any[] = []): TaxBreakdown {
-  const discount = Number(invoice.discount || 0);
+  const discount = Number(invoice?.discount || 0);
   const taxableAmount = Math.max(0, subtotal - discount);
 
-  const cgstRate = Number(invoice.cgst_rate || 0);
-  const sgstRate = Number(invoice.sgst_rate || 0);
-  const igstRate = Number(invoice.igst_rate || 0);
-  const taxRate = Number(invoice.tax_rate || 0);
+  const cgstRate = Number(invoice?.cgst_rate || 0);
+  const sgstRate = Number(invoice?.sgst_rate || 0);
+  const igstRate = Number(invoice?.igst_rate || 0);
+  const taxRate = Number(invoice?.tax_rate || 0);
 
   const hasCgstSgst = cgstRate > 0 || sgstRate > 0;
   const hasIgst = !hasCgstSgst && igstRate > 0;
@@ -78,18 +79,9 @@ export function calculateTaxBreakdown(invoice: any, subtotal: number, items: any
   let igstAmount = 0;
   let taxAmount = 0;
   let totalTax = 0;
+  let hasItemTax = false;
 
-  if (hasItemLevelTax && invoice.tax_calculation_type === 'item_level') {
-    items.forEach((it: any) => {
-      const lineTotal = Number(it.quantity || 1) * Number(it.unit_price || 0);
-      const lineDiscount = Number(it.discount_rate || 0);
-      const lineTaxable = Math.max(0, lineTotal - lineDiscount);
-      const lineTaxRate = Number(it.tax_rate || 0);
-      const lineTax = (lineTaxable * lineTaxRate) / 100;
-      totalTax += lineTax;
-    });
-    taxAmount = totalTax;
-  } else if (hasCgstSgst) {
+  if (hasCgstSgst) {
     cgstAmount = (taxableAmount * cgstRate) / 100;
     sgstAmount = (taxableAmount * sgstRate) / 100;
     totalTax = cgstAmount + sgstAmount;
@@ -99,6 +91,17 @@ export function calculateTaxBreakdown(invoice: any, subtotal: number, items: any
   } else if (hasFlatTax) {
     taxAmount = (taxableAmount * taxRate) / 100;
     totalTax = taxAmount;
+  } else if (hasItemLevelTax) {
+    hasItemTax = true;
+    items.forEach((it: any) => {
+      const lineTotal = Number(it.quantity || 1) * Number(it.unit_price || 0);
+      const lineDiscount = Number(it.discount_rate || 0);
+      const lineTaxable = Math.max(0, lineTotal - lineDiscount);
+      const lineTaxRate = Number(it.tax_rate || 0);
+      const lineTax = (lineTaxable * lineTaxRate) / 100;
+      totalTax += lineTax;
+    });
+    taxAmount = totalTax;
   }
 
   const grandTotal = taxableAmount + totalTax;
@@ -118,9 +121,19 @@ export function calculateTaxBreakdown(invoice: any, subtotal: number, items: any
     hasFlatTax,
     taxRate,
     taxAmount,
+    hasItemTax,
     totalTax,
     grandTotal
   };
+}
+
+export function getItemDescriptionWithHsn(item: any): { title: string; subtitle: string | null } {
+  const title = item.description || 'Item';
+  const metaParts: string[] = [];
+  if (item.sku_hsn) metaParts.push(`HSN/SAC: ${item.sku_hsn}`);
+  if (item.tax_rate && Number(item.tax_rate) > 0) metaParts.push(`GST: ${item.tax_rate}%`);
+  const subtitle = metaParts.length > 0 ? metaParts.join(' • ') : null;
+  return { title, subtitle };
 }
 
 export function numberToWords(amount: number, currency: string = 'INR'): string {

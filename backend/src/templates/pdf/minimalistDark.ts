@@ -105,7 +105,12 @@ export function drawMinimalistDarkTemplate(params: PdfTemplateParams) {
     const rH = 20;
     if (y + rH > 560) { doc.addPage(); doc.rect(0, 0, 195, 842).fill('#0f172a'); y = 40; }
     doc.fillColor('#334155').font('Helvetica').fontSize(8);
-    doc.text(item.description, rightX + 6, y + 5, { width: 175 });
+    const itemDescMD = item.description || 'Item';
+    const hsnMetaMD = item.sku_hsn ? `HSN/SAC: ${item.sku_hsn}` : '';
+    const taxMetaMD = Number(item.tax_rate) > 0 ? `GST: ${item.tax_rate}%` : '';
+    const metaMD = [hsnMetaMD, taxMetaMD].filter(Boolean).join(' • ');
+    doc.text(itemDescMD, rightX + 6, y + 5, { width: 175 });
+    if (metaMD) { doc.fillColor('#64748b').font('Helvetica').fontSize(6.5).text(metaMD, rightX + 6, y + 14, { width: 175 }); }
     doc.text(formatCurrency(item.unit_price, invoice.currency), rightX + 185, y + 5, { width: 50, align: 'right' });
     doc.text(Number(item.quantity).toFixed(0), rightX + 240, y + 5, { width: 30, align: 'center' });
     doc.fillColor('#0f172a').font('Helvetica-Bold');
@@ -115,7 +120,7 @@ export function drawMinimalistDarkTemplate(params: PdfTemplateParams) {
   });
 
   y += 10;
-  const taxInfo = calculateTaxBreakdown(invoice, subtotal);
+  const taxInfo = calculateTaxBreakdown(invoice, subtotal, items);
   const words = numberToWords(taxInfo.grandTotal, invoice.currency);
 
   doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(8);
@@ -142,6 +147,10 @@ export function drawMinimalistDarkTemplate(params: PdfTemplateParams) {
     y += 13;
   } else if (taxInfo.hasFlatTax) {
     doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(8).text(`Tax (${taxInfo.taxRate}%):`, rightX + 140, y, { width: 110, align: 'right' });
+    doc.fillColor('#0f172a').font('Helvetica-Bold').text(formatCurrency(taxInfo.taxAmount, invoice.currency), rightX + 255, y, { width: 84, align: 'right' });
+    y += 13;
+  } else if (taxInfo.hasItemTax) {
+    doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(8).text('GST TAX (ITEM-WISE):', rightX + 140, y, { width: 110, align: 'right' });
     doc.fillColor('#0f172a').font('Helvetica-Bold').text(formatCurrency(taxInfo.taxAmount, invoice.currency), rightX + 255, y, { width: 84, align: 'right' });
     y += 13;
   }

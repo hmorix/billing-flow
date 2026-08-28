@@ -1272,3 +1272,168 @@ select.form-input {
   gap: 12px;
 }
 
+/* ─── Mobile Responsive Utilities ──────────────────────────── */
+
+/* Scrollable table wrapper for narrow screens */
+.mobile-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-md);
+}
+.mobile-table-scroll table {
+  min-width: 540px;
+}
+
+/* Modals: always cap width and allow scroll */
+.modal-responsive {
+  max-width: min(95vw, 720px) !important;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Invoice item card layout on mobile */
+@media (max-width: 768px) {
+  /* Prevent body horizontal scroll */
+  body { overflow-x: hidden; }
+
+  /* Page containers */
+  .page-container {
+    padding: 12px !important;
+  }
+
+  /* Card stacking */
+  .invoice-item-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border-color);
+  }
+  .invoice-item-row label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+  }
+
+  /* Hide table headers, show cards */
+  .invoice-items-table thead { display: none; }
+  .invoice-items-table tbody tr {
+    display: block;
+    margin-bottom: 12px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    padding: 12px;
+  }
+  .invoice-items-table tbody td {
+    display: flex;
+    flex-direction: column;
+    padding: 4px 0;
+    border: none;
+  }
+  .invoice-items-table tbody td::before {
+    content: attr(data-label);
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
+  /* InvoiceView table */
+  .invoice-view-table {
+    min-width: 420px;
+  }
+
+  /* Bottom action bar — make full width and stack */
+  .invoice-actions-bar {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  .invoice-actions-bar button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* Catalog modal full-width */
+  .catalog-modal-inner {
+    max-width: 95vw !important;
+    margin: 0 auto !important;
+    padding: 14px !important;
+  }
+
+  /* Package cards grid: single column on mobile */
+  .package-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* HSN badge inline wrapping */
+  .hsn-badge {
+    font-size: 0.68rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(99,102,241,0.15);
+    color: #818cf8;
+    word-break: break-word;
+    white-space: normal;
+  }
+
+  /* GST tag */
+  .gst-tag {
+    font-size: 0.68rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(16,185,129,0.13);
+    color: #34d399;
+  }
+
+  /* Stat cards in dashboard — 2 col grid */
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  /* Inputs full-width */
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  select,
+  textarea {
+    font-size: 16px !important; /* prevents iOS zoom */
+  }
+
+  /* Section headers */
+  .section-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+  .section-header .header-actions {
+    width: 100% !important;
+    flex-wrap: wrap !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .modal-responsive {
+    max-width: 98vw !important;
+    border-radius: var(--radius-md) !important;
+  }
+  .package-card-actions {
+    flex-direction: column !important;
+    gap: 6px !important;
+  }
+  .package-card-actions button {
+    width: 100% !important;
+  }
+}
+

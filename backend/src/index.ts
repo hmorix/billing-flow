@@ -241,6 +241,7 @@ async function ensureCatalogSchema(db: any) {
         item_type TEXT NOT NULL DEFAULT 'service',
         name TEXT NOT NULL,
         description TEXT,
+        sku_hsn TEXT,
         quantity REAL NOT NULL DEFAULT 1,
         unit_price REAL NOT NULL DEFAULT 0.00,
         tax_rate REAL DEFAULT 0.00,
@@ -301,6 +302,10 @@ async function ensureCatalogSchema(db: any) {
     `).catch(() => {});
     await executeSql(`
       ALTER TABLE invoice_items ADD COLUMN IF NOT EXISTS catalog_item_id TEXT;
+    `).catch(() => {});
+
+    await executeSql(`
+      ALTER TABLE package_items ADD COLUMN IF NOT EXISTS sku_hsn TEXT;
     `).catch(() => {});
 
     _catalogSchemaEnsured = true;
@@ -1552,8 +1557,8 @@ app.post('/api/catalog/packages', async (c) => {
       c.env.DB.prepare(`
         INSERT INTO package_items (
           id, package_id, catalog_item_id, item_type, name,
-          description, quantity, unit_price, tax_rate, discount_rate
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          description, sku_hsn, quantity, unit_price, tax_rate, discount_rate
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         crypto.randomUUID(),
         packageId,
@@ -1561,6 +1566,7 @@ app.post('/api/catalog/packages', async (c) => {
         it.itemType || it.item_type || 'service',
         (it.name || it.description || 'Bundled Item').trim(),
         it.description?.trim() || null,
+        it.skuHsn || it.sku_hsn || it.hsn_sac || null,
         Number(it.quantity) || 1,
         Number(it.unitPrice || it.unit_price) || 0,
         Number(it.taxRate || it.tax_rate) || 0,
@@ -1647,8 +1653,8 @@ app.put('/api/catalog/packages/:id', async (c) => {
         c.env.DB.prepare(`
           INSERT INTO package_items (
             id, package_id, catalog_item_id, item_type, name,
-            description, quantity, unit_price, tax_rate, discount_rate
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            description, sku_hsn, quantity, unit_price, tax_rate, discount_rate
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(
           crypto.randomUUID(),
           id,
@@ -1656,6 +1662,7 @@ app.put('/api/catalog/packages/:id', async (c) => {
           it.itemType || it.item_type || 'service',
           (it.name || it.description || 'Bundled Item').trim(),
           it.description?.trim() || null,
+          it.skuHsn || it.sku_hsn || it.hsn_sac || null,
           Number(it.quantity) || 1,
           Number(it.unitPrice || it.unit_price) || 0,
           Number(it.taxRate || it.tax_rate) || 0,
@@ -1732,8 +1739,8 @@ app.post('/api/catalog/packages/bulk-import', async (c) => {
         c.env.DB.prepare(`
           INSERT INTO package_items (
             id, package_id, catalog_item_id, item_type, name,
-            description, quantity, unit_price, tax_rate, discount_rate
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            description, sku_hsn, quantity, unit_price, tax_rate, discount_rate
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(
           crypto.randomUUID(),
           packageId,
@@ -1741,6 +1748,7 @@ app.post('/api/catalog/packages/bulk-import', async (c) => {
           it.itemType || it.item_type || 'service',
           (it.name || it.description || 'Bundled Item').trim(),
           it.description?.trim() || null,
+          it.skuHsn || it.sku_hsn || it.hsn_sac || null,
           Number(it.quantity) || 1,
           Number(it.unitPrice || it.unit_price) || 0,
           Number(it.taxRate || it.tax_rate) || 0,
