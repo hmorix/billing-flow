@@ -73,9 +73,14 @@ export function drawRetroBoldTemplate(params: PdfTemplateParams) {
     const hsnMeta = item.sku_hsn ? `HSN/SAC: ${item.sku_hsn}` : '';
     const taxMeta = Number(item.tax_rate) > 0 ? `GST: ${item.tax_rate}%` : '';
     const metaSubtitle = [hsnMeta, taxMeta].filter(Boolean).join(' • ');
-    const descH = doc.heightOfString(itemDesc, { width: 220, fontSize: 8 });
-    const subH = metaSubtitle ? 9 : 0;
-    const rowH = Math.max(24, descH + subH + 8);
+    doc.font('Courier').fontSize(8);
+    const descH = doc.heightOfString(itemDesc, { width: 220, lineGap: 1 });
+    let subH = 0;
+    if (metaSubtitle) {
+      doc.font('Helvetica-Bold').fontSize(6.8);
+      subH = doc.heightOfString(metaSubtitle, { width: 220, lineGap: 1 });
+    }
+    const rowH = Math.max(26, Math.ceil(descH + (metaSubtitle ? subH + 4 : 0) + 14));
 
     if (y + rowH > 620) {
       doc.addPage();
@@ -91,13 +96,17 @@ export function drawRetroBoldTemplate(params: PdfTemplateParams) {
     }
 
     if (i % 2 === 1) doc.rect(margin, y, contentWidth, rowH).fill('#f5ede8');
-    doc.fillColor('#9ca3af').font('Courier').fontSize(7.5).text(String(i + 1), margin + 4, y + 4, { width: 20 });
-    doc.fillColor(ink).text(itemDesc, margin + 28, y + 4, { width: 220 });
-    if (metaSubtitle) { doc.fillColor(ink).font('Helvetica-Bold').fontSize(6.5).text(metaSubtitle, margin + 28, y + 4 + descH + 1, { width: 220 }); }
-    doc.fillColor('#4b5563').text(formatCurrency(item.unit_price, invoice.currency), margin + 255, y + 4, { width: 75, align: 'right' });
-    doc.text(Number(item.quantity).toFixed(0), margin + 337, y + 4, { width: 45, align: 'center' });
-    doc.fillColor(ink).font('Courier-Bold').text(formatCurrency(itemTotal, invoice.currency), margin + 390, y + 4, { width: 115, align: 'right' });
-    doc.font('Courier');
+    const textY = y + 5;
+    doc.fillColor('#9ca3af').font('Courier').fontSize(7.5).text(String(i + 1), margin + 4, textY, { width: 20 });
+    doc.fillColor(ink).font('Courier').fontSize(8).text(itemDesc, margin + 28, textY, { width: 220, lineGap: 1 });
+    if (metaSubtitle) {
+      const subY = textY + descH + 3;
+      doc.fillColor(crimson).font('Helvetica-Bold').fontSize(6.8).text(metaSubtitle, margin + 28, subY, { width: 220, lineGap: 1 });
+    }
+    doc.fillColor('#4b5563').font('Courier').fontSize(8).text(formatCurrency(item.unit_price, invoice.currency), margin + 255, textY, { width: 75, align: 'right' });
+    doc.fillColor('#4b5563').font('Courier').fontSize(8).text(Number(item.quantity).toFixed(0), margin + 337, textY, { width: 45, align: 'center' });
+    doc.fillColor(ink).font('Courier-Bold').fontSize(8).text(formatCurrency(itemTotal, invoice.currency), margin + 390, textY, { width: 115, align: 'right' });
+    doc.font('Courier').fontSize(8);
     doc.strokeColor('#d1b89e').lineWidth(0.5).moveTo(margin, y + rowH).lineTo(margin + contentWidth, y + rowH).stroke();
     y += rowH;
   });
@@ -109,39 +118,45 @@ export function drawRetroBoldTemplate(params: PdfTemplateParams) {
   const words = numberToWords(taxInfo.grandTotal, invoice.currency);
   const calcX = margin + 270;
   const calcW = contentWidth - 270;
+  const summaryStartY = y;
 
-  doc.roundedRect(margin, y, 245, 50, 2).fill('#fffbf9');
-  doc.fillColor(crimson).font('Courier-Bold').fontSize(7.5).text('IN WORDS', margin + 8, y + 6);
-  doc.fillColor(ink).font('Courier-Oblique').fontSize(7.5).text(words, margin + 8, y + 18, { width: 230 });
+  doc.font('Courier-Oblique').fontSize(7.5);
+  const wordsH = Math.max(48, Math.ceil(doc.heightOfString(words, { width: 230, lineGap: 1 }) + 22));
+  doc.roundedRect(margin, summaryStartY, 245, wordsH, 2).fill('#fffbf9');
+  doc.fillColor(crimson).font('Courier-Bold').fontSize(7.5).text('IN WORDS', margin + 8, summaryStartY + 6);
+  doc.fillColor(ink).font('Courier-Oblique').fontSize(7.5).text(words, margin + 8, summaryStartY + 18, { width: 230, lineGap: 1 });
 
+  let calcY = summaryStartY;
   doc.fillColor('#4b5563').font('Courier-Bold').fontSize(8);
-  doc.text('SUBTOTAL :', calcX, y, { width: calcW - 110, align: 'right' });
-  doc.fillColor(ink).text(formatCurrency(taxInfo.subtotal, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' }); y += 13;
+  doc.text('SUBTOTAL :', calcX, calcY, { width: calcW - 110, align: 'right' });
+  doc.fillColor(ink).text(formatCurrency(taxInfo.subtotal, invoice.currency), calcX + calcW - 105, calcY, { width: 105, align: 'right' }); calcY += 14;
   if (taxInfo.discount > 0) {
-    doc.fillColor('#4b5563').text('DISCOUNT :', calcX, y, { width: calcW - 110, align: 'right' });
-    doc.fillColor('#dc2626').text('-' + formatCurrency(taxInfo.discount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' }); y += 13;
+    doc.fillColor('#4b5563').text('DISCOUNT :', calcX, calcY, { width: calcW - 110, align: 'right' });
+    doc.fillColor('#dc2626').text('-' + formatCurrency(taxInfo.discount, invoice.currency), calcX + calcW - 105, calcY, { width: 105, align: 'right' }); calcY += 14;
   }
   if (taxInfo.hasCgstSgst) {
-    doc.fillColor('#4b5563').text('CGST (' + taxInfo.cgstRate + '%) :', calcX, y, { width: calcW - 110, align: 'right' });
-    doc.fillColor(ink).text(formatCurrency(taxInfo.cgstAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' }); y += 13;
-    doc.fillColor('#4b5563').text('SGST (' + taxInfo.sgstRate + '%) :', calcX, y, { width: calcW - 110, align: 'right' });
-    doc.fillColor(ink).text(formatCurrency(taxInfo.sgstAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' }); y += 13;
+    doc.fillColor('#4b5563').text('CGST (' + taxInfo.cgstRate + '%) :', calcX, calcY, { width: calcW - 110, align: 'right' });
+    doc.fillColor(ink).text(formatCurrency(taxInfo.cgstAmount, invoice.currency), calcX + calcW - 105, calcY, { width: 105, align: 'right' }); calcY += 14;
+    doc.fillColor('#4b5563').text('SGST (' + taxInfo.sgstRate + '%) :', calcX, calcY, { width: calcW - 110, align: 'right' });
+    doc.fillColor(ink).text(formatCurrency(taxInfo.sgstAmount, invoice.currency), calcX + calcW - 105, calcY, { width: 105, align: 'right' }); calcY += 14;
   } else if (taxInfo.hasIgst) {
-    doc.fillColor('#4b5563').text('IGST (' + taxInfo.igstRate + '%) :', calcX, y, { width: calcW - 110, align: 'right' });
-    doc.fillColor(ink).text(formatCurrency(taxInfo.igstAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' }); y += 13;
+    doc.fillColor('#4b5563').text('IGST (' + taxInfo.igstRate + '%) :', calcX, calcY, { width: calcW - 110, align: 'right' });
+    doc.fillColor(ink).text(formatCurrency(taxInfo.igstAmount, invoice.currency), calcX + calcW - 105, calcY, { width: 105, align: 'right' }); calcY += 14;
   } else if (taxInfo.hasFlatTax) {
-    doc.fillColor('#4b5563').text('TAX (' + taxInfo.taxRate + '%) :', calcX, y, { width: calcW - 110, align: 'right' });
-    doc.fillColor(ink).text(formatCurrency(taxInfo.taxAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' }); y += 13;
+    doc.fillColor('#4b5563').text('TAX (' + taxInfo.taxRate + '%) :', calcX, calcY, { width: calcW - 110, align: 'right' });
+    doc.fillColor(ink).text(formatCurrency(taxInfo.taxAmount, invoice.currency), calcX + calcW - 105, calcY, { width: 105, align: 'right' }); calcY += 14;
   } else if (taxInfo.hasItemTax) {
-    doc.fillColor('#4b5563').text('GST TAX (ITEM-WISE) :', calcX, y, { width: calcW - 110, align: 'right' });
-    doc.fillColor(ink).text(formatCurrency(taxInfo.taxAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' }); y += 13;
+    doc.fillColor('#4b5563').text('GST TAX (ITEM-WISE) :', calcX, calcY, { width: calcW - 110, align: 'right' });
+    doc.fillColor(ink).text(formatCurrency(taxInfo.taxAmount, invoice.currency), calcX + calcW - 105, calcY, { width: 105, align: 'right' }); calcY += 14;
   }
 
-  doc.rect(calcX, y, calcW, 22).fill(crimson);
+  doc.rect(calcX, calcY, calcW, 22).fill(crimson);
   doc.fillColor('#fff').font('Courier-Bold').fontSize(9.5);
-  doc.text('TOTAL DUE:', calcX + 8, y + 6, { width: 100 });
-  doc.text(formatCurrency(taxInfo.grandTotal, invoice.currency), calcX + 100, y + 6, { width: calcW - 108, align: 'right' });
-  y = Math.max(y + 35, 455);
+  doc.text('TOTAL DUE:', calcX + 8, calcY + 6, { width: 100 });
+  doc.text(formatCurrency(taxInfo.grandTotal, invoice.currency), calcX + 100, calcY + 6, { width: calcW - 108, align: 'right' });
+  calcY += 22;
+
+  y = Math.max(summaryStartY + wordsH + 10, calcY + 14, 455);
 
   doc.rect(margin, y, contentWidth, 1.5).fill(crimson);
   y += 8;

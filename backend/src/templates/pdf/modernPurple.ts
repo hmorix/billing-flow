@@ -118,7 +118,6 @@ export function drawModernPurpleTemplate(params: PdfTemplateParams) {
   y = renderTableHeader(y);
 
   let subtotal = 0;
-  doc.font('Helvetica').fontSize(8);
 
   items.forEach((item: any, i: number) => {
     const itemTotal = Number(item.quantity) * Number(item.unit_price);
@@ -129,9 +128,14 @@ export function drawModernPurpleTemplate(params: PdfTemplateParams) {
     const taxMeta = Number(item.tax_rate) > 0 ? `GST: ${item.tax_rate}%` : '';
     const metaSubtitle = [hsnMeta, taxMeta].filter(Boolean).join(' • ');
 
-    const descHeight = doc.heightOfString(itemDesc, { width: 220, fontSize: 8 });
-    const subHeight = metaSubtitle ? 9 : 0;
-    const rowHeight = Math.max(24, descHeight + subHeight + 8);
+    doc.font('Helvetica').fontSize(8);
+    const descHeight = doc.heightOfString(itemDesc, { width: 220, lineGap: 1 });
+    let subHeight = 0;
+    if (metaSubtitle) {
+      doc.font('Helvetica-Bold').fontSize(6.8);
+      subHeight = doc.heightOfString(metaSubtitle, { width: 220, lineGap: 1 });
+    }
+    const rowHeight = Math.max(26, Math.ceil(descHeight + (metaSubtitle ? subHeight + 4 : 0) + 14));
 
     if (y + rowHeight > 620) {
       doc.addPage();
@@ -142,16 +146,18 @@ export function drawModernPurpleTemplate(params: PdfTemplateParams) {
       doc.rect(margin, y, contentWidth, rowHeight).fill('#f5f3ff');
     }
 
-    doc.fillColor('#6b7280').fontSize(8).font('Helvetica').text(String(i + 1), margin + 8, y + 6, { width: 20 });
-    doc.fillColor('#1f2937').fontSize(8).font('Helvetica').text(itemDesc, margin + 30, y + 6, { width: 220 });
+    const textY = y + 6;
+    doc.fillColor('#6b7280').font('Helvetica').fontSize(8).text(String(i + 1), margin + 8, textY, { width: 20 });
+    doc.fillColor('#1f2937').font('Helvetica').fontSize(8).text(itemDesc, margin + 30, textY, { width: 220, lineGap: 1 });
     if (metaSubtitle) {
-      doc.fillColor('#6366f1').fontSize(6.8).font('Helvetica-Bold').text(metaSubtitle, margin + 30, y + 6 + descHeight + 1, { width: 220 });
+      const subY = textY + descHeight + 3;
+      doc.fillColor('#6366f1').font('Helvetica-Bold').fontSize(6.8).text(metaSubtitle, margin + 30, subY, { width: 220, lineGap: 1 });
     }
 
-    doc.fillColor('#4b5563').fontSize(8).font('Helvetica').text(formatCurrency(item.unit_price, invoice.currency), margin + 255, y + 6, { width: 80, align: 'right' });
-    doc.text(Number(item.quantity).toFixed(0), margin + 340, y + 6, { width: 45, align: 'center' });
-    doc.fillColor('#111827').fontSize(8).font('Helvetica-Bold').text(formatCurrency(itemTotal, invoice.currency), margin + 390, y + 6, { width: 115, align: 'right' });
-    doc.font('Helvetica');
+    doc.fillColor('#4b5563').font('Helvetica').fontSize(8).text(formatCurrency(item.unit_price, invoice.currency), margin + 255, textY, { width: 80, align: 'right' });
+    doc.fillColor('#4b5563').font('Helvetica').fontSize(8).text(Number(item.quantity).toFixed(0), margin + 340, textY, { width: 45, align: 'center' });
+    doc.fillColor('#111827').font('Helvetica-Bold').fontSize(8).text(formatCurrency(itemTotal, invoice.currency), margin + 390, textY, { width: 115, align: 'right' });
+    doc.font('Helvetica').fontSize(8);
 
     doc.strokeColor('#f3f4f6')
        .lineWidth(0.8)
@@ -170,53 +176,58 @@ export function drawModernPurpleTemplate(params: PdfTemplateParams) {
 
   const calcX = margin + 270;
   const calcW = contentWidth - 270;
+  const summaryStartY = y;
 
   // Amount in words box on left
-  doc.roundedRect(margin, y, 255, 48, 4).fill('#f8fafc');
-  doc.fillColor(purple).font('Helvetica-Bold').fontSize(7.5).text('AMOUNT IN WORDS', margin + 8, y + 6);
-  doc.fillColor('#1f2937').font('Helvetica-Oblique').fontSize(7.5).text(words, margin + 8, y + 18, { width: 240 });
+  doc.font('Helvetica-Oblique').fontSize(7.5);
+  const wordsH = Math.max(48, Math.ceil(doc.heightOfString(words, { width: 240, lineGap: 1 }) + 22));
+  doc.roundedRect(margin, summaryStartY, 255, wordsH, 4).fill('#f8fafc');
+  doc.fillColor(purple).font('Helvetica-Bold').fontSize(7.5).text('AMOUNT IN WORDS', margin + 8, summaryStartY + 6);
+  doc.fillColor('#1f2937').font('Helvetica-Oblique').fontSize(7.5).text(words, margin + 8, summaryStartY + 18, { width: 240, lineGap: 1 });
 
   // Calculation lines on right
+  let calcY = summaryStartY;
   doc.fillColor('#4b5563').font('Helvetica-Bold').fontSize(8);
-  doc.text('SUBTOTAL :', calcX, y, { width: calcW - 110, align: 'right' });
-  doc.fillColor('#1f2937').text(formatCurrency(taxInfo.subtotal, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' });
-  y += 14;
+  doc.text('SUBTOTAL :', calcX, calcY, { width: calcW - 110, align: 'right' });
+  doc.fillColor('#1f2937').text(formatCurrency(taxInfo.subtotal, invoice.currency), calcX + calcW - 105, calcY, { width: 105, align: 'right' });
+  calcY += 14;
 
   if (taxInfo.discount > 0) {
-    doc.fillColor('#4b5563').text('DISCOUNT :', calcX, y, { width: calcW - 110, align: 'right' });
-    doc.fillColor('#ef4444').text(`-${formatCurrency(taxInfo.discount, invoice.currency)}`, calcX + calcW - 105, y, { width: 105, align: 'right' });
-    y += 14;
+    doc.fillColor('#4b5563').font('Helvetica-Bold').fontSize(8).text('DISCOUNT :', calcX, calcY, { width: calcW - 110, align: 'right' });
+    doc.fillColor('#ef4444').text(`-${formatCurrency(taxInfo.discount, invoice.currency)}`, calcX + calcW - 105, calcY, { width: 105, align: 'right' });
+    calcY += 14;
   }
 
   if (taxInfo.hasCgstSgst) {
-    doc.fillColor('#4b5563').text(`CGST (${taxInfo.cgstRate}%) :`, calcX, y, { width: calcW - 110, align: 'right' });
-    doc.fillColor('#1f2937').text(formatCurrency(taxInfo.cgstAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' });
-    y += 14;
+    doc.fillColor('#4b5563').font('Helvetica-Bold').fontSize(8).text(`CGST (${taxInfo.cgstRate}%) :`, calcX, calcY, { width: calcW - 110, align: 'right' });
+    doc.fillColor('#1f2937').text(formatCurrency(taxInfo.cgstAmount, invoice.currency), calcX + calcW - 105, calcY, { width: 105, align: 'right' });
+    calcY += 14;
 
-    doc.fillColor('#4b5563').text(`SGST (${taxInfo.sgstRate}%) :`, calcX, y, { width: calcW - 110, align: 'right' });
-    doc.fillColor('#1f2937').text(formatCurrency(taxInfo.sgstAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' });
-    y += 14;
+    doc.fillColor('#4b5563').font('Helvetica-Bold').fontSize(8).text(`SGST (${taxInfo.sgstRate}%) :`, calcX, calcY, { width: calcW - 110, align: 'right' });
+    doc.fillColor('#1f2937').text(formatCurrency(taxInfo.sgstAmount, invoice.currency), calcX + calcW - 105, calcY, { width: 105, align: 'right' });
+    calcY += 14;
   } else if (taxInfo.hasIgst) {
-    doc.fillColor('#4b5563').text(`IGST (${taxInfo.igstRate}%) :`, calcX, y, { width: calcW - 110, align: 'right' });
-    doc.fillColor('#1f2937').text(formatCurrency(taxInfo.igstAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' });
-    y += 14;
+    doc.fillColor('#4b5563').font('Helvetica-Bold').fontSize(8).text(`IGST (${taxInfo.igstRate}%) :`, calcX, calcY, { width: calcW - 110, align: 'right' });
+    doc.fillColor('#1f2937').text(formatCurrency(taxInfo.igstAmount, invoice.currency), calcX + calcW - 105, calcY, { width: 105, align: 'right' });
+    calcY += 14;
   } else if (taxInfo.hasFlatTax) {
-    doc.fillColor('#4b5563').text(`TAX (${taxInfo.taxRate}%) :`, calcX, y, { width: calcW - 110, align: 'right' });
-    doc.fillColor('#1f2937').text(formatCurrency(taxInfo.taxAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' });
-    y += 14;
+    doc.fillColor('#4b5563').font('Helvetica-Bold').fontSize(8).text(`TAX (${taxInfo.taxRate}%) :`, calcX, calcY, { width: calcW - 110, align: 'right' });
+    doc.fillColor('#1f2937').text(formatCurrency(taxInfo.taxAmount, invoice.currency), calcX + calcW - 105, calcY, { width: 105, align: 'right' });
+    calcY += 14;
   } else if (taxInfo.hasItemTax) {
-    doc.fillColor('#4b5563').text(`GST TAX (ITEM-WISE) :`, calcX, y, { width: calcW - 110, align: 'right' });
-    doc.fillColor('#1f2937').text(formatCurrency(taxInfo.taxAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' });
-    y += 14;
+    doc.fillColor('#4b5563').font('Helvetica-Bold').fontSize(8).text(`GST TAX (ITEM-WISE) :`, calcX, calcY, { width: calcW - 110, align: 'right' });
+    doc.fillColor('#1f2937').text(formatCurrency(taxInfo.taxAmount, invoice.currency), calcX + calcW - 105, calcY, { width: 105, align: 'right' });
+    calcY += 14;
   }
 
   // Grand Total banner
-  doc.roundedRect(calcX, y, calcW, 24, 4).fill(purple);
+  doc.roundedRect(calcX, calcY, calcW, 24, 4).fill(purple);
   doc.fillColor('#ffffff').fontSize(9.5).font('Helvetica-Bold');
-  doc.text('TOTAL DUE :', calcX + 8, y + 7, { width: 100, align: 'left' });
-  doc.text(formatCurrency(taxInfo.grandTotal, invoice.currency), calcX + 100, y + 7, { width: calcW - 108, align: 'right' });
+  doc.text('TOTAL DUE :', calcX + 8, calcY + 7, { width: 100, align: 'left' });
+  doc.text(formatCurrency(taxInfo.grandTotal, invoice.currency), calcX + 100, calcY + 7, { width: calcW - 108, align: 'right' });
+  calcY += 24;
 
-  y = Math.max(y + 36, 440);
+  y = Math.max(summaryStartY + wordsH + 10, calcY + 14, 440);
 
   // Thank You / Business Message Bar
   const thanksMsg = invoice.thanks_message || organization.thanks_message || 'Thank you for your business! We appreciate your trust.';

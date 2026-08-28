@@ -87,76 +87,95 @@ export function drawNavyGeometricTemplate(params: PdfTemplateParams) {
   items.forEach((item: any, i: number) => {
     const itemTotal = Number(item.quantity) * Number(item.unit_price);
     subtotal += itemTotal;
-    const rH = 20;
-    if (y + rH > 600) { doc.addPage(); y = 40; }
-    if (i % 2 === 1) doc.rect(margin, y, contentWidth, rH).fill('#f8fafc');
-    doc.fillColor('#6b7280').font('Helvetica').fontSize(7.5);
-    doc.text(String(i + 1), cX[0] + 6, y + 5, { width: cW[0] });
-    doc.fillColor('#1a1a1a').font('Helvetica').fontSize(8);
+
     const itemDescNG = item.description || 'Item';
     const hsnNG = item.sku_hsn ? `HSN/SAC: ${item.sku_hsn}` : '';
     const taxNG = Number(item.tax_rate) > 0 ? `GST: ${item.tax_rate}%` : '';
     const metaNG = [hsnNG, taxNG].filter(Boolean).join(' • ');
-    doc.text(itemDescNG, cX[1], y + 5, { width: cW[1] - 8 });
-    if (metaNG) { doc.fillColor('#4b5563').font('Helvetica').fontSize(6.5).text(metaNG, cX[1], y + 14, { width: cW[1] - 8 }); }
-    doc.text(formatCurrency(item.unit_price, invoice.currency), cX[2], y + 5, { width: cW[2], align: 'right' });
-    doc.text(Number(item.quantity).toFixed(0), cX[3], y + 5, { width: cW[3], align: 'center' });
-    doc.fillColor(navy).font('Helvetica-Bold');
-    doc.text(formatCurrency(itemTotal, invoice.currency), cX[4], y + 5, { width: cW[4] - 6, align: 'right' });
+
+    doc.font('Helvetica').fontSize(8);
+    const descH = doc.heightOfString(itemDescNG, { width: cW[1] - 8, lineGap: 1 });
+    let subH = 0;
+    if (metaNG) {
+      doc.font('Helvetica-Bold').fontSize(6.8);
+      subH = doc.heightOfString(metaNG, { width: cW[1] - 8, lineGap: 1 });
+    }
+    const rH = Math.max(26, Math.ceil(descH + (metaNG ? subH + 4 : 0) + 14));
+    if (y + rH > 600) { doc.addPage(); y = 40; }
+
+    if (i % 2 === 1) doc.rect(margin, y, contentWidth, rH).fill('#f8fafc');
+    const textY = y + 6;
+    doc.fillColor('#6b7280').font('Helvetica').fontSize(7.5);
+    doc.text(String(i + 1), cX[0] + 6, textY, { width: cW[0] });
+    doc.fillColor('#1a1a1a').font('Helvetica').fontSize(8);
+    doc.text(itemDescNG, cX[1], textY, { width: cW[1] - 8, lineGap: 1 });
+    if (metaNG) {
+      const subY = textY + descH + 3;
+      doc.fillColor(navy).font('Helvetica-Bold').fontSize(6.8).text(metaNG, cX[1], subY, { width: cW[1] - 8, lineGap: 1 });
+    }
+    doc.fillColor('#4b5563').font('Helvetica').fontSize(8).text(formatCurrency(item.unit_price, invoice.currency), cX[2], textY, { width: cW[2], align: 'right' });
+    doc.fillColor('#4b5563').font('Helvetica').fontSize(8).text(Number(item.quantity).toFixed(0), cX[3], textY, { width: cW[3], align: 'center' });
+    doc.fillColor(navy).font('Helvetica-Bold').fontSize(8).text(formatCurrency(itemTotal, invoice.currency), cX[4], textY, { width: cW[4] - 6, align: 'right' });
+    doc.font('Helvetica').fontSize(8);
     doc.strokeColor('#e5e7eb').lineWidth(0.5).moveTo(margin, y + rH).lineTo(margin + contentWidth, y + rH).stroke();
     y += rH;
   });
 
-  y += 8;
+  y += 10;
   const taxInfo = calculateTaxBreakdown(invoice, subtotal, items);
   const words = numberToWords(taxInfo.grandTotal, invoice.currency);
 
   const calcX = margin + 270;
   const calcW = contentWidth - 270;
+  const summaryStartY = y;
 
   // Words Box
-  doc.roundedRect(margin, y, 255, 48, 4).fill('#f8fafc');
-  doc.fillColor(navy).font('Helvetica-Bold').fontSize(7.5).text('AMOUNT IN WORDS', margin + 8, y + 6);
-  doc.fillColor('#1f2937').font('Helvetica-Oblique').fontSize(7.2).text(words, margin + 8, y + 18, { width: 240 });
+  doc.font('Helvetica-Oblique').fontSize(7.2);
+  const wordsH = Math.max(48, Math.ceil(doc.heightOfString(words, { width: 240, lineGap: 1 }) + 22));
+  doc.roundedRect(margin, summaryStartY, 255, wordsH, 4).fill('#f8fafc');
+  doc.fillColor(navy).font('Helvetica-Bold').fontSize(7.5).text('AMOUNT IN WORDS', margin + 8, summaryStartY + 6);
+  doc.fillColor('#1f2937').font('Helvetica-Oblique').fontSize(7.2).text(words, margin + 8, summaryStartY + 18, { width: 240, lineGap: 1 });
 
+  let calcY = summaryStartY;
   doc.fillColor('#4b5563').font('Helvetica-Bold').fontSize(8);
-  doc.text('SUB TOTAL :', calcX, y, { width: calcW - 110, align: 'right' });
-  doc.fillColor(navy).font('Helvetica-Bold').text(formatCurrency(subtotal, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' });
-  y += 13;
+  doc.text('SUB TOTAL :', calcX, calcY, { width: calcW - 110, align: 'right' });
+  doc.fillColor(navy).font('Helvetica-Bold').text(formatCurrency(subtotal, invoice.currency), calcX + calcW - 105, calcY, { width: 105, align: 'right' });
+  calcY += 14;
 
   if (taxInfo.discount > 0) {
-    doc.fillColor('#4b5563').text('DISCOUNT :', calcX, y, { width: calcW - 110, align: 'right' });
-    doc.fillColor('#ef4444').text(`-${formatCurrency(taxInfo.discount, invoice.currency)}`, calcX + calcW - 105, y, { width: 105, align: 'right' });
-    y += 13;
+    doc.fillColor('#4b5563').font('Helvetica-Bold').fontSize(8).text('DISCOUNT :', calcX, calcY, { width: calcW - 110, align: 'right' });
+    doc.fillColor('#ef4444').text(`-${formatCurrency(taxInfo.discount, invoice.currency)}`, calcX + calcW - 105, calcY, { width: 105, align: 'right' });
+    calcY += 14;
   }
 
   if (taxInfo.hasCgstSgst) {
-    doc.fillColor('#4b5563').text(`CGST (${taxInfo.cgstRate}%) :`, calcX, y, { width: calcW - 110, align: 'right' });
-    doc.fillColor(navy).text(formatCurrency(taxInfo.cgstAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' });
-    y += 13;
-    doc.fillColor('#4b5563').text(`SGST (${taxInfo.sgstRate}%) :`, calcX, y, { width: calcW - 110, align: 'right' });
-    doc.fillColor(navy).text(formatCurrency(taxInfo.sgstAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' });
-    y += 13;
+    doc.fillColor('#4b5563').font('Helvetica-Bold').fontSize(8).text(`CGST (${taxInfo.cgstRate}%) :`, calcX, calcY, { width: calcW - 110, align: 'right' });
+    doc.fillColor(navy).text(formatCurrency(taxInfo.cgstAmount, invoice.currency), calcX + calcW - 105, calcY, { width: 105, align: 'right' });
+    calcY += 14;
+    doc.fillColor('#4b5563').font('Helvetica-Bold').fontSize(8).text(`SGST (${taxInfo.sgstRate}%) :`, calcX, calcY, { width: calcW - 110, align: 'right' });
+    doc.fillColor(navy).text(formatCurrency(taxInfo.sgstAmount, invoice.currency), calcX + calcW - 105, calcY, { width: 105, align: 'right' });
+    calcY += 14;
   } else if (taxInfo.hasIgst) {
-    doc.fillColor('#4b5563').text(`IGST (${taxInfo.igstRate}%) :`, calcX, y, { width: calcW - 110, align: 'right' });
-    doc.fillColor(navy).text(formatCurrency(taxInfo.igstAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' });
-    y += 13;
+    doc.fillColor('#4b5563').font('Helvetica-Bold').fontSize(8).text(`IGST (${taxInfo.igstRate}%) :`, calcX, calcY, { width: calcW - 110, align: 'right' });
+    doc.fillColor(navy).text(formatCurrency(taxInfo.igstAmount, invoice.currency), calcX + calcW - 105, calcY, { width: 105, align: 'right' });
+    calcY += 14;
   } else if (taxInfo.hasFlatTax) {
-    doc.fillColor('#4b5563').text(`TAX (${taxInfo.taxRate}%) :`, calcX, y, { width: calcW - 110, align: 'right' });
-    doc.fillColor(navy).text(formatCurrency(taxInfo.taxAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' });
-    y += 13;
+    doc.fillColor('#4b5563').font('Helvetica-Bold').fontSize(8).text(`TAX (${taxInfo.taxRate}%) :`, calcX, calcY, { width: calcW - 110, align: 'right' });
+    doc.fillColor(navy).text(formatCurrency(taxInfo.taxAmount, invoice.currency), calcX + calcW - 105, calcY, { width: 105, align: 'right' });
+    calcY += 14;
   } else if (taxInfo.hasItemTax) {
-    doc.fillColor('#4b5563').text('GST TAX (ITEM-WISE) :', calcX, y, { width: calcW - 110, align: 'right' });
-    doc.fillColor(navy).text(formatCurrency(taxInfo.taxAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' });
-    y += 13;
+    doc.fillColor('#4b5563').font('Helvetica-Bold').fontSize(8).text('GST TAX (ITEM-WISE) :', calcX, calcY, { width: calcW - 110, align: 'right' });
+    doc.fillColor(navy).text(formatCurrency(taxInfo.taxAmount, invoice.currency), calcX + calcW - 105, calcY, { width: 105, align: 'right' });
+    calcY += 14;
   }
 
-  doc.roundedRect(calcX, y, calcW, 24, 4).fill(navy);
+  doc.roundedRect(calcX, calcY, calcW, 24, 4).fill(navy);
   doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(9.5);
-  doc.text('TOTAL DUE :', calcX + 8, y + 7, { width: 100, align: 'left' });
-  doc.text(formatCurrency(taxInfo.grandTotal, invoice.currency), calcX + 100, y + 7, { width: calcW - 108, align: 'right' });
+  doc.text('TOTAL DUE :', calcX + 8, calcY + 7, { width: 100, align: 'left' });
+  doc.text(formatCurrency(taxInfo.grandTotal, invoice.currency), calcX + 100, calcY + 7, { width: calcW - 108, align: 'right' });
+  calcY += 24;
 
-  y = Math.max(y + 34, 435);
+  y = Math.max(summaryStartY + wordsH + 10, calcY + 14, 435);
 
   // Thanks banner
   const thanksMsg = invoice.thanks_message || organization.thanks_message || 'Thank you for choosing our business!';

@@ -112,20 +112,34 @@ export function drawSidebarMonoTemplate(params: PdfTemplateParams) {
   items.forEach((item: any, i: number) => {
     const itemTotal = Number(item.quantity) * Number(item.unit_price);
     subtotal += itemTotal;
-    const rH = 20;
-    if (y + rH > 560) { doc.addPage(); doc.rect(0, 0, sideW, 842).fill('#18181b'); y = 40; }
-    if (i % 2 === 1) doc.rect(col1, y, bodyW, rH).fill('#fafafa');
-    doc.fillColor('#27272a').font('Helvetica').fontSize(8);
+
     const itemDescSM = item.description || 'Item';
     const hsnSM = item.sku_hsn ? `HSN/SAC: ${item.sku_hsn}` : '';
     const taxSM = Number(item.tax_rate) > 0 ? `GST: ${item.tax_rate}%` : '';
     const metaSM = [hsnSM, taxSM].filter(Boolean).join(' • ');
-    doc.text(itemDescSM, col1 + 8, y + 5, { width: 170 });
-    if (metaSM) { doc.fillColor('#71717a').font('Helvetica').fontSize(6.5).text(metaSM, col1 + 8, y + 14, { width: 170 }); }
-    doc.text(formatCurrency(item.unit_price, invoice.currency), col2, y + 5, { width: 60, align: 'right' });
-    doc.text(Number(item.quantity).toFixed(0), col3, y + 5, { width: 40, align: 'center' });
-    doc.fillColor('#18181b').font('Helvetica-Bold');
-    doc.text(formatCurrency(itemTotal, invoice.currency), col4, y + 5, { width: bodyW - (col4 - col1) - 6, align: 'right' });
+
+    doc.font('Helvetica').fontSize(8);
+    const descH = doc.heightOfString(itemDescSM, { width: 170, lineGap: 1 });
+    let subH = 0;
+    if (metaSM) {
+      doc.font('Helvetica-Bold').fontSize(6.8);
+      subH = doc.heightOfString(metaSM, { width: 170, lineGap: 1 });
+    }
+    const rH = Math.max(26, Math.ceil(descH + (metaSM ? subH + 4 : 0) + 14));
+    if (y + rH > 560) { doc.addPage(); doc.rect(0, 0, sideW, 842).fill('#18181b'); y = 40; }
+
+    if (i % 2 === 1) doc.rect(col1, y, bodyW, rH).fill('#fafafa');
+    const textY = y + 6;
+    doc.fillColor('#27272a').font('Helvetica').fontSize(8);
+    doc.text(itemDescSM, col1 + 8, textY, { width: 170, lineGap: 1 });
+    if (metaSM) {
+      const subY = textY + descH + 3;
+      doc.fillColor('#71717a').font('Helvetica-Bold').fontSize(6.8).text(metaSM, col1 + 8, subY, { width: 170, lineGap: 1 });
+    }
+    doc.fillColor('#27272a').font('Helvetica').fontSize(8).text(formatCurrency(item.unit_price, invoice.currency), col2, textY, { width: 60, align: 'right' });
+    doc.fillColor('#27272a').font('Helvetica').fontSize(8).text(Number(item.quantity).toFixed(0), col3, textY, { width: 40, align: 'center' });
+    doc.fillColor('#18181b').font('Helvetica-Bold').fontSize(8).text(formatCurrency(itemTotal, invoice.currency), col4, textY, { width: bodyW - (col4 - col1) - 6, align: 'right' });
+    doc.font('Helvetica').fontSize(8);
     doc.strokeColor('#e4e4e7').lineWidth(0.5).moveTo(col1, y + rH).lineTo(col1 + bodyW, y + rH).stroke();
     y += rH;
   });

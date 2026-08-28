@@ -102,19 +102,33 @@ export function drawMinimalistDarkTemplate(params: PdfTemplateParams) {
   items.forEach((item: any) => {
     const itemTotal = Number(item.quantity) * Number(item.unit_price);
     subtotal += itemTotal;
-    const rH = 20;
-    if (y + rH > 560) { doc.addPage(); doc.rect(0, 0, 195, 842).fill('#0f172a'); y = 40; }
-    doc.fillColor('#334155').font('Helvetica').fontSize(8);
+
     const itemDescMD = item.description || 'Item';
     const hsnMetaMD = item.sku_hsn ? `HSN/SAC: ${item.sku_hsn}` : '';
     const taxMetaMD = Number(item.tax_rate) > 0 ? `GST: ${item.tax_rate}%` : '';
     const metaMD = [hsnMetaMD, taxMetaMD].filter(Boolean).join(' • ');
-    doc.text(itemDescMD, rightX + 6, y + 5, { width: 175 });
-    if (metaMD) { doc.fillColor('#64748b').font('Helvetica').fontSize(6.5).text(metaMD, rightX + 6, y + 14, { width: 175 }); }
-    doc.text(formatCurrency(item.unit_price, invoice.currency), rightX + 185, y + 5, { width: 50, align: 'right' });
-    doc.text(Number(item.quantity).toFixed(0), rightX + 240, y + 5, { width: 30, align: 'center' });
-    doc.fillColor('#0f172a').font('Helvetica-Bold');
-    doc.text(formatCurrency(itemTotal, invoice.currency), rightX + 275, y + 5, { width: 64, align: 'right' });
+
+    doc.font('Helvetica').fontSize(8);
+    const descH = doc.heightOfString(itemDescMD, { width: 175, lineGap: 1 });
+    let subH = 0;
+    if (metaMD) {
+      doc.font('Helvetica-Bold').fontSize(6.8);
+      subH = doc.heightOfString(metaMD, { width: 175, lineGap: 1 });
+    }
+    const rH = Math.max(26, Math.ceil(descH + (metaMD ? subH + 4 : 0) + 14));
+    if (y + rH > 560) { doc.addPage(); doc.rect(0, 0, 195, 842).fill('#0f172a'); y = 40; }
+
+    const textY = y + 6;
+    doc.fillColor('#334155').font('Helvetica').fontSize(8);
+    doc.text(itemDescMD, rightX + 6, textY, { width: 175, lineGap: 1 });
+    if (metaMD) {
+      const subY = textY + descH + 3;
+      doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(6.8).text(metaMD, rightX + 6, subY, { width: 175, lineGap: 1 });
+    }
+    doc.fillColor('#475569').font('Helvetica').fontSize(8).text(formatCurrency(item.unit_price, invoice.currency), rightX + 185, textY, { width: 50, align: 'right' });
+    doc.fillColor('#475569').font('Helvetica').fontSize(8).text(Number(item.quantity).toFixed(0), rightX + 240, textY, { width: 30, align: 'center' });
+    doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8).text(formatCurrency(itemTotal, invoice.currency), rightX + 275, textY, { width: 64, align: 'right' });
+    doc.font('Helvetica').fontSize(8);
     doc.strokeColor('#e2e8f0').lineWidth(0.5).moveTo(rightX, y + rH).lineTo(rightX + contentWidth, y + rH).stroke();
     y += rH;
   });
