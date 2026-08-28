@@ -139,8 +139,11 @@ export function drawOrangeAccentTemplate(params: PdfTemplateParams) {
     doc.fillColor(darkCol).text(formatCurrency(taxInfo.igstAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' });
     y += 13;
   } else if (taxInfo.hasFlatTax) {
-    doc.fillColor('#4b5563').text(`TAX (${taxInfo.taxRate}
-  } else if (taxInfo.hasItemTax) { doc.fillColor('#4b5563').text('GST TAX (ITEM-WISE) :', calcX, y, { width: calcW - 110, align: 'right' }); doc.fillColor('#111827').text(formatCurrency(taxInfo.taxAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' }); y += 14; }%) :`, calcX, y, { width: calcW - 110, align: 'right' });
+    doc.fillColor('#4b5563').text(`TAX (${taxInfo.taxRate}%) :`, calcX, y, { width: calcW - 110, align: 'right' });
+    doc.fillColor(darkCol).text(formatCurrency(taxInfo.taxAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' });
+    y += 13;
+  } else if (taxInfo.hasItemTax) {
+    doc.fillColor('#4b5563').text('GST TAX (ITEM-WISE) :', calcX, y, { width: calcW - 110, align: 'right' });
     doc.fillColor(darkCol).text(formatCurrency(taxInfo.taxAmount, invoice.currency), calcX + calcW - 105, y, { width: 105, align: 'right' });
     y += 13;
   }
