@@ -112,115 +112,309 @@ export const Invoices: React.FC = () => {
   };
 
   const generatePNG = (inv: any, org: any) => {
+    const scale = 3; // 3x scaling for ultra-crisp Full HD+ / 300 DPI quality
+    const baseW = 860;
+    
+    // Dynamic height calculation
+    const itemCount = (inv.items || []).length;
+    const baseH = Math.max(1200, 750 + (itemCount * 45) + 380);
+
     const canvas = document.createElement('canvas');
-    canvas.width = 800;
-    canvas.height = 1100;
+    canvas.width = baseW * scale;
+    canvas.height = baseH * scale;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear / background
+    ctx.scale(scale, scale);
+    ctx.textBaseline = 'top';
+
+    // Background
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, baseW, baseH);
 
-    // Header Brand Accent
+    // Decorative top brand bar
     ctx.fillStyle = '#6366f1';
-    ctx.fillRect(40, 40, 15, 15);
+    ctx.fillRect(0, 0, baseW, 8);
 
+    // Header Left: Organization / Brand
+    const orgName = org?.name || 'My Business LLC';
     ctx.fillStyle = '#1e1b4b';
-    ctx.font = 'bold 22px sans-serif';
-    ctx.fillText('INVOICE', 40, 95);
+    ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText(orgName, 44, 40);
 
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText('TAX INVOICE / OFFICIAL BILL', 44, 72);
+
+    let orgY = 94;
+    if (org?.address) {
+      ctx.fillStyle = '#4b5563';
+      ctx.fillText(org.address, 44, orgY);
+      orgY += 18;
+    }
+    const orgMeta = [
+      org?.tax_id ? `GSTIN: ${org.tax_id}` : '',
+      org?.phone ? `Ph: ${org.phone}` : '',
+      org?.email ? `Email: ${org.email}` : ''
+    ].filter(Boolean).join('  |  ');
+    if (orgMeta) {
+      ctx.fillStyle = '#374151';
+      ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText(orgMeta, 44, orgY);
+      orgY += 18;
+    }
+
+    // Header Right: Invoice Title & Meta
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#6366f1';
+    ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText('INVOICE', baseW - 44, 40);
+
+    ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = '#4b5563';
-    ctx.font = '12px sans-serif';
-    ctx.fillText(`Invoice No: ${inv.invoice_number}`, 40, 120);
-    ctx.fillText(`Date: ${new Date(inv.issue_date).toLocaleDateString()}`, 40, 138);
-    ctx.fillText(`Due Date: ${new Date(inv.due_date).toLocaleDateString()}`, 40, 156);
+    ctx.fillText(`Invoice No: ${inv.invoice_number}`, baseW - 44, 72);
+    ctx.fillText(`Issue Date: ${new Date(inv.issue_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, baseW - 44, 90);
+    ctx.fillText(`Due Date: ${new Date(inv.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, baseW - 44, 108);
 
-    // Divider line
-    ctx.strokeStyle = '#e5e7eb';
-    ctx.lineWidth = 1;
+    // Status pill
+    const statusText = (inv.status || 'UNPAID').toUpperCase();
+    const statusColor = statusText === 'PAID' ? '#10b981' : statusText === 'OVERDUE' ? '#ef4444' : '#6366f1';
+    ctx.fillStyle = statusColor;
+    ctx.fillRect(baseW - 130, 130, 86, 22);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(statusText, baseW - 87, 135);
+
+    ctx.textAlign = 'left';
+
+    // Divider Line
+    const dividerY = Math.max(orgY + 12, 165);
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(40, 185);
-    ctx.lineTo(760, 185);
+    ctx.moveTo(44, dividerY);
+    ctx.lineTo(baseW - 44, dividerY);
     ctx.stroke();
 
-    // Billed From / Billed To
-    ctx.fillStyle = '#1f2937';
-    ctx.font = 'bold 12px sans-serif';
-    ctx.fillText('BILLED FROM:', 40, 220);
-    ctx.font = '12px sans-serif';
-    ctx.fillText(org?.name || 'Company LLC', 40, 238);
-    ctx.fillText(org?.address || 'HQ Address', 40, 256);
+    // Client & Billed To Card
+    const cardY = dividerY + 16;
+    const cardW = (baseW - 104) / 2;
+    const cardH = 95;
 
-    ctx.font = 'bold 12px sans-serif';
-    ctx.fillText('BILLED TO:', 450, 220);
-    ctx.font = '12px sans-serif';
-    ctx.fillText(inv.client_name, 450, 238);
-    ctx.fillText(inv.client_company || '', 450, 256);
-    ctx.fillText(inv.client_address || '', 450, 274);
+    // Seller Box
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(44, cardY, cardW, cardH);
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.strokeRect(44, cardY, cardW, cardH);
+
+    ctx.fillStyle = '#6366f1';
+    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText('BILLED FROM (SELLER)', 56, cardY + 10);
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText(orgName, 56, cardY + 28);
+    ctx.fillStyle = '#64748b';
+    ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText(org?.address || 'Headquarters Address', 56, cardY + 46);
+    if (org?.tax_id) {
+      ctx.fillStyle = '#334155';
+      ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText(`GSTIN: ${org.tax_id}`, 56, cardY + 68);
+    }
+
+    // Buyer Box
+    const buyerX = 44 + cardW + 16;
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(buyerX, cardY, cardW, cardH);
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.strokeRect(buyerX, cardY, cardW, cardH);
+
+    ctx.fillStyle = '#6366f1';
+    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText('BILLED TO (BUYER / CLIENT)', buyerX + 12, cardY + 10);
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText(inv.client_name || 'Client', buyerX + 12, cardY + 28);
+    ctx.fillStyle = '#64748b';
+    ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    const clientSub = [inv.client_company, inv.client_address].filter(Boolean).join(' - ') || 'Client Address';
+    ctx.fillText(clientSub, buyerX + 12, cardY + 46);
+    if (inv.client_tax_id) {
+      ctx.fillStyle = '#334155';
+      ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText(`GSTIN: ${inv.client_tax_id}`, buyerX + 12, cardY + 68);
+    }
 
     // Table Header
+    let tableY = cardY + cardH + 20;
+    const tableW = baseW - 88;
     ctx.fillStyle = '#6366f1';
-    ctx.fillRect(40, 320, 720, 28);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 11px sans-serif';
-    ctx.fillText('DESCRIPTION', 50, 338);
-    ctx.fillText('QTY', 480, 338);
-    ctx.fillText('UNIT PRICE', 580, 338);
-    ctx.fillText('TOTAL AMOUNT', 680, 338);
+    ctx.fillRect(44, tableY, tableW, 32);
 
-    // Table items
-    let y = 375;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText('#', 54, tableY + 9);
+    ctx.fillText('ITEM / SERVICE DESCRIPTION', 84, tableY + 9);
+    ctx.fillText('HSN/SAC', 420, tableY + 9);
+    ctx.textAlign = 'right';
+    ctx.fillText('RATE', 560, tableY + 9);
+    ctx.textAlign = 'center';
+    ctx.fillText('QTY', 620, tableY + 9);
+    ctx.textAlign = 'right';
+    ctx.fillText('GST %', 690, tableY + 9);
+    ctx.fillText('TOTAL AMOUNT', baseW - 54, tableY + 9);
+    ctx.textAlign = 'left';
+
+    tableY += 32;
+
+    // Items rendering
     let subtotal = 0;
-    ctx.fillStyle = '#1f2937';
-    ctx.font = '12px sans-serif';
-    inv.items.forEach((item: any) => {
+    const currency = inv.currency || 'INR';
+
+    (inv.items || []).forEach((item: any, idx: number) => {
+      const rowH = 42;
       const total = Number(item.quantity) * Number(item.unit_price);
       subtotal += total;
-      ctx.fillText(item.description, 50, y);
-      ctx.fillText(String(item.quantity), 480, y);
-      ctx.fillText(`${inv.currency} ${Number(item.unit_price).toFixed(2)}`, 580, y);
-      ctx.fillText(`${inv.currency} ${total.toFixed(2)}`, 680, y);
-      
-      ctx.strokeStyle = '#f3f4f6';
+
+      if (idx % 2 === 1) {
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(44, tableY, tableW, rowH);
+      }
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText(String(idx + 1), 54, tableY + 12);
+
+      ctx.fillStyle = '#1e293b';
+      ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText(item.description || 'Item', 84, tableY + 7);
+
+      const itemType = (item.item_type || '').toUpperCase();
+      if (itemType && itemType !== 'CUSTOM') {
+        ctx.fillStyle = '#6366f1';
+        ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.fillText(`[${itemType}]`, 84, tableY + 24);
+      }
+
+      ctx.fillStyle = '#475569';
+      ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText(item.sku_hsn || '-', 420, tableY + 12);
+
+      ctx.textAlign = 'right';
+      ctx.fillText(`${currency} ${Number(item.unit_price).toFixed(2)}`, 560, tableY + 12);
+      ctx.textAlign = 'center';
+      ctx.fillText(Number(item.quantity).toFixed(0), 620, tableY + 12);
+      ctx.textAlign = 'right';
+      ctx.fillText(`${Number(item.tax_rate || 0)}%`, 690, tableY + 12);
+      ctx.fillStyle = '#1e293b';
+      ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText(`${currency} ${total.toFixed(2)}`, baseW - 54, tableY + 12);
+      ctx.textAlign = 'left';
+
+      ctx.strokeStyle = '#e2e8f0';
       ctx.beginPath();
-      ctx.moveTo(40, y + 10);
-      ctx.lineTo(760, y + 10);
+      ctx.moveTo(44, tableY + rowH);
+      ctx.lineTo(baseW - 44, tableY + rowH);
       ctx.stroke();
-      y += 35;
+
+      tableY += rowH;
     });
 
-    // Totals
+    tableY += 16;
+
+    // Calculations Summary
     const discount = Number(inv.discount || 0);
-    const taxRate = Number(inv.tax_rate || 0);
     const taxable = Math.max(0, subtotal - discount);
-    const tax = taxable * (taxRate / 100);
-    const grandTotal = taxable + tax;
+    const flatTaxRate = Number(inv.tax_rate || 0);
+    const flatTax = taxable * (flatTaxRate / 100);
+    const grandTotal = taxable + flatTax;
 
-    ctx.fillStyle = '#4b5563';
-    ctx.font = '12px sans-serif';
-    ctx.fillText('Subtotal:', 500, y + 20);
-    ctx.fillText(`${inv.currency} ${subtotal.toFixed(2)}`, 680, y + 20);
+    const summaryW = 320;
+    const summaryX = baseW - 44 - summaryW;
+    let calcY = tableY;
 
-    ctx.fillText('Discount:', 500, y + 40);
-    ctx.fillText(`-${inv.currency} ${discount.toFixed(2)}`, 680, y + 40);
+    // Summary Stack Box
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(summaryX, calcY, summaryW, 140);
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.strokeRect(summaryX, calcY, summaryW, 140);
 
-    ctx.fillText(`Tax (${taxRate}%):`, 500, y + 60);
-    ctx.fillText(`${inv.currency} ${tax.toFixed(2)}`, 680, y + 60);
+    const drawSummaryRow = (label: string, val: string, isBold = false, color = '#1e293b') => {
+      ctx.fillStyle = '#64748b';
+      ctx.font = `${isBold ? 'bold ' : ''}12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+      ctx.fillText(label, summaryX + 16, calcY + 12);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = color;
+      ctx.font = `${isBold ? 'bold ' : ''}12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+      ctx.fillText(val, summaryX + summaryW - 16, calcY + 12);
+      ctx.textAlign = 'left';
+      calcY += 26;
+    };
+
+    drawSummaryRow('Subtotal:', `${currency} ${subtotal.toFixed(2)}`);
+    if (discount > 0) {
+      drawSummaryRow('Discount:', `-${currency} ${discount.toFixed(2)}`, false, '#ef4444');
+    }
+    if (flatTaxRate > 0) {
+      drawSummaryRow(`GST Tax (${flatTaxRate}%):`, `+${currency} ${flatTax.toFixed(2)}`);
+    }
+
+    // Grand Total Banner
+    ctx.fillStyle = '#6366f1';
+    ctx.fillRect(summaryX, calcY, summaryW, 36);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText('TOTAL DUE:', summaryX + 16, calcY + 10);
+    ctx.textAlign = 'right';
+    ctx.fillText(`${currency} ${grandTotal.toFixed(2)}`, summaryX + summaryW - 16, calcY + 10);
+    ctx.textAlign = 'left';
+
+    // Left Box: Bank Details & Notes
+    const leftW = summaryX - 44 - 20;
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(44, tableY, leftW, 140);
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.strokeRect(44, tableY, leftW, 140);
 
     ctx.fillStyle = '#6366f1';
-    ctx.font = 'bold 14px sans-serif';
-    ctx.fillText('Total Due:', 500, y + 90);
-    ctx.fillText(`${inv.currency} ${grandTotal.toFixed(2)}`, 680, y + 90);
+    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText('PAYMENT / BANK DETAILS', 56, tableY + 10);
 
-    // Notes
+    let bY = tableY + 28;
+    ctx.fillStyle = '#334155';
+    ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    if (org?.bank_name) { ctx.fillText(`Bank: ${org.bank_name}`, 56, bY); bY += 16; }
+    if (org?.bank_account_no) { ctx.fillText(`A/C: ${org.bank_account_no}`, 56, bY); bY += 16; }
+    if (org?.bank_ifsc) { ctx.fillText(`IFSC: ${org.bank_ifsc}`, 56, bY); bY += 16; }
+    if (org?.bank_upi_id) { ctx.fillText(`UPI: ${org.bank_upi_id}`, 56, bY); bY += 16; }
+
+    const bottomY = Math.max(calcY + 50, tableY + 160);
+
+    // Terms / Notes
     if (inv.notes) {
-      ctx.fillStyle = '#4b5563';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillText('Notes / Terms & Conditions:', 40, y + 40);
-      ctx.font = '11px sans-serif';
-      ctx.fillText(inv.notes, 40, y + 60);
+      ctx.fillStyle = '#6366f1';
+      ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText('Terms & Conditions / Notes:', 44, bottomY);
+      ctx.fillStyle = '#64748b';
+      ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText(inv.notes, 44, bottomY + 16);
     }
+
+    // Signatory
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText(`For ${orgName}`, baseW - 44, bottomY);
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.beginPath();
+    ctx.moveTo(baseW - 200, bottomY + 36);
+    ctx.lineTo(baseW - 44, bottomY + 36);
+    ctx.stroke();
+    ctx.fillStyle = '#475569';
+    ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText('Authorized Signatory', baseW - 44, bottomY + 42);
+    ctx.textAlign = 'left';
 
     // Trigger download
     const image = canvas.toDataURL('image/png');
@@ -235,123 +429,205 @@ export const Invoices: React.FC = () => {
   const generateWordDoc = (inv: any, org: any) => {
     const orgName = org?.name || 'Company LLC';
     const orgAddress = org?.address || 'HQ Address';
-    const clientName = inv.client_name;
+    const orgTaxId = org?.tax_id ? `GSTIN / Tax ID: ${org.tax_id}` : '';
+    const orgPhone = org?.phone ? `Ph: ${org.phone}` : '';
+    const orgEmail = org?.email ? `Email: ${org.email}` : '';
+
+    const clientName = inv.client_name || 'Client';
     const clientCompany = inv.client_company || '';
     const clientAddress = inv.client_address || '';
-    const currency = inv.currency || 'USD';
+    const clientTaxId = inv.client_tax_id ? `GSTIN: ${inv.client_tax_id}` : '';
+
+    const currency = inv.currency || 'INR';
 
     let itemsHtml = '';
-    inv.items.forEach((item: any) => {
+    (inv.items || []).forEach((item: any, idx: number) => {
       const itemTotal = Number(item.quantity) * Number(item.unit_price);
       itemsHtml += `
-        <tr>
-          <td style="padding: 8px; border: 1px solid #ddd;">${item.description}</td>
-          <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${item.quantity}</td>
-          <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${currency} ${Number(item.unit_price).toFixed(2)}</td>
-          <td style="padding: 8px; border: 1px solid #ddd; text-align: right; font-weight: bold;">${currency} ${itemTotal.toFixed(2)}</td>
+        <tr style="background-color: ${idx % 2 === 1 ? '#f9fafb' : '#ffffff'};">
+          <td style="padding: 10px; border: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 10pt;">${idx + 1}</td>
+          <td style="padding: 10px; border: 1px solid #e5e7eb; font-size: 10.5pt;">
+            <strong>${item.description || 'Item'}</strong>
+            ${item.item_type && item.item_type !== 'custom' ? `<span style="font-size: 8pt; color: #6366f1; font-weight: bold; margin-left: 6px;">[${item.item_type.toUpperCase()}]</span>` : ''}
+          </td>
+          <td style="padding: 10px; border: 1px solid #e5e7eb; text-align: center; font-size: 10pt; color: #4b5563;">${item.sku_hsn || '-'}</td>
+          <td style="padding: 10px; border: 1px solid #e5e7eb; text-align: right; font-size: 10.5pt;">${currency} ${Number(item.unit_price).toFixed(2)}</td>
+          <td style="padding: 10px; border: 1px solid #e5e7eb; text-align: center; font-size: 10.5pt; font-weight: bold;">${item.quantity}</td>
+          <td style="padding: 10px; border: 1px solid #e5e7eb; text-align: right; font-size: 10pt; color: #6366f1;">${Number(item.tax_rate || 0)}%</td>
+          <td style="padding: 10px; border: 1px solid #e5e7eb; text-align: right; font-weight: bold; font-size: 11pt; color: #111827;">${currency} ${itemTotal.toFixed(2)}</td>
         </tr>
       `;
     });
 
-    const subtotal = inv.items.reduce((acc: number, it: any) => acc + (Number(it.quantity) * Number(it.unit_price)), 0);
+    const subtotal = (inv.items || []).reduce((acc: number, it: any) => acc + (Number(it.quantity) * Number(it.unit_price)), 0);
     const discount = Number(inv.discount || 0);
-    const taxRate = Number(inv.tax_rate || 0);
     const taxable = Math.max(0, subtotal - discount);
-    const tax = taxable * (taxRate / 100);
-    const total = taxable + tax;
+    const flatTaxRate = Number(inv.tax_rate || 0);
+    const taxAmount = taxable * (flatTaxRate / 100);
+    const total = taxable + taxAmount;
 
     const wordHtml = `
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
       <head>
+        <meta charset="utf-8">
         <title>Invoice ${inv.invoice_number}</title>
         <style>
-          body { font-family: Arial, sans-serif; padding: 30px; color: #333; }
-          h2 { color: #6366f1; margin: 0 0 10px 0; font-size: 22px; }
-          .meta-table { width: 100%; margin-bottom: 25px; border: none; }
-          .meta-table td { padding: 4px; vertical-align: top; font-size: 12px; }
-          .items-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
-          .items-table th { background-color: #6366f1; color: white; padding: 8px; font-weight: bold; border: 1px solid #ddd; font-size: 12px; text-align: left; }
-          .items-table td { padding: 8px; border: 1px solid #ddd; font-size: 12px; }
-          .totals-table { float: right; width: 240px; border-collapse: collapse; margin-bottom: 20px; }
-          .totals-table td { padding: 6px; font-size: 12px; }
-          .footer-note { font-size: 10px; color: #888; text-align: center; margin-top: 40px; border-top: 1px solid #eee; padding-top: 12px; }
+          @page WordSection1 {
+            size: 595.3pt 841.9pt; /* A4 */
+            margin: 1.0in 1.0in 1.0in 1.0in;
+            mso-header-margin: 35.4pt;
+            mso-footer-margin: 35.4pt;
+            mso-paper-source: 0;
+          }
+          div.WordSection1 { page: WordSection1; }
+          body {
+            font-family: Calibri, Arial, Helvetica, sans-serif;
+            color: #1f2937;
+            background-color: #ffffff;
+            margin: 0;
+            padding: 0;
+          }
+          h1, h2, h3, h4 { margin: 0; padding: 0; }
+          .header-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          .header-table td { vertical-align: top; }
+          .info-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+          .info-card { width: 48%; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 14px; border-radius: 6px; }
+          .items-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          .items-table th { background-color: #4f46e5; color: #ffffff; padding: 10px; font-weight: bold; font-size: 10pt; text-align: left; border: 1px solid #4338ca; }
+          .totals-table { width: 340px; border-collapse: collapse; float: right; margin-bottom: 25px; }
+          .totals-table td { padding: 6px 12px; font-size: 10.5pt; }
+          .bank-table { width: 320px; border-collapse: collapse; float: left; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; }
+          .badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 9pt; text-transform: uppercase; }
         </style>
       </head>
       <body>
-        <table class="meta-table">
-          <tr>
-            <td>
-              <h2>${orgName.toUpperCase()}</h2>
-              <div>${orgAddress}</div>
-            </td>
-            <td style="text-align: right;">
-              <h2 style="color: #333;">INVOICE</h2>
-              <div><strong>Invoice No:</strong> ${inv.invoice_number}</div>
-              <div><strong>Date:</strong> ${new Date(inv.issue_date).toLocaleDateString()}</div>
-              <div><strong>Due Date:</strong> ${new Date(inv.due_date).toLocaleDateString()}</div>
-            </td>
-          </tr>
-        </table>
-
-        <table class="meta-table">
-          <tr>
-            <td style="width: 50%;">
-              <div style="font-weight: bold; color: #999; margin-bottom: 4px;">BILLED FROM:</div>
-              <strong>${orgName}</strong>
-              <div>${orgAddress}</div>
-            </td>
-            <td style="width: 50%;">
-              <div style="font-weight: bold; color: #999; margin-bottom: 4px;">BILLED TO:</div>
-              <strong>${clientName}</strong>
-              <div>${clientCompany}</div>
-              <div>${clientAddress}</div>
-            </td>
-          </tr>
-        </table>
-
-        <table class="items-table">
-          <thead>
+        <div class="WordSection1">
+          <!-- Top Header -->
+          <table class="header-table">
             <tr>
-              <th>Description</th>
-              <th style="text-align: center; width: 50px;">Qty</th>
-              <th style="text-align: right; width: 90px;">Unit Price</th>
-              <th style="text-align: right; width: 90px;">Total</th>
+              <td>
+                <h1 style="color: #4f46e5; font-size: 22pt; margin-bottom: 4px;">${orgName}</h1>
+                <div style="font-size: 9.5pt; color: #6b7280; font-weight: bold; margin-bottom: 6px;">TAX INVOICE / OFFICIAL BILL</div>
+                <div style="font-size: 10pt; color: #4b5563;">${orgAddress}</div>
+                <div style="font-size: 9.5pt; color: #374151; font-weight: bold; margin-top: 4px;">${[orgTaxId, orgPhone, orgEmail].filter(Boolean).join(' &bull; ')}</div>
+              </td>
+              <td style="text-align: right;">
+                <h2 style="color: #1e1b4b; font-size: 22pt; margin-bottom: 6px;">INVOICE</h2>
+                <div style="font-size: 10.5pt; color: #374151;"><strong>Invoice No:</strong> ${inv.invoice_number}</div>
+                <div style="font-size: 10pt; color: #6b7280;"><strong>Issue Date:</strong> ${new Date(inv.issue_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                <div style="font-size: 10pt; color: #6b7280;"><strong>Due Date:</strong> ${new Date(inv.due_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                <div style="margin-top: 6px;">
+                  <span class="badge" style="background-color: ${inv.status === 'paid' ? '#dcfce7; color: #15803d' : '#ede9fe; color: #4338ca'};">
+                    ${(inv.status || 'UNPAID').toUpperCase()}
+                  </span>
+                </div>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            ${itemsHtml}
-          </tbody>
-        </table>
+          </table>
 
-        <table class="totals-table">
-          <tr>
-            <td>Subtotal:</td>
-            <td style="text-align: right;">${currency} ${subtotal.toFixed(2)}</td>
-          </tr>
-          <tr>
-            <td>Discount:</td>
-            <td style="text-align: right; color: #ef4444;">-${currency} ${discount.toFixed(2)}</td>
-          </tr>
-          <tr>
-            <td style="border-bottom: 1px solid #ddd; padding-bottom: 6px;">Tax (${taxRate}%):</td>
-            <td style="text-align: right; border-bottom: 1px solid #ddd; padding-bottom: 6px;">${currency} ${tax.toFixed(2)}</td>
-          </tr>
-          <tr style="font-weight: bold; color: #6366f1; font-size: 14px;">
-            <td style="padding-top: 8px;">Total Due:</td>
-            <td style="text-align: right; padding-top: 8px;">${currency} ${total.toFixed(2)}</td>
-          </tr>
-        </table>
-        <div style="clear: both;"></div>
+          <hr style="border: none; border-top: 2px solid #e2e8f0; margin-bottom: 18px;" />
 
-        ${inv.notes ? `
-          <div style="margin-top: 25px; font-size: 12px;">
-            <strong style="display: block; margin-bottom: 4px; color: #6366f1;">Notes &amp; Terms:</strong>
-            <div>${inv.notes}</div>
-          </div>
-        ` : ''}
+          <!-- Billed From & Billed To Cards -->
+          <table class="info-table">
+            <tr>
+              <td class="info-card" style="vertical-align: top;">
+                <div style="font-size: 9pt; font-weight: bold; color: #4f46e5; margin-bottom: 4px;">BILLED FROM (SELLER)</div>
+                <div style="font-size: 11pt; font-weight: bold; color: #111827;">${orgName}</div>
+                <div style="font-size: 9.5pt; color: #4b5563; margin-top: 2px;">${orgAddress}</div>
+                ${orgTaxId ? `<div style="font-size: 9.5pt; font-weight: bold; color: #1f2937; margin-top: 4px;">${orgTaxId}</div>` : ''}
+              </td>
+              <td style="width: 4%;"></td>
+              <td class="info-card" style="vertical-align: top;">
+                <div style="font-size: 9pt; font-weight: bold; color: #4f46e5; margin-bottom: 4px;">BILLED TO (BUYER / CLIENT)</div>
+                <div style="font-size: 11pt; font-weight: bold; color: #111827;">${clientName}</div>
+                ${clientCompany ? `<div style="font-size: 10pt; font-weight: bold; color: #4b5563;">${clientCompany}</div>` : ''}
+                <div style="font-size: 9.5pt; color: #4b5563; margin-top: 2px;">${clientAddress}</div>
+                ${clientTaxId ? `<div style="font-size: 9.5pt; font-weight: bold; color: #1f2937; margin-top: 4px;">${clientTaxId}</div>` : ''}
+              </td>
+            </tr>
+          </table>
 
-        <div class="footer-note">
-          Generated via BillingFlow. Thank you for your business!
+          <!-- Line Items Table -->
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th style="width: 30px; text-align: center;">#</th>
+                <th>Item / Description</th>
+                <th style="width: 80px; text-align: center;">HSN/SAC</th>
+                <th style="width: 90px; text-align: right;">Unit Price</th>
+                <th style="width: 50px; text-align: center;">Qty</th>
+                <th style="width: 60px; text-align: right;">GST %</th>
+                <th style="width: 100px; text-align: right;">Total Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
+
+          <!-- Payment Details & Calculations Stack -->
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px;">
+            <tr>
+              <td style="width: 50%; vertical-align: top;">
+                <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 6px;">
+                  <div style="font-size: 9pt; font-weight: bold; color: #4f46e5; margin-bottom: 6px;">PAYMENT / BANK DETAILS</div>
+                  <div style="font-size: 9.5pt; color: #374151; line-height: 1.5;">
+                    ${org?.bank_name ? `<div><strong>Bank Name:</strong> ${org.bank_name}</div>` : ''}
+                    ${org?.bank_account_no ? `<div><strong>Account No:</strong> ${org.bank_account_no}</div>` : ''}
+                    ${org?.bank_ifsc ? `<div><strong>IFSC / SWIFT:</strong> ${org.bank_ifsc}</div>` : ''}
+                    ${org?.bank_upi_id ? `<div><strong>UPI ID:</strong> ${org.bank_upi_id}</div>` : ''}
+                  </div>
+                </div>
+              </td>
+              <td style="width: 50%; vertical-align: top;">
+                <table class="totals-table" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+                  <tr>
+                    <td style="color: #6b7280;">Subtotal:</td>
+                    <td style="text-align: right; font-weight: bold;">${currency} ${subtotal.toFixed(2)}</td>
+                  </tr>
+                  ${discount > 0 ? `
+                    <tr>
+                      <td style="color: #6b7280;">Discount:</td>
+                      <td style="text-align: right; color: #ef4444; font-weight: bold;">-${currency} ${discount.toFixed(2)}</td>
+                    </tr>
+                  ` : ''}
+                  ${flatTaxRate > 0 ? `
+                    <tr>
+                      <td style="color: #6b7280;">GST Tax (${flatTaxRate}%):</td>
+                      <td style="text-align: right; font-weight: bold;">+${currency} ${taxAmount.toFixed(2)}</td>
+                    </tr>
+                  ` : ''}
+                  <tr style="background-color: #4f46e5; color: #ffffff; font-weight: bold; font-size: 12pt;">
+                    <td style="padding: 10px; color: #ffffff;">Total Due:</td>
+                    <td style="padding: 10px; text-align: right; color: #ffffff;">${currency} ${total.toFixed(2)}</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Notes & Terms -->
+          ${inv.notes ? `
+            <div style="margin-top: 15px; padding: 12px; background-color: #f9fafb; border-left: 4px solid #4f46e5; font-size: 9.5pt;">
+              <strong style="color: #4f46e5; display: block; margin-bottom: 4px;">Terms &amp; Conditions / Notes:</strong>
+              <div>${inv.notes}</div>
+            </div>
+          ` : ''}
+
+          <!-- Signatory -->
+          <table style="width: 100%; margin-top: 35px; border-collapse: collapse;">
+            <tr>
+              <td style="width: 60%; font-size: 9pt; color: #9ca3af;">
+                Thank you for your business! Generated via BillingFlow.
+              </td>
+              <td style="width: 40%; text-align: right;">
+                <div style="font-size: 10pt; font-weight: bold; color: #111827;">For ${orgName}</div>
+                <div style="margin-top: 40px; border-top: 1px solid #9ca3af; display: inline-block; width: 160px; text-align: center; font-size: 9pt; color: #6b7280; padding-top: 4px;">
+                  Authorized Signatory
+                </div>
+              </td>
+            </tr>
+          </table>
         </div>
       </body>
       </html>

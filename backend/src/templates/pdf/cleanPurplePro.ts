@@ -39,51 +39,76 @@ export function drawCleanPurpleProTemplate(params: PdfTemplateParams) {
 
   doc.strokeColor('#e5e7eb').lineWidth(1).moveTo(margin, 122).lineTo(margin + contentWidth, 122).stroke();
 
-  // Billed From & Billed To
+  // Dynamic Billed From & Billed To Cards
   const cardW = 250;
-  const cardH = 78;
-  doc.roundedRect(margin, 130, cardW, cardH, 4).fill('#faf5ff');
-  doc.fillColor(purple).font('Helvetica-Bold').fontSize(8).text('ISSUED BY (SELLER)', margin + 10, 138);
-  doc.fillColor('#1a1a1a').font('Helvetica-Bold').fontSize(9.5).text(organization.name, margin + 10, 150, { width: cardW - 20 });
-  let fromY = 162;
-  if (organization.address) {
-    doc.fillColor('#4b5563').font('Helvetica').fontSize(7.5).text(organization.address, margin + 10, fromY, { width: cardW - 20 });
-    fromY += 10;
-  }
+  doc.font('Helvetica-Bold').fontSize(9.5);
+  const fromNameH = doc.heightOfString(organization.name, { width: cardW - 20 });
+  doc.font('Helvetica').fontSize(7.5);
+  const fromAddrH = organization.address ? doc.heightOfString(organization.address, { width: cardW - 20 }) : 0;
   const orgGstin = organization.tax_id ? `GSTIN: ${organization.tax_id}` : '';
   const orgPh = organization.phone ? `Ph: ${organization.phone}` : '';
-  doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#374151').text([orgPh, orgGstin].filter(Boolean).join(' | '), margin + 10, Math.min(fromY, 194), { width: cardW - 20 });
+  const orgContact = [orgPh, orgGstin].filter(Boolean).join(' | ');
+  const fromTotalH = 22 + fromNameH + (fromAddrH ? fromAddrH + 4 : 0) + (orgContact ? 14 : 0) + 10;
+
+  doc.font('Helvetica-Bold').fontSize(9.5);
+  const toNameH = doc.heightOfString(client.name, { width: cardW - 20 });
+  const toCompH = client.company_name ? doc.heightOfString(client.company_name, { width: cardW - 20 }) : 0;
+  doc.font('Helvetica').fontSize(7.5);
+  const toAddrH = client.address ? doc.heightOfString(client.address, { width: cardW - 20 }) : 0;
+  const clientGstin = client.tax_id ? `GSTIN: ${client.tax_id}` : '';
+  const clientPh = client.phone ? `Ph: ${client.phone}` : '';
+  const clientContact = [clientPh, clientGstin].filter(Boolean).join(' | ');
+  const toTotalH = 22 + toNameH + (toCompH ? toCompH + 3 : 0) + (toAddrH ? toAddrH + 4 : 0) + (clientContact ? 14 : 0) + 10;
+
+  const cardH = Math.max(80, Math.max(fromTotalH, toTotalH));
+  const cardStartY = 130;
+
+  doc.roundedRect(margin, cardStartY, cardW, cardH, 4).fill('#faf5ff');
+  doc.fillColor(purple).font('Helvetica-Bold').fontSize(8).text('ISSUED BY (SELLER)', margin + 10, cardStartY + 8);
+  doc.fillColor('#1a1a1a').font('Helvetica-Bold').fontSize(9.5).text(organization.name, margin + 10, cardStartY + 20, { width: cardW - 20 });
+  let fromY = cardStartY + 20 + fromNameH + 3;
+  if (organization.address) {
+    doc.fillColor('#4b5563').font('Helvetica').fontSize(7.5).text(organization.address, margin + 10, fromY, { width: cardW - 20 });
+    fromY += fromAddrH + 3;
+  }
+  if (orgContact) {
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#374151').text(orgContact, margin + 10, fromY, { width: cardW - 20 });
+  }
 
   const toX = margin + contentWidth - cardW;
-  doc.roundedRect(toX, 130, cardW, cardH, 4).fill('#faf5ff');
-  doc.fillColor(purple).font('Helvetica-Bold').fontSize(8).text('BILLED TO (BUYER)', toX + 10, 138);
-  doc.fillColor('#1a1a1a').font('Helvetica-Bold').fontSize(9.5).text(client.name, toX + 10, 150, { width: cardW - 20 });
-  let toY = 162;
+  doc.roundedRect(toX, cardStartY, cardW, cardH, 4).fill('#faf5ff');
+  doc.fillColor(purple).font('Helvetica-Bold').fontSize(8).text('BILLED TO (BUYER)', toX + 10, cardStartY + 8);
+  doc.fillColor('#1a1a1a').font('Helvetica-Bold').fontSize(9.5).text(client.name, toX + 10, cardStartY + 20, { width: cardW - 20 });
+  let toY = cardStartY + 20 + toNameH + 3;
   if (client.company_name) {
     doc.font('Helvetica-Bold').fontSize(8).fillColor('#374151').text(client.company_name, toX + 10, toY, { width: cardW - 20 });
-    toY += 10;
+    toY += toCompH + 3;
   }
   if (client.address) {
     doc.fillColor('#4b5563').font('Helvetica').fontSize(7.5).text(client.address, toX + 10, toY, { width: cardW - 20 });
-    toY += 10;
+    toY += toAddrH + 3;
   }
-  const clientGstin = client.tax_id ? `GSTIN: ${client.tax_id}` : '';
-  const clientPh = client.phone ? `Ph: ${client.phone}` : '';
-  doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#374151').text([clientPh, clientGstin].filter(Boolean).join(' | '), toX + 10, Math.min(toY, 194), { width: cardW - 20 });
+  if (clientContact) {
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#374151').text(clientContact, toX + 10, toY, { width: cardW - 20 });
+  }
 
   // Table
-  let y = 220;
+  let y = cardStartY + cardH + 12;
   const cW = [25, contentWidth * 0.44, contentWidth * 0.18, contentWidth * 0.12, contentWidth * 0.26 - 25];
   const cX = [margin, margin + cW[0], margin + cW[0] + cW[1], margin + cW[0] + cW[1] + cW[2], margin + cW[0] + cW[1] + cW[2] + cW[3]];
 
-  doc.roundedRect(margin, y, contentWidth, 22, 3).fill(purple);
-  doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(8);
-  doc.text('#', cX[0] + 6, y + 7, { width: cW[0] });
-  doc.text('Items Description', cX[1], y + 7, { width: cW[1] });
-  doc.text('Unit Price', cX[2], y + 7, { width: cW[2], align: 'right' });
-  doc.text('Qty', cX[3], y + 7, { width: cW[3], align: 'center' });
-  doc.text('Total', cX[4], y + 7, { width: cW[4] - 6, align: 'right' });
-  y += 22;
+  const renderTableHeader = (headerY: number) => {
+    doc.roundedRect(margin, headerY, contentWidth, 22, 3).fill(purple);
+    doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(8);
+    doc.text('#', cX[0] + 6, headerY + 7, { width: cW[0] });
+    doc.text('Items Description', cX[1], headerY + 7, { width: cW[1] });
+    doc.text('Unit Price', cX[2], headerY + 7, { width: cW[2], align: 'right' });
+    doc.text('Qty', cX[3], headerY + 7, { width: cW[3], align: 'center' });
+    doc.text('Total', cX[4], headerY + 7, { width: cW[4] - 6, align: 'right' });
+    return headerY + 22;
+  };
+
+  y = renderTableHeader(y);
 
   let subtotal = 0;
   items.forEach((item: any, i: number) => {
@@ -103,7 +128,10 @@ export function drawCleanPurpleProTemplate(params: PdfTemplateParams) {
       subH = doc.heightOfString(metaSubtitle, { width: cW[1] - 8, lineGap: 1 });
     }
     const rH = Math.max(26, Math.ceil(descH + (metaSubtitle ? subH + 4 : 0) + 14));
-    if (y + rH > 620) { doc.addPage(); y = 40; }
+    if (y + rH > 620) {
+      doc.addPage();
+      y = renderTableHeader(40);
+    }
 
     if (i % 2 === 1) doc.rect(margin, y, contentWidth, rH).fill('#faf5ff');
     const textY = y + 6;
@@ -113,14 +141,12 @@ export function drawCleanPurpleProTemplate(params: PdfTemplateParams) {
     doc.text(itemDesc, cX[1], textY, { width: cW[1] - 8, lineGap: 1 });
     if (metaSubtitle) {
       const subY = textY + descH + 3;
-      doc.fillColor('#8b5cf6').font('Helvetica-Bold').fontSize(6.8).text(metaSubtitle, cX[1], subY, { width: cW[1] - 8, lineGap: 1 });
+      doc.fillColor(purple).font('Helvetica-Bold').fontSize(6.8).text(metaSubtitle, cX[1], subY, { width: cW[1] - 8, lineGap: 1 });
     }
 
-    doc.fillColor('#4b5563').font('Helvetica').fontSize(8);
-    doc.text(formatCurrency(item.unit_price, invoice.currency), cX[2], textY, { width: cW[2], align: 'right' });
-    doc.text(Number(item.quantity).toFixed(0), cX[3], textY, { width: cW[3], align: 'center' });
-    doc.fillColor('#1a1a1a').font('Helvetica-Bold');
-    doc.text(formatCurrency(itemTotal, invoice.currency), cX[4], textY, { width: cW[4] - 6, align: 'right' });
+    doc.fillColor('#4b5563').font('Helvetica').fontSize(8).text(formatCurrency(item.unit_price, invoice.currency), cX[2], textY, { width: cW[2], align: 'right' });
+    doc.fillColor('#4b5563').font('Helvetica').fontSize(8).text(Number(item.quantity).toFixed(0), cX[3], textY, { width: cW[3], align: 'center' });
+    doc.fillColor(purple).font('Helvetica-Bold').fontSize(8).text(formatCurrency(itemTotal, invoice.currency), cX[4], textY, { width: cW[4] - 6, align: 'right' });
     doc.font('Helvetica').fontSize(8);
     doc.strokeColor('#f3f4f6').lineWidth(0.6).moveTo(margin, y + rH).lineTo(margin + contentWidth, y + rH).stroke();
     y += rH;
@@ -130,13 +156,19 @@ export function drawCleanPurpleProTemplate(params: PdfTemplateParams) {
   const taxInfo = calculateTaxBreakdown(invoice, subtotal, items);
   const words = numberToWords(taxInfo.grandTotal, invoice.currency);
 
+  doc.font('Helvetica-Oblique').fontSize(7.5);
+  const wordsH = Math.max(48, Math.ceil(doc.heightOfString(words, { width: 240, lineGap: 1 }) + 22));
+
+  if (y + wordsH + 40 > 620) {
+    doc.addPage();
+    y = 40;
+  }
+
   const calcX = margin + 270;
   const calcW = contentWidth - 270;
   const summaryStartY = y;
 
   // Words Box
-  doc.font('Helvetica-Oblique').fontSize(7.5);
-  const wordsH = Math.max(48, Math.ceil(doc.heightOfString(words, { width: 240, lineGap: 1 }) + 22));
   doc.roundedRect(margin, summaryStartY, 255, wordsH, 4).fill('#faf5ff');
   doc.fillColor(purple).font('Helvetica-Bold').fontSize(7.5).text('AMOUNT IN WORDS', margin + 8, summaryStartY + 6);
   doc.fillColor('#1f2937').font('Helvetica-Oblique').fontSize(7.5).text(words, margin + 8, summaryStartY + 18, { width: 240, lineGap: 1 });
@@ -181,6 +213,11 @@ export function drawCleanPurpleProTemplate(params: PdfTemplateParams) {
   calcY += 24;
 
   y = Math.max(summaryStartY + wordsH + 10, calcY + 14, 440);
+
+  if (y + 140 > 765) {
+    doc.addPage();
+    y = 40;
+  }
 
   // Thanks banner
   const thanksMsg = invoice.thanks_message || organization.thanks_message || 'Thank you for your business! We appreciate your partnership.';

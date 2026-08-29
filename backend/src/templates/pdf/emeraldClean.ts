@@ -34,31 +34,69 @@ export function drawEmeraldCleanTemplate(params: PdfTemplateParams) {
 
   doc.strokeColor('#d1fae5').lineWidth(1).moveTo(margin, 82).lineTo(margin + cw, 82).stroke();
 
-  let y = 90;
+  // Dynamic Billed From / To Cards
   const cardW = 248;
-  doc.roundedRect(margin, y, cardW, 76, 4).fill(mint);
-  doc.fillColor(emerald).font('Helvetica-Bold').fontSize(7.5).text('BILLED FROM', margin + 10, y + 8);
-  doc.fillColor('#111827').font('Helvetica-Bold').fontSize(9).text(organization.name, margin + 10, y + 20, { width: cardW - 20 });
-  if (organization.address) doc.fillColor('#4b5563').font('Helvetica').fontSize(7.5).text(organization.address, margin + 10, y + 32, { width: cardW - 20 });
-  if (organization.tax_id) doc.fillColor('#374151').font('Helvetica-Bold').fontSize(7.5).text('GSTIN: ' + organization.tax_id, margin + 10, y + 55, { width: cardW - 20 });
+  doc.font('Helvetica-Bold').fontSize(9);
+  const fromNameH = doc.heightOfString(organization.name, { width: cardW - 20 });
+  doc.font('Helvetica').fontSize(7.5);
+  const fromAddrH = organization.address ? doc.heightOfString(organization.address, { width: cardW - 20 }) : 0;
+  const fromTotalH = 20 + fromNameH + (fromAddrH ? fromAddrH + 3 : 0) + (organization.tax_id ? 14 : 0) + 10;
 
+  doc.font('Helvetica-Bold').fontSize(9);
+  const toNameH = doc.heightOfString(client.name, { width: cardW - 20 });
+  const toCompH = client.company_name ? doc.heightOfString(client.company_name, { width: cardW - 20 }) : 0;
+  doc.font('Helvetica').fontSize(7.5);
+  const toAddrH = client.address ? doc.heightOfString(client.address, { width: cardW - 20 }) : 0;
+  const toTotalH = 20 + toNameH + (toCompH ? toCompH + 3 : 0) + (toAddrH ? toAddrH + 3 : 0) + (client.tax_id ? 14 : 0) + 10;
+
+  const cardH = Math.max(76, Math.max(fromTotalH, toTotalH));
+  const cardStartY = 90;
+
+  // Billed From
+  doc.roundedRect(margin, cardStartY, cardW, cardH, 4).fill(mint);
+  doc.fillColor(emerald).font('Helvetica-Bold').fontSize(7.5).text('BILLED FROM', margin + 10, cardStartY + 8);
+  doc.fillColor('#111827').font('Helvetica-Bold').fontSize(9).text(organization.name, margin + 10, cardStartY + 20, { width: cardW - 20 });
+  let fromY = cardStartY + 20 + fromNameH + 2;
+  if (organization.address) {
+    doc.fillColor('#4b5563').font('Helvetica').fontSize(7.5).text(organization.address, margin + 10, fromY, { width: cardW - 20 });
+    fromY += fromAddrH + 2;
+  }
+  if (organization.tax_id) {
+    doc.fillColor('#374151').font('Helvetica-Bold').fontSize(7.5).text('GSTIN: ' + organization.tax_id, margin + 10, fromY, { width: cardW - 20 });
+  }
+
+  // Billed To
   const toX = margin + cw - cardW;
-  doc.roundedRect(toX, y, cardW, 76, 4).fill(mint);
-  doc.fillColor(emerald).font('Helvetica-Bold').fontSize(7.5).text('BILLED TO', toX + 10, y + 8);
-  doc.fillColor('#111827').font('Helvetica-Bold').fontSize(9).text(client.name, toX + 10, y + 20, { width: cardW - 20 });
-  if (client.company_name) doc.fillColor('#374151').font('Helvetica-Bold').fontSize(8).text(client.company_name, toX + 10, y + 32, { width: cardW - 20 });
-  if (client.address) doc.fillColor('#4b5563').font('Helvetica').fontSize(7.5).text(client.address, toX + 10, y + 42, { width: cardW - 20 });
-  if (client.tax_id) doc.fillColor('#374151').font('Helvetica-Bold').fontSize(7.5).text('GSTIN: ' + client.tax_id, toX + 10, y + 55, { width: cardW - 20 });
+  doc.roundedRect(toX, cardStartY, cardW, cardH, 4).fill(mint);
+  doc.fillColor(emerald).font('Helvetica-Bold').fontSize(7.5).text('BILLED TO', toX + 10, cardStartY + 8);
+  doc.fillColor('#111827').font('Helvetica-Bold').fontSize(9).text(client.name, toX + 10, cardStartY + 20, { width: cardW - 20 });
+  let toY = cardStartY + 20 + toNameH + 2;
+  if (client.company_name) {
+    doc.fillColor('#374151').font('Helvetica-Bold').fontSize(8).text(client.company_name, toX + 10, toY, { width: cardW - 20 });
+    toY += toCompH + 2;
+  }
+  if (client.address) {
+    doc.fillColor('#4b5563').font('Helvetica').fontSize(7.5).text(client.address, toX + 10, toY, { width: cardW - 20 });
+    toY += toAddrH + 2;
+  }
+  if (client.tax_id) {
+    doc.fillColor('#374151').font('Helvetica-Bold').fontSize(7.5).text('GSTIN: ' + client.tax_id, toX + 10, toY, { width: cardW - 20 });
+  }
 
-  y += 86;
-  doc.rect(margin, y, cw, 22).fill(emerald);
-  doc.fillColor('#fff').font('Helvetica-Bold').fontSize(8);
-  doc.text('#', margin + 6, y + 7, { width: 20 });
-  doc.text('Item Description', margin + 30, y + 7, { width: 220 });
-  doc.text('Unit Price', margin + 255, y + 7, { width: 80, align: 'right' });
-  doc.text('Qty', margin + 340, y + 7, { width: 45, align: 'center' });
-  doc.text('Amount', margin + 390, y + 7, { width: 115, align: 'right' });
-  y += 22;
+  let y = cardStartY + cardH + 12;
+
+  const renderTableHeader = (headerY: number) => {
+    doc.rect(margin, headerY, cw, 22).fill(emerald);
+    doc.fillColor('#fff').font('Helvetica-Bold').fontSize(8);
+    doc.text('#', margin + 6, headerY + 7, { width: 20 });
+    doc.text('Item Description', margin + 30, headerY + 7, { width: 220 });
+    doc.text('Unit Price', margin + 255, headerY + 7, { width: 80, align: 'right' });
+    doc.text('Qty', margin + 340, headerY + 7, { width: 45, align: 'center' });
+    doc.text('Amount', margin + 390, headerY + 7, { width: 115, align: 'right' });
+    return headerY + 22;
+  };
+
+  y = renderTableHeader(y);
 
   let subtotal = 0;
   items.forEach((item: any, i: number) => {
@@ -77,7 +115,10 @@ export function drawEmeraldCleanTemplate(params: PdfTemplateParams) {
       subH = doc.heightOfString(metaSubtitle, { width: 220, lineGap: 1 });
     }
     const rowH = Math.max(26, Math.ceil(descH + (metaSubtitle ? subH + 4 : 0) + 14));
-    if (y + rowH > 620) { doc.addPage(); doc.rect(margin, 40, cw, 22).fill(emerald); doc.fillColor('#fff').font('Helvetica-Bold').fontSize(8); doc.text('#', margin + 6, 47, { width: 20 }); doc.text('Item Description', margin + 30, 47, { width: 220 }); doc.text('Unit Price', margin + 255, 47, { width: 80, align: 'right' }); doc.text('Qty', margin + 340, 47, { width: 45, align: 'center' }); doc.text('Amount', margin + 390, 47, { width: 115, align: 'right' }); y = 62; }
+    if (y + rowH > 620) {
+      doc.addPage();
+      y = renderTableHeader(40);
+    }
     if (i % 2 === 1) doc.rect(margin, y, cw, rowH).fill(mint);
     const textY = y + 6;
     doc.fillColor('#9ca3af').font('Helvetica').fontSize(8).text(String(i + 1), margin + 6, textY, { width: 20 });
@@ -97,11 +138,18 @@ export function drawEmeraldCleanTemplate(params: PdfTemplateParams) {
   y += 10;
   const taxInfo = calculateTaxBreakdown(invoice, subtotal, items);
   const words = numberToWords(taxInfo.grandTotal, invoice.currency);
-  const calcX = margin + 270; const calcW = cw - 270;
-  const summaryStartY = y;
 
   doc.font('Helvetica-Oblique').fontSize(7.5);
   const wordsH = Math.max(48, Math.ceil(doc.heightOfString(words, { width: 240, lineGap: 1 }) + 22));
+
+  if (y + wordsH + 40 > 620) {
+    doc.addPage();
+    y = 40;
+  }
+
+  const calcX = margin + 270; const calcW = cw - 270;
+  const summaryStartY = y;
+
   doc.roundedRect(margin, summaryStartY, 255, wordsH, 4).fill(mint);
   doc.fillColor(emerald).font('Helvetica-Bold').fontSize(7.5).text('AMOUNT IN WORDS', margin + 8, summaryStartY + 6);
   doc.fillColor('#1f2937').font('Helvetica-Oblique').fontSize(7.5).text(words, margin + 8, summaryStartY + 18, { width: 240, lineGap: 1 });
@@ -120,6 +168,12 @@ export function drawEmeraldCleanTemplate(params: PdfTemplateParams) {
   calcY += 24;
 
   y = Math.max(summaryStartY + wordsH + 10, calcY + 14, 440);
+
+  if (y + 140 > 765) {
+    doc.addPage();
+    y = 40;
+  }
+
   doc.roundedRect(margin, y, cw, 20, 3).fill(mint);
   doc.fillColor(emerald).font('Helvetica-Bold').fontSize(8).text(invoice.thanks_message || organization.thanks_message || 'Thank you for your business!', margin, y + 6, { width: cw, align: 'center' });
   y += 28;
