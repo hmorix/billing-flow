@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Search, FileDown, Mail, CheckCircle2, Trash2, Eye, Receipt, ShieldAlert, Share2, ChevronLeft, ChevronRight, Link2, ExternalLink, Check, Cloud } from 'lucide-react';
+import { Plus, Search, FileDown, Mail, CheckCircle2, Trash2, Eye, Receipt, ShieldAlert, Share2, ChevronLeft, ChevronRight, Link2, ExternalLink, Check, Cloud, Table2, Calendar } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { shareViaWhatsApp, generateInvoiceWhatsAppText } from '../utils/whatsappService';
 
@@ -42,6 +42,15 @@ export const Invoices: React.FC = () => {
   const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'png' | 'doc'>('pdf');
   const [isDownloading, setIsDownloading] = useState(false);
 
+  // CSV Export modal state
+  const [showCsvModal, setShowCsvModal] = useState(false);
+  const [csvExportType, setCsvExportType] = useState<'gst' | 'tally'>('gst');
+  const [csvPeriodType, setCsvPeriodType] = useState<'this-month' | 'last-month' | 'this-quarter' | 'last-quarter' | 'this-year' | 'custom'>('this-month');
+  const [csvFromDate, setCsvFromDate] = useState('');
+  const [csvToDate, setCsvToDate] = useState('');
+  const [csvStatusFilter, setCsvStatusFilter] = useState<'all' | 'paid' | 'sent' | 'draft' | 'overdue'>('all');
+  const [isCsvExporting, setIsCsvExporting] = useState(false);
+
   const fetchInvoices = async () => {
     setIsLoading(true);
     try {
@@ -57,6 +66,45 @@ export const Invoices: React.FC = () => {
   useEffect(() => {
     fetchInvoices();
   }, []);
+
+  const computeDateRange = (period: string): { from: string; to: string } => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    switch (period) {
+      case 'this-month': { const from = new Date(now.getFullYear(), now.getMonth(), 1); const to = new Date(now.getFullYear(), now.getMonth() + 1, 0); return { from: fmt(from), to: fmt(to) }; }
+      case 'last-month': { const from = new Date(now.getFullYear(), now.getMonth() - 1, 1); const to = new Date(now.getFullYear(), now.getMonth(), 0); return { from: fmt(from), to: fmt(to) }; }
+      case 'this-quarter': { const q = Math.floor(now.getMonth() / 3); const from = new Date(now.getFullYear(), q * 3, 1); const to = new Date(now.getFullYear(), q * 3 + 3, 0); return { from: fmt(from), to: fmt(to) }; }
+      case 'last-quarter': { const q = Math.floor(now.getMonth() / 3) - 1; const year = q < 0 ? now.getFullYear() - 1 : now.getFullYear(); const qAdj = q < 0 ? 3 : q; const from = new Date(year, qAdj * 3, 1); const to = new Date(year, qAdj * 3 + 3, 0); return { from: fmt(from), to: fmt(to) }; }
+      case 'this-year': return { from: `${now.getFullYear()}-01-01`, to: `${now.getFullYear()}-12-31` };
+      default: return { from: csvFromDate, to: csvToDate };
+    }
+  };
+
+  const handleExportCSV = async () => {
+    setIsCsvExporting(true);
+    try {
+      const { from, to } = csvPeriodType === 'custom' ? { from: csvFromDate, to: csvToDate } : computeDateRange(csvPeriodType);
+      const endpoint = csvExportType === 'gst' ? '/api/invoices/export/gst-csv' : '/api/invoices/export/tally-csv';
+      const params = new URLSearchParams();
+      if (from) params.set('from', from);
+      if (to)   params.set('to', to);
+      if (csvStatusFilter !== 'all') params.set('status', csvStatusFilter);
+      const blob = await apiFetch(`${endpoint}?${params.toString()}`);
+      const periodLabel = from && to ? `${from}_to_${to}` : 'all';
+      const filename = csvExportType === 'gst' ? `GST_Sales_Register_${periodLabel}.csv` : `Tally_Sales_${periodLabel}.csv`;
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      window.URL.revokeObjectURL(url); document.body.removeChild(a);
+      setShowCsvModal(false);
+    } catch (err: any) {
+      alert(`CSV export failed: ${err.message || err}`);
+    } finally {
+      setIsCsvExporting(false);
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -851,10 +899,16 @@ export const Invoices: React.FC = () => {
             Draft, track, send reminders, share private bill links, and record payments.
           </p>
         </div>
-        <button className="btn btn-primary hide-mobile" onClick={() => navigate('/invoices/new')}>
-          <Plus size={16} />
-          <span>Create Invoice</span>
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button className="btn btn-secondary hide-mobile" onClick={() => setShowCsvModal(true)} title="Export GST / Tally CSV" style={{ gap: '6px' }}>
+            <Table2 size={15} />
+            <span>Export CSV</span>
+          </button>
+          <button className="btn btn-primary hide-mobile" onClick={() => navigate('/invoices/new')}>
+            <Plus size={16} />
+            <span>Create Invoice</span>
+          </button>
+        </div>
       </div>
 
       {/* Tabs, Timeframe Filter, and Search */}
@@ -1243,6 +1297,118 @@ export const Invoices: React.FC = () => {
                 {isDownloading ? 'Downloading...' : `Download ${downloadFormat.toUpperCase()}`}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* CSV Export Modal - GST Return / Tally ERP Import */}
+      {showCsvModal && (
+        <div className="modal-overlay" onClick={() => setShowCsvModal(false)}>
+          <div className="modal-box fade-in" style={{ maxWidth: '540px', width: '100%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Table2 size={20} color="var(--primary)" />
+                <h4 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Export Invoices as CSV</h4>
+              </div>
+              <button onClick={() => setShowCsvModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.4rem', lineHeight: 1 }}>&times;</button>
+            </div>
+
+            <div style={{ marginBottom: '18px' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '8px' }}>Export Format</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                {([
+                  { id: 'gst' as const, label: 'GST Sales Register', desc: 'GSTR-1 / GSTR-3B ready CSV with CGST, SGST, IGST, HSN/SAC columns' },
+                  { id: 'tally' as const, label: 'Tally ERP / Prime', desc: 'Sales Voucher import CSV for Tally ERP 9 and Tally Prime - no manual entry' }
+                ]).map(opt => (
+                  <label key={opt.id} style={{
+                    display: 'flex', flexDirection: 'column', gap: '4px', padding: '12px',
+                    border: `2px solid ${csvExportType === opt.id ? 'var(--primary)' : 'var(--border-color)'}`,
+                    borderRadius: '10px', cursor: 'pointer',
+                    background: csvExportType === opt.id ? 'rgba(99,102,241,0.07)' : 'var(--bg-secondary)',
+                    transition: 'all 0.18s'
+                  }}>
+                    <input type="radio" name="csvType" value={opt.id} checked={csvExportType === opt.id} onChange={() => setCsvExportType(opt.id)} style={{ display: 'none' }} />
+                    <span style={{ fontWeight: 700, fontSize: '0.85rem', color: csvExportType === opt.id ? 'var(--primary)' : 'var(--text-primary)' }}>
+                      {opt.id === 'gst' ? '📊 ' : '🧾 '}{opt.label}
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{opt.desc}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px' }}>
+                <Calendar size={12} /> Period / Date Range
+              </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
+                {([
+                  { id: 'this-month' as const, label: 'This Month' },
+                  { id: 'last-month' as const, label: 'Last Month' },
+                  { id: 'this-quarter' as const, label: 'This Quarter' },
+                  { id: 'last-quarter' as const, label: 'Last Quarter' },
+                  { id: 'this-year' as const, label: 'This Year' },
+                  { id: 'custom' as const, label: 'Custom Range' }
+                ]).map(p => (
+                  <button key={p.id} type="button" onClick={() => setCsvPeriodType(p.id)} style={{
+                    padding: '6px 12px', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
+                    background: csvPeriodType === p.id ? 'var(--primary)' : 'transparent',
+                    color: csvPeriodType === p.id ? '#fff' : 'var(--text-secondary)',
+                    border: csvPeriodType === p.id ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                    transition: 'all 0.15s'
+                  }}>{p.label}</button>
+                ))}
+              </div>
+              {csvPeriodType === 'custom' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>From Date</label>
+                    <input type="date" className="form-input" value={csvFromDate} onChange={e => setCsvFromDate(e.target.value)} style={{ fontSize: '0.85rem' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>To Date</label>
+                    <input type="date" className="form-input" value={csvToDate} onChange={e => setCsvToDate(e.target.value)} style={{ fontSize: '0.85rem' }} />
+                  </div>
+                </div>
+              )}
+              {csvPeriodType !== 'custom' && (() => {
+                const range = computeDateRange(csvPeriodType);
+                return (
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '6px', padding: '6px 10px', background: 'var(--bg-secondary)', borderRadius: '6px' }}>
+                    Date Range: <strong>{range.from}</strong> to <strong>{range.to}</strong>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div style={{ marginBottom: '18px' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '8px' }}>Invoice Status Filter</label>
+              <select className="form-input" value={csvStatusFilter} onChange={e => setCsvStatusFilter(e.target.value as any)} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)', fontSize: '0.88rem' }}>
+                <option value="all">All Statuses</option>
+                <option value="paid">Paid Only</option>
+                <option value="sent">Sent Only</option>
+                <option value="draft">Draft Only</option>
+                <option value="overdue">Overdue Only</option>
+              </select>
+            </div>
+
+            <div style={{ padding: '10px 14px', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '8px', marginBottom: '18px', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              {csvExportType === 'gst' ? (
+                <><strong>GST Sales Register</strong> - One row per line item. Contains Invoice No, Buyer GSTIN, HSN/SAC, CGST, SGST, IGST amounts. Open in Excel for GSTR-1 / GSTR-3B filing.</>
+              ) : (
+                <><strong>Tally Import CSV</strong> - Compatible with Tally ERP 9 &amp; Tally Prime Sales Voucher import. In Tally: Gateway of Tally &rarr; Import Data &rarr; Vouchers.</>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowCsvModal(false)}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={handleExportCSV}
+                disabled={isCsvExporting || (csvPeriodType === 'custom' && !csvFromDate && !csvToDate)}
+                style={{ gap: '6px' }}>
+                <Table2 size={14} />
+                {isCsvExporting ? 'Exporting...' : `Download ${csvExportType === 'gst' ? 'GST CSV' : 'Tally CSV'}`}
+              </button>
+            </div>
           </div>
         </div>
       )}

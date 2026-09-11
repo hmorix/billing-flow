@@ -887,6 +887,402 @@ app.delete('/api/clients/:id', async (c) => {
 });
 
 // --- INVOICES ---
+
+// ─── GST BILL CSV EXPORT (for GST return filing) ─────────────────────────────
+app.get('/api/invoices/export/gst-csv', async (c) => {
+  const user = c.get('user');
+  const orgId = user.organizationId;
+  const { from, to, status } = c.req.query() as { from?: string; to?: string; status?: string };
+
+  // Build date-range WHERE clause
+  let dateClause = '';
+  const binds: any[] = [orgId];
+  if (from) { dateClause += ` AND invoices.issue_date >= ?`; binds.push(from); }
+  if (to)   { dateClause += ` AND invoices.issue_date <= ?`; binds.push(to);   }
+  if (status && status !== 'all') { dateClause += ` AND invoices.status = ?`; binds.push(status); }
+
+  const sql = `
+    SELECT
+      invoices.invoice_number,
+      invoices.issue_date,
+      invoices.due_date,
+      invoices.status,
+      invoices.currency,
+      invoices.tax_rate,
+      invoices.cgst_rate,
+      invoices.sgst_rate,
+      invoices.igst_rate,
+      invoices.discount,
+      invoices.tax_calculation_type,
+      invoices.notes,
+      clients.name      AS client_name,
+      clients.company_name AS client_company,
+      clients.email     AS client_email,
+      clients.phone     AS client_phone,
+      clients.address   AS client_address,
+      clients.tax_id    AS client_gstin
+    FROM invoices
+    JOIN clients ON invoices.client_id = clients.id
+    WHERE invoices.organization_id = ?${dateClause}
+    ORDER BY invoices.issue_date ASC
+  `;
+
+  const stmt = c.env.DB.prepare(sql);
+  const bound = binds.reduce((s: any, b: any) => s.bind(b), stmt);
+  // D1-style: bind all at once
+  let boundStmt = c.env.DB.prepare(sql);
+  for (const b of binds) boundStmt = boundStmt.bind ? boundStmt.bind(b) : boundStmt;
+
+  // Re-bind properly for multi-param
+  const invoiceRes = await (async () => {
+    let s = c.env.DB.prepare(sql);
+    // D1 bind accepts spread
+    if (typeof s.bind === 'function') s = s.bind(...binds);
+    const r = await s.all();
+    return r.results as any[];
+  })();
+
+  // For each invoice, fetch its items
+  const rows: string[] = [];
+  const BOM = '\uFEFF'; // UTF-8 BOM for Excel compatibility
+
+  // GST CSV Header (B2B Sales Register format — compatible with GSTR-1/GSTR-3B filing)
+  const header = [
+    'Invoice No', 'Invoice Date', 'Due Date', 'Status',
+    'Buyer Name', 'Buyer Company', 'Buyer Email', 'Buyer Phone', 'Buyer Address', 'Buyer GSTIN',
+    'Currency',
+    'Item Description', 'HSN/SAC', 'Item Type', 'Qty', 'Unit Price',
+    'Item Discount (%)', 'Item GST (%)', 'Item Taxable Amount', 'Item CGST', 'Item SGST', 'Item IGST', 'Item Total',
+    'Invoice Subtotal', 'Invoice Discount', 'Taxable Amount',
+    'Invoice CGST Rate (%)', 'Invoice SGST Rate (%)', 'Invoice IGST Rate (%)', 'Invoice Flat GST Rate (%)',
+    'Total CGST', 'Total SGST', 'Total IGST', 'Total GST',
+    'Grand Total', 'Notes'
+  ].map(h => `"${h}"`).join(',');
+  rows.push(header);
+
+  for (const inv of invoiceRes) {
+    const itemsRes = await c.env.DB.prepare(
+      'SELECT * FROM invoice_items WHERE invoice_id = (SELECT id FROM invoices WHERE invoice_number = ? AND organization_id = ?) ORDER BY created_at ASC'
+    ).bind(inv.invoice_number, orgId).all();
+    const items: any[] = itemsRes.results || [];
+
+    const subtotal = items.reduce((acc: number, it: any) => acc + Number(it.quantity) * Number(it.unit_price), 0);
+    const invDiscount = Number(inv.discount || 0);
+    const taxable = Math.max(0, subtotal - invDiscount);
+
+    const cgstRate = Number(inv.cgst_rate || 0);
+    const sgstRate = Number(inv.sgst_rate || 0);
+    const igstRate = Number(inv.igst_rate || 0);
+    const flatRate = Number(inv.tax_rate || 0);
+
+    let totalCGST = 0, totalSGST = 0, totalIGST = 0, totalFlatTax = 0;
+
+    // Determine tax mode
+    const taxType = inv.tax_calculation_type || 'invoice_level';
+
+    if (taxType === 'item_level') {
+      items.forEach((it: any) => {
+        const itSubtotal = Number(it.quantity) * Number(it.unit_price);
+        const itDiscount = itSubtotal * (Number(it.discount_rate || 0) / 100);
+        const itTaxable = Math.max(0, itSubtotal - itDiscount);
+        const itGst = Number(it.tax_rate || 0);
+        // When item-level, split as CGST+SGST if cgst/sgst configured, else IGST
+        if (cgstRate > 0 || sgstRate > 0) {
+          totalCGST += itTaxable * (itGst / 2 / 100);
+          totalSGST += itTaxable * (itGst / 2 / 100);
+        } else {
+          totalIGST += itTaxable * (itGst / 100);
+        }
+      });
+    } else {
+      if (cgstRate > 0) totalCGST = taxable * (cgstRate / 100);
+      if (sgstRate > 0) totalSGST = taxable * (sgstRate / 100);
+      if (igstRate > 0) totalIGST = taxable * (igstRate / 100);
+      if (flatRate > 0 && cgstRate === 0 && sgstRate === 0 && igstRate === 0) totalFlatTax = taxable * (flatRate / 100);
+    }
+
+    const totalGST = totalCGST + totalSGST + totalIGST + totalFlatTax;
+    const grandTotal = taxable + totalGST;
+
+    const esc = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const fmt = (n: number) => n.toFixed(2);
+
+    if (items.length === 0) {
+      rows.push([
+        esc(inv.invoice_number), esc(inv.issue_date), esc(inv.due_date), esc(inv.status),
+        esc(inv.client_name), esc(inv.client_company || ''), esc(inv.client_email || ''), esc(inv.client_phone || ''),
+        esc(inv.client_address || ''), esc(inv.client_gstin || ''),
+        esc(inv.currency || 'INR'),
+        esc(''), esc(''), esc(''), '0', '0.00', '0.00', '0.00', '0.00', '0.00', '0.00', '0.00', '0.00',
+        fmt(subtotal), fmt(invDiscount), fmt(taxable),
+        fmt(cgstRate), fmt(sgstRate), fmt(igstRate), fmt(flatRate),
+        fmt(totalCGST), fmt(totalSGST), fmt(totalIGST), fmt(totalGST),
+        fmt(grandTotal), esc(inv.notes || '')
+      ].join(','));
+    } else {
+      items.forEach((it: any) => {
+        const itSubtotal = Number(it.quantity) * Number(it.unit_price);
+        const itDiscountAmt = itSubtotal * (Number(it.discount_rate || 0) / 100);
+        const itTaxable = Math.max(0, itSubtotal - itDiscountAmt);
+        const itGstRate = Number(it.tax_rate || 0);
+        let itCGST = 0, itSGST = 0, itIGST = 0;
+        if (taxType === 'item_level') {
+          if (cgstRate > 0 || sgstRate > 0) { itCGST = itTaxable * (itGstRate / 2 / 100); itSGST = itTaxable * (itGstRate / 2 / 100); }
+          else { itIGST = itTaxable * (itGstRate / 100); }
+        }
+        const itTotal = itTaxable + itCGST + itSGST + itIGST;
+
+        rows.push([
+          esc(inv.invoice_number), esc(inv.issue_date), esc(inv.due_date), esc(inv.status),
+          esc(inv.client_name), esc(inv.client_company || ''), esc(inv.client_email || ''), esc(inv.client_phone || ''),
+          esc(inv.client_address || ''), esc(inv.client_gstin || ''),
+          esc(inv.currency || 'INR'),
+          esc(it.description || ''), esc(it.sku_hsn || ''), esc(it.item_type || 'custom'),
+          String(Number(it.quantity)), fmt(Number(it.unit_price)),
+          fmt(Number(it.discount_rate || 0)), fmt(itGstRate),
+          fmt(itTaxable), fmt(itCGST), fmt(itSGST), fmt(itIGST), fmt(itTotal),
+          fmt(subtotal), fmt(invDiscount), fmt(taxable),
+          fmt(cgstRate), fmt(sgstRate), fmt(igstRate), fmt(flatRate),
+          fmt(totalCGST), fmt(totalSGST), fmt(totalIGST), fmt(totalGST),
+          fmt(grandTotal), esc(inv.notes || '')
+        ].join(','));
+      });
+    }
+  }
+
+  const csvContent = BOM + rows.join('\r\n');
+  const periodLabel = from && to ? `${from}_to_${to}` : from ? `from_${from}` : to ? `to_${to}` : 'all';
+  const filename = `GST_Sales_Register_${periodLabel}.csv`;
+
+  return new Response(csvContent, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    },
+  });
+});
+
+// ─── TALLY ERP / TALLY PRIME CSV EXPORT ──────────────────────────────────────
+// Format compatible with Tally ERP 9 / Tally Prime "Sales Voucher" import
+app.get('/api/invoices/export/tally-csv', async (c) => {
+  const user = c.get('user');
+  const orgId = user.organizationId;
+  const { from, to, status } = c.req.query() as { from?: string; to?: string; status?: string };
+
+  let dateClause = '';
+  const binds: any[] = [orgId];
+  if (from) { dateClause += ` AND invoices.issue_date >= ?`; binds.push(from); }
+  if (to)   { dateClause += ` AND invoices.issue_date <= ?`; binds.push(to);   }
+  if (status && status !== 'all') { dateClause += ` AND invoices.status = ?`; binds.push(status); }
+
+  const sql = `
+    SELECT
+      invoices.id         AS invoice_id,
+      invoices.invoice_number,
+      invoices.issue_date,
+      invoices.due_date,
+      invoices.status,
+      invoices.currency,
+      invoices.tax_rate,
+      invoices.cgst_rate,
+      invoices.sgst_rate,
+      invoices.igst_rate,
+      invoices.discount,
+      invoices.tax_calculation_type,
+      invoices.notes,
+      clients.name        AS party_name,
+      clients.company_name AS party_company,
+      clients.address     AS party_address,
+      clients.tax_id      AS party_gstin
+    FROM invoices
+    JOIN clients ON invoices.client_id = clients.id
+    WHERE invoices.organization_id = ?${dateClause}
+    ORDER BY invoices.issue_date ASC
+  `;
+
+  const invoiceRes = await (async () => {
+    let s = c.env.DB.prepare(sql);
+    if (typeof s.bind === 'function') s = s.bind(...binds);
+    const r = await s.all();
+    return r.results as any[];
+  })();
+
+  // Fetch org info for ledger name
+  const org = await c.env.DB.prepare('SELECT name, tax_id FROM organizations WHERE id = ?').bind(orgId).first();
+  const orgName = org?.name || 'My Company';
+
+  const BOM = '\uFEFF';
+  const rows: string[] = [];
+
+  // Tally Prime Sales Voucher import format
+  // Ref: Tally XML/CSV import structure — one row per line item
+  const header = [
+    'Date',          // DD-MMM-YYYY (e.g. 01-Apr-2025)
+    'Voucher Type',  // Sales
+    'Voucher Number',
+    'Reference No',  // Invoice Number
+    'Party Ledger Name',
+    'Party GSTIN/UIN',
+    'Party Address',
+    'Place of Supply',
+    'Is GST Applicable',
+    'Sales Ledger',
+    'Item Description',
+    'HSN/SAC Code',
+    'Item Type',     // Goods / Services
+    'Quantity',
+    'Rate',
+    'Discount Amount',
+    'Taxable Value',
+    'GST Rate (%)',
+    'CGST Rate (%)',
+    'SGST Rate (%)',
+    'IGST Rate (%)',
+    'CGST Amount',
+    'SGST Amount',
+    'IGST Amount',
+    'Total GST Amount',
+    'Invoice Total',
+    'Narration'
+  ].map(h => `"${h}"`).join(',');
+  rows.push(header);
+
+  const tallyDate = (d: string) => {
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return d;
+    return dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
+  };
+
+  for (const inv of invoiceRes) {
+    const itemsRes = await c.env.DB.prepare(
+      'SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY created_at ASC'
+    ).bind(inv.invoice_id).all();
+    const items: any[] = itemsRes.results || [];
+
+    const subtotal = items.reduce((acc: number, it: any) => acc + Number(it.quantity) * Number(it.unit_price), 0);
+    const invDiscount = Number(inv.discount || 0);
+    const taxable = Math.max(0, subtotal - invDiscount);
+
+    const cgstRate = Number(inv.cgst_rate || 0);
+    const sgstRate = Number(inv.sgst_rate || 0);
+    const igstRate = Number(inv.igst_rate || 0);
+    const flatRate = Number(inv.tax_rate || 0);
+    const taxType = inv.tax_calculation_type || 'invoice_level';
+
+    let totalCGST = 0, totalSGST = 0, totalIGST = 0;
+    if (taxType === 'item_level') {
+      items.forEach((it: any) => {
+        const itSub = Number(it.quantity) * Number(it.unit_price);
+        const itDisc = itSub * (Number(it.discount_rate || 0) / 100);
+        const itTax = Math.max(0, itSub - itDisc);
+        const itGst = Number(it.tax_rate || 0);
+        if (cgstRate > 0 || sgstRate > 0) { totalCGST += itTax * (itGst / 2 / 100); totalSGST += itTax * (itGst / 2 / 100); }
+        else { totalIGST += itTax * (itGst / 100); }
+      });
+    } else {
+      if (cgstRate > 0) totalCGST = taxable * (cgstRate / 100);
+      if (sgstRate > 0) totalSGST = taxable * (sgstRate / 100);
+      if (igstRate > 0) totalIGST = taxable * (igstRate / 100);
+      if (flatRate > 0 && cgstRate === 0 && sgstRate === 0 && igstRate === 0) {
+        // Fallback — split flat GST as IGST
+        totalIGST = taxable * (flatRate / 100);
+      }
+    }
+    const totalGST = totalCGST + totalSGST + totalIGST;
+    const grandTotal = taxable + totalGST;
+
+    const partyName = inv.party_company ? `${inv.party_name} (${inv.party_company})` : inv.party_name;
+    const placeOfSupply = inv.party_address ? inv.party_address.split(',').pop()?.trim() || inv.party_address : '';
+    const isGstApplicable = (cgstRate > 0 || sgstRate > 0 || igstRate > 0 || flatRate > 0) ? 'Yes' : 'No';
+    const salesLedger = igstRate > 0 ? 'Interstate Sales' : (cgstRate > 0 || sgstRate > 0) ? 'Local Sales' : 'Sales';
+
+    const esc = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const fmt = (n: number) => n.toFixed(2);
+
+    const itemsToExport = items.length > 0 ? items : [null];
+
+    itemsToExport.forEach((it: any, idx: number) => {
+      let itCGST = 0, itSGST = 0, itIGST = 0;
+      let itTaxable = 0;
+      let itDiscAmt = 0;
+      let itQty = 0, itRate = 0, itGstRate = 0;
+      let itDesc = '', itHsn = '', itType = '';
+
+      if (it) {
+        itQty = Number(it.quantity);
+        itRate = Number(it.unit_price);
+        const itSub = itQty * itRate;
+        itDiscAmt = itSub * (Number(it.discount_rate || 0) / 100);
+        itTaxable = Math.max(0, itSub - itDiscAmt);
+        itGstRate = Number(it.tax_rate || 0);
+        itDesc = it.description || '';
+        itHsn = it.sku_hsn || '';
+        itType = it.item_type === 'product' ? 'Goods' : 'Services';
+
+        if (taxType === 'item_level') {
+          if (cgstRate > 0 || sgstRate > 0) { itCGST = itTaxable * (itGstRate / 2 / 100); itSGST = itTaxable * (itGstRate / 2 / 100); }
+          else { itIGST = itTaxable * (itGstRate / 100); }
+        } else {
+          // Invoice-level tax: distribute proportionally across items
+          if (items.length > 0) {
+            const proportion = subtotal > 0 ? itTaxable / Math.max(1, taxable) : 1 / items.length;
+            itCGST = totalCGST * proportion;
+            itSGST = totalSGST * proportion;
+            itIGST = totalIGST * proportion;
+          }
+        }
+      }
+
+      const itGstTotal = itCGST + itSGST + itIGST;
+      // Only first row carries totals for Tally summary columns
+      const isFirst = idx === 0;
+
+      rows.push([
+        esc(tallyDate(inv.issue_date)),
+        esc('Sales'),
+        esc(inv.invoice_number),
+        esc(inv.invoice_number),
+        esc(partyName),
+        esc(inv.party_gstin || ''),
+        esc(inv.party_address || ''),
+        esc(placeOfSupply),
+        esc(isGstApplicable),
+        esc(salesLedger),
+        esc(itDesc),
+        esc(itHsn),
+        esc(itType),
+        it ? String(itQty) : '',
+        it ? fmt(itRate) : '',
+        it ? fmt(itDiscAmt) : '',
+        it ? fmt(itTaxable) : (isFirst ? fmt(taxable) : ''),
+        it ? fmt(itGstRate) : fmt(cgstRate + sgstRate || igstRate || flatRate),
+        it ? fmt(cgstRate > 0 || sgstRate > 0 ? itGstRate / 2 : 0) : fmt(cgstRate),
+        it ? fmt(cgstRate > 0 || sgstRate > 0 ? itGstRate / 2 : 0) : fmt(sgstRate),
+        it ? fmt(igstRate > 0 ? itGstRate : 0) : fmt(igstRate),
+        it ? fmt(itCGST) : (isFirst ? fmt(totalCGST) : ''),
+        it ? fmt(itSGST) : (isFirst ? fmt(totalSGST) : ''),
+        it ? fmt(itIGST) : (isFirst ? fmt(totalIGST) : ''),
+        it ? fmt(itGstTotal) : (isFirst ? fmt(totalGST) : ''),
+        isFirst ? fmt(grandTotal) : '',
+        esc(inv.notes || `Invoice ${inv.invoice_number} – ${orgName}`)
+      ].join(','));
+    });
+  }
+
+  const csvContent = BOM + rows.join('\r\n');
+  const periodLabel = from && to ? `${from}_to_${to}` : from ? `from_${from}` : to ? `to_${to}` : 'all';
+  const filename = `Tally_Sales_${periodLabel}.csv`;
+
+  return new Response(csvContent, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    },
+  });
+});
+
 app.get('/api/invoices', async (c) => {
   const user = c.get('user');
   const { results } = await c.env.DB.prepare("SELECT invoices.*, clients.name as client_name, clients.email as client_email, clients.company_name as client_company FROM invoices JOIN clients ON invoices.client_id = clients.id WHERE invoices.organization_id = ? ORDER BY invoices.created_at DESC")
